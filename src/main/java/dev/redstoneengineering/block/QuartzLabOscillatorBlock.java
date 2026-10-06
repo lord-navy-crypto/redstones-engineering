@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -25,6 +26,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.List;
 import java.util.Optional;
@@ -118,32 +120,53 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
         level.scheduleTick(pos, this, realized);
     }
 
+    public boolean adjustPeriod(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextIndex = Math.floorMod(state.getValue(PERIOD_INDEX) + delta, 5);
+        level.setBlock(pos, state.setValue(PERIOD_INDEX, nextIndex), Block.UPDATE_CLIENTS);
+        DomainNetwork.recomputeQuartz(serverLevel, pos);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
+    public boolean adjustJitter(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextJitter = Math.floorMod(state.getValue(JITTER) + delta, 4);
+        level.setBlock(pos, state.setValue(JITTER, nextJitter), Block.UPDATE_CLIENTS);
+        DomainNetwork.recomputeQuartz(serverLevel, pos);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            BlockState next = state;
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.UP
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown() && hit.getDirection().getAxis().isHorizontal()) {
-                if (rotateOutput(level, pos, true)) {
-                    next = level.getBlockState(pos);
-                    if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeQuartzAround(serverLevel, pos);
+                if (rotateOutput(level, pos, true)
+                        && level instanceof ServerLevel serverLevel) {
+                    DomainNetwork.recomputeQuartzAround(serverLevel, pos);
                 }
             } else if (player.isShiftKeyDown()) {
-                int jitter = state.getValue(JITTER);
-                next = state.setValue(JITTER, jitter >= 3 ? 0 : jitter + 1);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                adjustJitter(level, pos, 1);
             } else {
-                int periodIndex = state.getValue(PERIOD_INDEX);
-                next = state.setValue(PERIOD_INDEX, (periodIndex + 1) % 5);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                adjustPeriod(level, pos, 1);
             }
-            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeQuartz(serverLevel, pos);
-            level.scheduleTick(pos, this, 1);
+            BlockState next = level.getBlockState(pos);
             TimingEvidence evidence = timingEvidence(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Quartz lab oscillator | OUT=" + outputSide(next).getName().toUpperCase()
                             + " | nominal=" + evidence.nominalPeriod()
                             + "t | jitter=±" + next.getValue(JITTER) + "t"
                             + (evidence.available() ? " | last-half=" + evidence.lastHalfInterval() + "t | realized offset=" + evidence.lastJitterOffset() + "t" : " | no realized interval yet")
-                            + " | shift-side=route, shift-vertical=jitter"), true);
+                            + " | shift-side=route, shift-down=jitter, shift-up=Pioneer HMI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

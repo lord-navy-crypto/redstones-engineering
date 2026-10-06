@@ -17,6 +17,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -26,6 +27,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.List;
 import java.util.Optional;
@@ -121,33 +123,57 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
         level.scheduleTick(pos, this, 4);
     }
 
+    public boolean adjustBaseline(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextBaseline = Math.floorMod(state.getValue(BASELINE) + delta, 21);
+        BlockState next = state.setValue(BASELINE, nextBaseline);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        setSample(level, pos, nextBaseline * 5);
+        DomainNetwork.recomputeLapis(serverLevel, pos);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
+    public boolean adjustNoise(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextNoise = Math.floorMod(state.getValue(NOISE) + delta, 11);
+        BlockState next = state.setValue(NOISE, nextNoise);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        setSample(level, pos, next.getValue(BASELINE) * 5);
+        DomainNetwork.recomputeLapis(serverLevel, pos);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            BlockState next = state;
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.UP
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown() && hit.getDirection().getAxis().isHorizontal()) {
-                if (rotateOutput(level, pos, true)) {
-                    next = level.getBlockState(pos);
-                    if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapisAround(serverLevel, pos);
+                if (rotateOutput(level, pos, true)
+                        && level instanceof ServerLevel serverLevel) {
+                    DomainNetwork.recomputeLapisAround(serverLevel, pos);
                 }
             } else if (player.isShiftKeyDown()) {
-                int noise = state.getValue(NOISE);
-                next = state.setValue(NOISE, noise >= 10 ? 0 : noise + 1);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                adjustNoise(level, pos, 1);
             } else {
-                int baseline = state.getValue(BASELINE);
-                next = state.setValue(BASELINE, baseline >= 20 ? 0 : baseline + 1);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                adjustBaseline(level, pos, 1);
             }
-            setSample(level, pos, next.getValue(BASELINE) * 5);
-            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
-            level.scheduleTick(pos, this, 1);
+            BlockState next = level.getBlockState(pos);
             int current = currentValue(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Fault injection [NOISE] | LAPIS OUT=" + outputSide(next).getName().toUpperCase()
                             + " | baseline=" + String.format("%.2f", next.getValue(BASELINE) * 0.05)
                             + " | noise=±" + String.format("%.2f", next.getValue(NOISE) * 0.02)
                             + " | now=" + String.format("%.2f", current / 100.0)
-                            + " | zero is valid | shift-side=route, shift-vertical=noise"), true);
+                            + " | zero is valid | shift-side=route, shift-down=noise, shift-up=Pioneer HMI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

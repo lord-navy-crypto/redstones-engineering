@@ -97,5 +97,6 @@ public final class RseGameTestRegistration {
         event.register(RseDiscreteTransportEvidenceGameTests.class);
         event.register(RsePioneerWave14GameTests.class);
         event.register(RsePioneerWave15GameTests.class);
+        event.register(RsePioneerWave16GameTests.class);
     }
 }

@@ -17,6 +17,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -26,6 +27,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.List;
 import java.util.Optional;
@@ -56,6 +58,27 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
     public static boolean initialized(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1;
+    }
+
+    public static boolean outputPulse(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE && runtime[OUTPUT_SLOT] == 1;
+    }
+
+    public boolean adjustDelay(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int span = EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS
+                - EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS + 1;
+        int nextDelay = EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS
+                + Math.floorMod(state.getValue(DELAY) - EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS + delta, span);
+        BlockState next = state.setValue(DELAY, nextDelay);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        DomainNetwork.driveQuartz(serverLevel, outputPos(pos, state), pos, false, 1, false);
+        RuntimeIntStore.remove(level, KEY, pos);
+        level.scheduleTick(pos, this, 1);
+        return true;
     }
 
     @Override
@@ -139,20 +162,17 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            int delay = state.getValue(DELAY);
-            delay = delay >= EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS
-                    ? EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS : delay + 1;
-            BlockState next = state.setValue(DELAY, delay);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel serverLevel) {
-                DomainNetwork.driveQuartz(serverLevel, outputPos(pos, state), pos, false, 1, false);
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
             }
-            RuntimeIntStore.remove(level, KEY, pos);
-            level.scheduleTick(pos, this, 1);
+            adjustDelay(level, pos, 1);
+            int delay = level.getBlockState(pos).getValue(DELAY);
             player.displayClientMessage(Component.literal(
                     "Fault injection [LATENCY] | BACK QUARTZ in → FRONT QUARTZ out | rising-edge delay=" + delay
                             + " ticks | profile=" + EngineeringParameterProfile.PROFILE_ID
-                            + " | reconnect HIGH only re-arms; it does not fabricate an edge"), true);
+                            + " | reconnect HIGH only re-arms; shift+vertical=Pioneer HMI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
