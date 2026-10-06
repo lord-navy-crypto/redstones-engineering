@@ -30,7 +30,7 @@ for token in (
     "MIN_WORKSPACE_HEIGHT = 320",
     "MAX_WORKSPACE_HEIGHT = 520",
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 1180",
+    "DEFAULT_CANVAS_HEIGHT = 1480",
     "FOOTER_HEIGHT = 66",
     "renderPersistentLiveStateStrip",
     "LIVE STATE • HEALTH ",
@@ -39,6 +39,13 @@ for token in (
     "configureControlCount()",
     "renderGlobalEngineeringContract",
     "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
+    "SHARED_APPENDIX_TOP = 960",
+    "CONFIGURE_APPENDIX_TOP = 1080",
+    "SHARED_APPENDIX_GAP = 44",
+    "sharedAppendixTop",
+    "engineeringContractTop",
+    "renderAppendixDivider",
+    "SHARED ENGINEERING APPENDIX • BELOW DEVICE-SPECIFIC CONTENT",
     "MODEL AUTHORITY",
     "MODEL TYPE",
     "FORMULA POLICY",
@@ -161,6 +168,7 @@ print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
+print(" reserved shared appendix / no device-content overlap: PASS")
 print(" closed-form-only formula policy / no fabricated equations: PASS")
 print(" shared formula / variable / evidence primitives: PASS")
 print(" conditioner / quartz / conversion / range-sensor rollout: PASS")
