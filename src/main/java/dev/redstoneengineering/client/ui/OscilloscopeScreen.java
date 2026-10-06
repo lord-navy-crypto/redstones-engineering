@@ -561,8 +561,9 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         mechanismBox(g, "SAMPLER", "Δt=" + menu.samplePeriodTicks() + " ticks",
                 x + boxWidth + gap, y, boxWidth, ACCENT);
         g.drawString(font, "→", x + (boxWidth + gap) * 2 - 10, y + 19, MUTED, false);
+        int captureColor = menu.captureState() == 2 ? GOOD : menu.captureState() == 1 ? INFO : MUTED;
         mechanismBox(g, "CAPTURE STATE", captureState(),
-                x + (boxWidth + gap) * 2, y, boxWidth, menu.captureFrozen() ? GOOD : INFO);
+                x + (boxWidth + gap) * 2, y, boxWidth, captureColor);
         g.drawString(font, "→", x + (boxWidth + gap) * 3 - 10, y + 19, MUTED, false);
         mechanismBox(g, "DISPLAY / EVIDENCE", menu.evidenceStateLabel(),
                 x + (boxWidth + gap) * 3, y, boxWidth, evidenceColor());
