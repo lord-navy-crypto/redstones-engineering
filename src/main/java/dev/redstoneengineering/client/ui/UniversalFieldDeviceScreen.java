@@ -657,26 +657,26 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT -> {
                 variableRole(g, "MEASURED", "B_local", Integer.toString(menu.pioneerPrimary()), "light", 137);
                 variableRole(g, "DERIVED", "y", Integer.toString(menu.pioneerSecondary()), "redstone", 153);
-                variableRole(g, "PROFILE", "sensor profile", "BALANCED (" + menu.pioneerTertiary() + ")", "", 169);
-                variableRole(g, "SOLVER", "Δt_sample", Integer.toString(menu.pioneerQuaternary()), "ticks", 185);
+                variableRole(g, "FIXED", "sensor profile", "BALANCED (" + menu.pioneerTertiary() + ")", "read-only model profile", 169);
+                variableRole(g, "FIXED", "Δt_sample", Integer.toString(menu.pioneerQuaternary()), "ticks • server-owned", 185);
             }
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TANK -> {
                 variableRole(g, "MEASURED", "h", Integer.toString(menu.pioneerPrimary()), "fluid blocks", 137);
                 variableRole(g, "EVIDENCE", "coverage", menu.pioneerSecondary() + "/" + menu.pioneerTertiary(), "cells", 153);
                 variableRole(g, "DERIVED", "y", Integer.toString(menu.pioneerQuaternary()), "redstone", 169);
-                variableRole(g, "PROFILE", "conditioning", "PRECISION", "", 185);
+                variableRole(g, "FIXED", "conditioning", "PRECISION", "read-only sensor profile", 185);
             }
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ENTITY_DENSITY -> {
                 variableRole(g, "MEASURED", "N", Integer.toString(menu.pioneerPrimary()), "living entities", 137);
                 variableRole(g, "EVIDENCE", "coverage", menu.pioneerSecondary() != 0 ? "COMPLETE" : "INCOMPLETE", "", 153);
                 variableRole(g, "DERIVED", "y", Integer.toString(menu.pioneerTertiary()), "redstone", 169);
-                variableRole(g, "SOLVER", "r_xy", Integer.toString(menu.pioneerQuaternary()), "blocks", 185);
+                variableRole(g, "FIXED", "r_xy", Integer.toString(menu.pioneerQuaternary()), "blocks • aperture owned by model", 185);
             }
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_METER -> {
                 variableRole(g, "MEASURED", "m", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerPrimary() / 100.0), "Lapis", 137);
                 variableRole(g, "EVIDENCE", "quality", evidence.name(), "", 153);
-                variableRole(g, "PROFILE", "range", "0.00..1.00", "Lapis", 169);
-                variableRole(g, "DERIVED", "display resolution", "0.01", "Lapis", 185);
+                variableRole(g, "FIXED", "range", "0.00..1.00", "Lapis • instrument range", 169);
+                variableRole(g, "FIXED", "display resolution", "0.01", "Lapis • instrument resolution", 185);
             }
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE -> {
                 String distance = menu.pioneerPrimary() < 0 ? "NO TARGET" : Integer.toString(menu.pioneerPrimary());
@@ -689,7 +689,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "MEASURED", "x_back", Integer.toString(menu.pioneerPrimary()), "redstone", 137);
                 variableRole(g, "DERIVED", "display", Integer.toString(menu.pioneerSecondary()), "redstone", 153);
                 variableRole(g, "EVIDENCE", "source quality", evidence.name(), "", 169);
-                variableRole(g, "PROFILE", "range", "0..15", "redstone", 185);
+                variableRole(g, "FIXED", "range", "0..15", "redstone • display scale", 185);
             }
             default -> { }
         }
