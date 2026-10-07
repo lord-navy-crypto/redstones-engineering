@@ -220,6 +220,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private String primaryLabel(){return isFlow()?"Flow":isCylinder()?"Pressure":isReservoir()?"Stored":menu.directional()?"Inlet":"Pressure";}private String secondaryLabel(){return isFlow()?"Δ pressure":isCylinder()?"Position":isReservoir()?"Line":menu.directional()?"Outlet":"Aux";}private String thirdLabel(){return isFlow()?"Inlet P":isCylinder()?"Target":isProportional()?"Opening":"State";}
     private String primaryText(){return menu.primary()+(menu.kind()==0?" / 15":" / 100");}private String secondaryText(){return menu.secondary()+(isCylinder()?" / 15":" / 100");}private String thirdText(){return menu.tertiary()+(isCylinder()||isProportional()?" / 15":" / 100");}
     private String pneumaticEquation(){
+        if(menu.kind()==PneumaticSystemMenu.KIND_COMPRESSOR)return "P_out = round(100 · u_R / 15)";
+        if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER)return "y_R = min(15, floor(15 · P_in / 100))";
+        if(menu.kind()==PneumaticSystemMenu.KIND_VALVE)return "OPEN ⇒ BACK ↔ FRONT ; CLOSED ⇒ isolated";
+        if(menu.kind()==PneumaticSystemMenu.KIND_CHECK_VALVE)return "permitted flow = BACK → FRONT only ; reverse blocked";
         if(isCylinder())return "ΔP_path = ΔP_line + ΔP_restriction";
         if(isReservoir())return "H_charge = max(0, P_line - P_stored)";
         if(isProportional())return "ΔP_local = max(0, P_in - P_out)";
