@@ -15,6 +15,8 @@ import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.EnhancedFieldDeviceLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -151,6 +153,9 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.FIELD_DEVICE.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(EnhancedFieldDeviceLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -1196,6 +1201,47 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof FaultLatchBlock) return KIND_FAULT_LATCH;
         if (block instanceof OperationsMonitorBlock) return KIND_OPERATIONS_MONITOR;
         return KIND_UNKNOWN;
+    }
+
+    /** LDLib2 HMI intent facade; every mutation delegates to the existing validated button path. */
+    public boolean applyPrimaryEngineeringValueFromUi(int value) {
+        if (value < 0 || value > BUTTON_PRIMARY_DIRECT_MAX - BUTTON_PRIMARY_DIRECT_BASE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DIRECT_BASE + value);
+    }
+
+    public boolean decreasePrimaryFromUi() {
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DECREASE);
+    }
+
+    public boolean increasePrimaryFromUi() {
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_INCREASE);
+    }
+
+    public boolean toggleFromUi() {
+        return clickMenuButton(playerInventory.player, BUTTON_TOGGLE);
+    }
+
+    public boolean presetFromUi(int value) {
+        int button = switch (value) {
+            case 0 -> BUTTON_PRESET_0;
+            case 5 -> BUTTON_PRESET_5;
+            case 10 -> BUTTON_PRESET_10;
+            case 15 -> BUTTON_PRESET_15;
+            default -> -1;
+        };
+        return button >= 0 && clickMenuButton(playerInventory.player, button);
+    }
+
+    public boolean cycleDirectionForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_CW);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_NEXT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_NEXT);
     }
 
     public int kind() { return kind.get(); }
