@@ -248,11 +248,17 @@ require("src/main/java/dev/redstoneengineering/ui/menu/RadioLinkMenu.java",
         "RadioTransmitterBlock.CHANNEL", "RadioReceiverBlock.CHANNEL")
 
 require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
-        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
-        "{20,40,60}% • direct entry")
+        "extends LdlibEngineeringHostScreen<DigitalCommunicationMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java",
+        "ModularUI", "DataBindingBuilder.string", "{20,40,60}% • direct entry",
+        "Cycle direction ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
         "BUTTON_PARAMETER_DIRECT_BASE = 13000", "percent == 20 ? 0",
-        "percent == 40 ? 1", "percent == 60 ? 2")
+        "percent == 40 ? 1", "percent == 60 ? 2",
+        "DigitalCommunicationLdUi.create(this, inventory.player)",
+        "setRegeneratorThresholdFromUi", "cycleWholeRouteForward",
+        "cycleRxForward", "cycleTxForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
         "P_out = round(100 · u_R / 15)",
