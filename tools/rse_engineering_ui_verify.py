@@ -100,7 +100,14 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "bus_byte = serial_byte ; watchdog = 16 t",
         "b = (x_R > 0) ? 1 : 0",
         "y_R = (valid ∧ b=1) ? 15 : 0",
-        "read-only conversion law")
+        "read-only conversion law",
+        "y_through = y_tap = x_in ; tap never back-drives input",
+        "y_R = round(condition_PRECISION(x_servo))",
+        "y_flow = condition_PRECISION(flow_proxy(P_in,P_out,path))",
+        "ΔB_axis = B(+axis,r=6) − B(−axis,r=6)",
+        "E[f]=ΣA_i(f), f_dom=argmax(E[f])",
+        "radius 6 • 10t scan • bands 1..15",
+        "observer-only • read-only")
 require("src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
         "setFrequency(Level level, BlockPos pos, int frequency)")
 require("src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
