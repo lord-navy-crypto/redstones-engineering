@@ -150,6 +150,9 @@ public final class OperationsMonitorLdUi {
     private static UIElement authorityPanel() {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("OBSERVER AUTHORITY BOUNDARY"),
+                new Label().setText("TELEMETRY • INCOMPLETE whenever RUN or QUEUE/WIP evidence is missing."),
+                new Label().setText("KPIs advance only while RUN + at least one QUEUE source are trustworthy."),
+                new Label().setText("Cycle timing requires observed LOW→HIGH edges; missing edges are NOT_READY, never invented."),
                 new Label().setText("Observer-only: this block measures operations state and never drives the plant."),
                 new Label().setText("KPIs stay WITHHELD until their world evidence exists."),
                 new Label().setText("Missing RUN evidence never masquerades as a stopped machine."),
