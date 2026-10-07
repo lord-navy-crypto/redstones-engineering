@@ -7,6 +7,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.RadioLinkLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -64,6 +66,9 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.RADIO_LINK.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(RadioLinkLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -210,6 +215,13 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         }
         return changed;
     }
+
+    /** LDLib2 intent facade; channel/output changes stay server-authoritative. */
+    public boolean setChannelFromUi(int value) {
+        if (value < 0 || value > 3) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CHANNEL_DIRECT_BASE + value);
+    }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
 
     public int kind() { return kind.get(); }
     public int payload() { return payload.get(); }
