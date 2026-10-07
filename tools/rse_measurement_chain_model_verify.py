@@ -15,7 +15,7 @@ def read(rel):
 
 range_screen = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
 range_block = read("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java")
-conditioner_screen = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
+conditioner_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
 conditioner_block = read("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java")
 quartz_screen = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
 quartz_divider = read("src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java")
@@ -71,7 +71,7 @@ screen_contracts = {
         '"EVIDENCE", "scan"',
         "A complete CLEAR scan with d=0 is valid evidence",
     )),
-    "SignalConditionerScreen.java": (conditioner_screen, (
+    "SignalConditionerLdUi.java": (conditioner_screen, (
         "FORMULA-FIRST SERVER CONTROL",
         "y = clamp₀..₁₅(g · x)",
         "y = clamp₀..₁₅(x + b)",
