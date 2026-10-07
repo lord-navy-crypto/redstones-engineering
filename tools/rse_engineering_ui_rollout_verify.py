@@ -136,7 +136,7 @@ for token in (
         errors.append(f"LDLib2 Signal Conditioner rollout missing {token!r}")
 
 conditioner_host = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
-for token in ("AbstractContainerScreen<SignalConditionerMenu>", "IModularUIHolderMenu"):
+for token in ("extends LdlibEngineeringHostScreen<SignalConditionerMenu>",):
     if token not in conditioner_host:
         errors.append(f"Signal Conditioner LDLib2 host missing {token!r}")
 
@@ -155,7 +155,7 @@ for token in (
         errors.append(f"LDLib2 Oscilloscope rollout missing {token!r}")
 
 oscilloscope_host = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
-for token in ("AbstractContainerScreen<OscilloscopeMenu>", "IModularUIHolderMenu"):
+for token in ("extends LdlibEngineeringHostScreen<OscilloscopeMenu>",):
     if token not in oscilloscope_host:
         errors.append(f"Oscilloscope LDLib2 host missing {token!r}")
 
