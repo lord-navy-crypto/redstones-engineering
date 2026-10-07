@@ -119,7 +119,8 @@ public final class UniversalFieldDeviceLdUi {
                         RseLdUiComponents.serverAction("Explicit action", menu::runConfigAction),
                         RseLdUiComponents.serverAction("Toggle", menu::toggleConfiguration)
                 ),
-                RseLdUiComponents.liveRow("EVIDENCE", "process", () -> menu.pioneerProcessEvidenceQuality().name())
+                RseLdUiComponents.liveRow("EVIDENCE", "process", () -> menu.pioneerProcessEvidenceQuality().name()),
+                new Label().setText("Universal HMI rule: controls express server intent only; Route owns physical interfaces; no hidden universal physics.")
         );
         return panel;
     }
@@ -392,23 +393,62 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String processEquation(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_CALIBRATION -> "MODEL: y = profile(x_obs); residual = y - x_ref";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SAMPLE_HOLD -> "MODEL: trigger edge ⇒ y_hold←x; otherwise y_hold[n]=y_hold[n-1]";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_PWM -> "MODEL: N_on=round((u/15)·T); output=15 when phase<N_on";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD -> "MODEL: I=V/R ; P=V²/R";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR -> "MODEL: authoritative divider/load solution uses R_s and R_load";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR -> "MODEL: τ∈{2,4,8,16} ticks controls discrete RC response";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE -> "MODEL: trip when server-computed I exceeds I_rating";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE -> "MODEL: y[n]=μ+η[n], |η|≤configured bound";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> "MODEL: T_nom with bounded scheduling jitter J";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> "MODEL: real rising edge ⇒ wait D ticks ⇒ pulse";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> "MODEL: c_raw=clamp(round(g·Σ r_cloud/(1+d²)),0,15); c_filt approaches by 1/5t";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE -> "MODEL: complete scan ∧ B_applied≥8 ⇒ remanent MAGNETIZED state";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> "MODEL: T_target=floor((2·T_env+T_neighbor)/3); bounded approach; Δt=5C";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> "MODEL: P=V²/R; thermal target is server-derived";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> "MODEL: passive cooling only above ambient floor";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> "MODEL: Δt_history = 20 ticks • read-only retained interval; relative heat=C_sum·ΔT";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> "MODEL (fictional): y_R=floor(15·Q_s/100) when Soul evidence is VALID";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_CALIBRATION ->
+                    "MODEL: y = profile(x_obs); residual = y - x_ref; profile ∈ {FULL, LOW, MID, HIGH, INVERT}";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SAMPLE_HOLD ->
+                    "MODEL: configured trigger edge ⇒ y_hold ← x; otherwise y_hold[n]=y_hold[n-1]; RESET ⇒ 0";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_PWM ->
+                    "MODEL: N_on=round((u/15)·T); PWM=15 when phase<N_on else 0; INHIBIT ⇒ 0";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE ->
+                    "MODEL: x=clamp(T_index,0,100); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC ->
+                    "MODEL: x=round(100·clamp(B,0,15)/15); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL ->
+                    "MODEL: x=round(100·clamp(I,0,15)/15); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE ->
+                    "MODEL: x=round(100·clamp(V,0,15)/15); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE ->
+                    "MODEL: V_node = resolved Copper registry value; quality depends on topology, scan completeness and driver count";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE ->
+                    "MODEL: V_out=V_set on declared Copper OUTPUT faces";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD ->
+                    "MODEL: I = V/R; P = V·I";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR ->
+                    "MODEL: V_out = V_in·R_load/(R_s+R_load); I = V_in/(R_s+R_load)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR ->
+                    "MODEL: q_target=round(100·V_in/15); q approaches q_target using τ∈{2,4,8,16} ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE ->
+                    "MODEL: TRIPPED ← TRIPPED ∨ (I>I_rating); trip state is server-latched protection evidence";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION ->
+                    "MODEL: explicit Copper splice; >1 active driver = TOPOLOGY_ERROR";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE ->
+                    "MODEL: y[n]=clamp(μ + η_det(n,pos),0,100); η_det is deterministic and bounded by |η|max";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR ->
+                    "MODEL: half-interval=max(1,T_nom/2 + j), with bounded scheduling jitter j";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY ->
+                    "MODEL: real post-init rising edge ⇒ pending=D; countdown completion emits the pulse";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER ->
+                    "MODEL: valid QUARTZ rising edge ⇒ y_hold←x_L; opening the HMI never captures a sample";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR ->
+                    "MODEL (fictional): packet=4u_R into attached loaded Soul nodes";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER ->
+                    "MODEL (fictional): y_R=floor(15·Q_s/100) only when Soul measurement quality is VALID";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER ->
+                    "MODEL: c_raw=clamp(round(g·Σ r_cloud/(1+d²)),0,15); c_filt approaches c_raw by 1 every 5 ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE ->
+                    "MODEL: complete radius-2 scan ∧ B_applied≥8 ⇒ MAGNETIZED; remanence persists until explicit demagnetize";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS ->
+                    "MODEL: T_target=floor((2·T_env+T_neighbor)/3); T←approach(T,T_target,max(1,5-C)); Δt=5C ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER ->
+                    "MODEL: P=V²/R; T_target=clamp(20+round(P/3),20,100); T←approach(T,T_target,3) every 2 ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR ->
+                    "MODEL: every 10 ticks each adjacent mass T>20 ⇒ T←max(20,T-k_cool)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER ->
+                    "MODEL: T=mean(adjacent thermal masses); ΔT_20t=T[n]-T[n-1]; relative heat=C_sum·ΔT";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT ->
+                    "MODEL (fictional): transient Soul Flux J decays by 1 each 20 ticks; zero/absent conduit flux is NO_SIGNAL";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR ->
+                    "MODEL (fictional): stored Q_s decays by 1 each 40 ticks; initialized empty Q_s=0 remains VALID storage state";
             default -> "MODEL: server-authoritative process transformation and retained evidence";
         };
     }
@@ -425,6 +465,7 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> "g is ADJUSTABLE; gain map is FIXED: server-supported {6,9,12,16} set.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE -> "B_threshold and scan radius are FIXED implemented limits; remanence is server state.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE -> "network law is FIXED / read-only topology contract.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR -> "R_load and current are retained from the authoritative server tick. Opening the HMI never performs another load-network scan.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> "network law is FIXED: explicit splice • >1 driver = TOPOLOGY_ERROR; read-only topology contract.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> "trigger is FIXED: QUARTZ rising edge; opening the HMI never captures a sample.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> "T_floor is FIXED at the model ambient floor; passive cooling cannot refrigerate below it.";
@@ -483,13 +524,20 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String measurementEquation(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE -> "MODEL: T_target=N>0 ? floor(ΣT_body/N) : T_environment; require 6/6 coverage";
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT -> "MODEL: y=round(condition(B_local,BALANCED)), 0≤y≤15";
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TANK -> "MODEL: h=contiguous loaded fluid cells; y=condition(min(15,h),PRECISION)";
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ENTITY_DENSITY -> "MODEL: N=living entities in aperture; y=condition(min(15,N),BALANCED)";
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_METER -> "MODEL: m=unique Lapis sample on selected face; display=m/100";
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE -> "MODEL: target ⇒ x=round(100·d/R); no target=NO_SIGNAL; incomplete aperture=STALE";
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ANALOG_INDICATOR -> "MODEL: display=clamp(x_back,0,15); quality is independent of numeric zero";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE ->
+                    "MODEL: T_target = N>0 ? floor(ΣT_body / N) : T_environment; update only with 6/6 coverage";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT ->
+                    "MODEL: y = round(condition(B_local, BALANCED)), 0 ≤ y ≤ 15";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TANK ->
+                    "MODEL: h = contiguous loaded fluid cells above; y = condition(min(15,h), PRECISION)";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ENTITY_DENSITY ->
+                    "MODEL: N = living entities in AABB inflate(4,2,4); y = condition(min(15,N), BALANCED)";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_METER ->
+                    "MODEL: m = unique Lapis sample on selected face; display = m / 100";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE ->
+                    "MODEL: target ⇒ x = round(100·d/R); no target=NO_SIGNAL; incomplete aperture=STALE";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ANALOG_INDICATOR ->
+                    "MODEL: display = clamp(x_back,0,15); source quality remains independent of numeric zero";
             default -> "MODEL: synchronized server measurement evidence";
         };
     }
