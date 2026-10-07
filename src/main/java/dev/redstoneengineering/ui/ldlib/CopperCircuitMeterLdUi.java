@@ -23,7 +23,7 @@ public final class CopperCircuitMeterLdUi {
                 RseLdUiComponents.liveRow("DERIVED","P",()->String.format(java.util.Locale.ROOT,"%.2f P-eq",m.power())),
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
                 RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()),
-                RseLdUiComponents.fixedRow("authority",()->"OBSERVER ONLY","server computes V, R_eq, I and P; meter never drives Copper state"),
+                RseLdUiComponents.fixedRow("authority",()->"OBSERVER ONLY","observer-only; server computes V, R_eq, I and P; meter never drives Copper state"),
                 RseLdUiComponents.serverAction("Cycle measurement face ▶",m::cycleFaceForward),
                 RseLdUiComponents.authorityFooter()
         );
