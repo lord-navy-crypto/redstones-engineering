@@ -111,7 +111,7 @@ require(
     "VibrationNetwork.sample",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "AMETHYST RESONATOR",
     "RESONANCE BUS",
     "AMETHYST FREQUENCY FILTER",
