@@ -73,9 +73,8 @@ public final class SignalConditionerLdUi {
     }
 
     private static UIElement parameterControl(SignalConditionerMenu menu) {
-        var parameter = new TextField()
-                .setNumbersOnlyInt(-5, 15)
-                .layout(l -> l.flex(1));
+        var parameter = new TextField().setNumbersOnlyInt(-5, 15);
+        parameter.layout(l -> l.flex(1));
 
         parameter.bind(DataBindingBuilder.string(
                 () -> Integer.toString(visibleFormulaParameter(menu.mode(), menu.parameter())),
