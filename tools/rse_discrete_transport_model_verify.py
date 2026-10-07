@@ -13,7 +13,7 @@ def read(rel):
         return ""
     return path.read_text(errors="ignore")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
 vibration = read("src/main/java/dev/redstoneengineering/physics/VibrationNetwork.java")
 slime = read("src/main/java/dev/redstoneengineering/block/SlimeVibrationConduitBlock.java")
 honey = read("src/main/java/dev/redstoneengineering/block/HoneyVibrationDamperBlock.java")
