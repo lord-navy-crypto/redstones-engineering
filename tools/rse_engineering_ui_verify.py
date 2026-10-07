@@ -155,6 +155,17 @@ require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScr
         "explicit splice • >1 driver = TOPOLOGY_ERROR",
         "read-only topology contract")
 
+require("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java",
+        '"FIXED","capacity"', "server-owned buffer capacity",
+        "SOUTH=15 iff free capacity>0", "NORTH=15 iff free capacity=0")
+require("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java",
+        '"EXTERNAL", "binding authority"', "Operations Binding Tool",
+        "Binding is external server authority")
+require("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java",
+        '"FIXED", "KPI window", "1200 ticks / 60 s"',
+        "queue≥13 OVERLOADED", "queue≥9 CONGESTED",
+        "stopped+queued 600t ⇒ FAILED")
+
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
         "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
         "BUTTON_TUNING_NEXT", "BUTTON_INPUT_NEXT", "BUTTON_OUTPUT_NEXT")
