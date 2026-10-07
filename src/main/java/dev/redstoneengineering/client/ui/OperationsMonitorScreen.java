@@ -65,25 +65,27 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         variableRole(graphics, "EVIDENCE", "coverage", menu.worldPlantCoverage().name(), "", 128);
         variableRole(graphics, "MEASURED", "queue", menu.queue() + "/15", "current WIP proxy", 146);
         variableRole(graphics, "DERIVED", "queue pressure", menu.queuePressurePercent() + "%", "", 164);
-        variableRole(graphics, "MEASURED", "throughput", menu.throughput() + "", "cycles/min last60s", 182);
-        variableRole(graphics, "MEASURED", "downtime", formatTicks(menu.downtimeTicks()), "", 200);
-        variableRole(graphics, "DERIVED", "state", menu.state().name(), "server classification", 218);
+        variableRole(graphics, "FIXED", "KPI window", "1200 ticks / 60 s", "server-owned throughput window", 182);
+        variableRole(graphics, "MEASURED", "throughput", menu.throughput() + "", "cycles/min last60s", 200);
+        variableRole(graphics, "MEASURED", "downtime", formatTicks(menu.downtimeTicks()), "", 218);
+        variableRole(graphics, "DERIVED", "state", menu.state().name(), "server classification", 236);
         evidenceRow(graphics, "Plant configuration", configurationPercent() + "% configured",
-                menu.worldPlantWipPressurePercent() + "% WIP", resourceHealthPercent() + "% resource health", 242);
+                menu.worldPlantWipPressurePercent() + "% WIP", resourceHealthPercent() + "% resource health", 260);
 
-        safeText(graphics, "EVIDENCE COVERAGE • " + menu.worldPlantCoverage().name(), 16, 270, worldColor);
+        safeText(graphics, "FIXED STATE BANDS • queue≥13 OVERLOADED • queue≥9 CONGESTED • stopped+queued 600t ⇒ FAILED", 16, 286, INFO);
+        safeText(graphics, "EVIDENCE COVERAGE • " + menu.worldPlantCoverage().name(), 16, 304, worldColor);
         safeText(graphics, "Workcells configured • CONFIGURATION • " + menu.worldPlantConfiguredWorkcells()
-                + "/" + menu.worldPlantWorkcells() + " • " + configurationPercent() + "%", 16, 286, TEXT);
+                + "/" + menu.worldPlantWorkcells() + " • " + configurationPercent() + "%", 16, 320, TEXT);
         safeText(graphics, "Buffers / WIP • WIP PRESSURE • " + menu.worldPlantUsedBufferUnits()
-                + "/" + menu.worldPlantBufferCapacityUnits() + " • " + menu.worldPlantWipPressurePercent() + "%", 16, 302, TEXT);
+                + "/" + menu.worldPlantBufferCapacityUnits() + " • " + menu.worldPlantWipPressurePercent() + "%", 16, 336, TEXT);
         safeText(graphics, "Bound resources • RESOURCE HEALTH • " + menu.worldPlantValidResources()
-                + "/" + menu.worldPlantBoundResources() + " valid • faults " + menu.worldPlantFaultResources(), 16, 318, TEXT);
+                + "/" + menu.worldPlantBoundResources() + " valid • faults " + menu.worldPlantFaultResources(), 16, 352, TEXT);
 
-        wrappedText(graphics, "Quality/reliability/delivery KPIs stay WITHHELD until their world evidence exists. Observer-only: this monitor never drives the plant or fabricates a stopped machine from missing RUN evidence.", 16, 344, workspaceWidth() - 24, MUTED);
-        safeText(graphics, "WORLD PLANT STATE • PLANT KPIs • INCOMPLETE", 16, 374, WARN);
-        safeText(graphics, "Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING", 16, 388, MUTED);
-        safeText(graphics, "FPY / reject / rework — / — / —", 16, 402, MUTED);
-        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 416, MUTED);
+        wrappedText(graphics, "Quality/reliability/delivery KPIs stay WITHHELD until their world evidence exists. Observer-only: this monitor never drives the plant or fabricates a stopped machine from missing RUN evidence.", 16, 378, workspaceWidth() - 24, MUTED);
+        safeText(graphics, "WORLD PLANT STATE • PLANT KPIs • INCOMPLETE", 16, 408, WARN);
+        safeText(graphics, "Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING", 16, 422, MUTED);
+        safeText(graphics, "FPY / reject / rework — / — / —", 16, 436, MUTED);
+        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 450, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
