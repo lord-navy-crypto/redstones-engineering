@@ -15,6 +15,7 @@ public final class CopperCircuitMeterLdUi {
         root.layout(l->l.width(520).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("COPPER CIRCUIT METER"),
+                RseLdUiComponents.title("COPPER POWER / LOAD NETWORK"),
                 RseLdUiComponents.title("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL"),
                 RseLdUiComponents.formulaCard(()->"I = V / R_eq ; P = V · I"),
                 RseLdUiComponents.liveRow("MEASURED","V",()->m.voltage()+" V-eq"),
@@ -23,7 +24,8 @@ public final class CopperCircuitMeterLdUi {
                 RseLdUiComponents.liveRow("DERIVED","P",()->String.format(java.util.Locale.ROOT,"%.2f P-eq",m.power())),
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
                 RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()),
-                RseLdUiComponents.fixedRow("authority",()->"OBSERVER ONLY","observer-only; server computes V, R_eq, I and P; meter never drives Copper state"),
+                RseLdUiComponents.fixedRow("authority",()->"SERVER-SYNCHRONIZED OBSERVER",
+                        "observer-only; server computes V, Req, I and P; meter never drives Copper state"),
                 RseLdUiComponents.serverAction("Cycle measurement face ▶",m::cycleFaceForward),
                 RseLdUiComponents.authorityFooter()
         );
