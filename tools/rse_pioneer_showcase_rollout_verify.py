@@ -13,7 +13,7 @@ def read(rel):
     return path.read_text(errors="ignore")
 
 doc = read("docs/PIONEER_SHOWCASE_STANDARD.md")
-lowpass = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
+lowpass = read("src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java")
 scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
 pid = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java")
 digital = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
@@ -108,7 +108,8 @@ for token in (
 for token in (
     "y[n] = y[n-1] + α",
     "LIVE SUBSTITUTION",
-    "VARIABLE ROLES",
+    '"MEASURED", "x[n]"',
+    '"ADJUSTABLE", "α"',
 ):
     if token not in lowpass:
         errors.append(f"Low-pass pioneer missing {token!r}")
