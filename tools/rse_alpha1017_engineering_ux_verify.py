@@ -153,8 +153,8 @@ require(
     "RedstoneCableNetwork.recompute(server, pos)",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
-    "menu.seriesConfigurable()",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
+    "m.seriesConfigurable()",
 )
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
