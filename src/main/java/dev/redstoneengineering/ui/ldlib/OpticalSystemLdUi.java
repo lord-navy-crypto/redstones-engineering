@@ -90,6 +90,7 @@ public final class OpticalSystemLdUi {
     private static UIElement commissioningPanel(OpticalSystemMenu m) {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         p.addChildren(
+                new Label().setText("Segment TX / RX • guided optical commissioning budget"),
                 RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()),
                 RseLdUiComponents.liveRow("SEGMENT","TX / RX",()->m.budgetSourceIntensity()+"/15 → "+m.primary()+"/15"),
                 RseLdUiComponents.liveRow("DERIVED","Observed segment loss",()->Integer.toString(m.budgetObservedLoss())),
