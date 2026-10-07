@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui.ldlib;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import net.minecraft.world.entity.player.Player;
@@ -25,7 +26,7 @@ public final class CopperCircuitMeterLdUi {
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
                 RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()),
                 RseLdUiComponents.fixedRow("authority",()->"SERVER-SYNCHRONIZED OBSERVER",
-                        "observer-only • server computes V, R_eq, I and P; meter never drives Copper state"),
+                        "V, Req, I and P are server-computed • observer-only • meter never drives Copper state"),
                 RseLdUiComponents.serverAction("Cycle measurement face ▶",m::cycleFaceForward),
                 new Label().setText("OBSERVER ONLY • measurements are server-synchronized; this meter never drives the circuit"),
                 RseLdUiComponents.authorityFooter()
