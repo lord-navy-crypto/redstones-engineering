@@ -188,6 +188,12 @@ ldlib_contracts = {
     "LapisLowPassScreen": (
         "extends LdlibEngineeringHostScreen<LapisLowPassMenu>",
     ),
+    "IndustrialBufferScreen": (
+        "extends LdlibEngineeringHostScreen<IndustrialBufferMenu>",
+    ),
+    "WorkcellControllerScreen": (
+        "extends LdlibEngineeringHostScreen<WorkcellControllerMenu>",
+    ),
 }
 
 engineering_families = []
@@ -231,6 +237,8 @@ for menu_name, screen_name in block_facing:
             "AmethystSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java",
             "PidControllerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java",
             "LapisLowPassScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java",
+            "IndustrialBufferScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java",
+            "WorkcellControllerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -376,6 +384,29 @@ for menu_name, screen_name in block_facing:
             ):
                 if token not in ld_ui:
                     errors.append(f"LapisLowPassScreen LDLib2 UI missing {token!r}")
+        if screen_name == "IndustrialBufferScreen":
+            for token in (
+                "PIONEER PATTERN • OPERATIONS / WIP MODEL",
+                "WIP PRESSURE",
+                "LOT IDENTITY",
+                "WORKCELL ROLES",
+                "PERSISTED WIP",
+                "RseLdUiComponents.authorityFooter()",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"IndustrialBufferScreen LDLib2 UI missing {token!r}")
+        if screen_name == "WorkcellControllerScreen":
+            for token in (
+                "INPUT → WORKCELL → OUTPUT",
+                "PIONEER PATTERN • WORKCELL ADMISSION GATE",
+                "PERMIT",
+                "HOLD",
+                "Operations Binding Tool",
+                "AUTHORITY BOUNDARY",
+                "RseLdUiComponents.authorityFooter()",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"WorkcellControllerScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
