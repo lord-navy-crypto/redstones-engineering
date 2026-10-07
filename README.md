@@ -8,17 +8,18 @@
 
 ## Required dependencies
 
-Five mature ecosystem libraries are part of the RSE platform contract:
+Only dependencies with current direct implementation use are hard runtime requirements:
 
-| Dependency | Pinned development version | Required side | RSE purpose |
+| Dependency | Pinned development version | Required side | Why it is actually required |
 | --- | --- | --- | --- |
-| JEI | `19.27.0.336` | Client | recipe/use browsing and engineering progression |
-| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port/acceptance/run-history diagnostics |
-| GeckoLib | `4.9.2` | Client + Server | articulated machine visualization |
-| Cloth Config | `15.0.140` | Client | configuration and tuning UI |
-| Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
+| Jade | `15.10.6` | Client + Server | RSE directly compiles against `snownee.jade.api` for the engineering HUD and server-backed diagnostics |
+| GeckoLib | `4.9.2` | Client + Server | RSE directly compiles against GeckoLib and ships GeckoLib `.geo.json` / animation resources for Servo, Pneumatic Cylinder and Proportional Valve visualization |
 
-RSE does not shade or bundle their jars. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
+**Not required by the current implementation:** JEI, Cloth Config and Fusion. RSE currently has no JEI plugin/category code, no Cloth Config screen/API use, and no Fusion API/resource contract. They should not block startup or be required for installation.
+
+Minecraft 1.21.1, NeoForge 21.1.249 and Java 21 remain foundational platform/runtime requirements. Build-only tooling such as NeoGradle/ModDev, Parchment mappings and the Foojay toolchain resolver is for development and is not an end-user mod prerequisite.
+
+RSE does not shade or bundle Jade or GeckoLib. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
 
 ## Project information
 
