@@ -43,7 +43,8 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("DERIVED","x_cal",()->m.calibrated()+" / 15"),
                 RseLdUiComponents.liveRow("OUTPUT","inline",()->m.output()+" / 15 • raw pass-through semantics"),
                 RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.measurementQuality().name()+" • coverage="+m.coveragePercent()+"%"),
-                new Label().setText("Calibration changes only displayed engineering reading; INLINE output remains RAW.")
+                new Label().setText("Calibration is DISPLAY ONLY • INLINE output remains RAW."),
+                new Label().setText("μ=rounded mean • min/max guides bound the synchronized rolling window.")
         );
         return p;
     }
@@ -75,6 +76,7 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("LIFETIME","changes / edges",()->m.changes()+" • ↑"+m.rising()+" ↓"+m.falling()),
                 RseLdUiComponents.liveRow("LIFETIME","last / max Δ",()->m.lastDelta()+" / "+m.maxDelta()),
                 RseLdUiComponents.liveRow("STATE","stable age",()->m.stableAgeTicks()+" ticks"),
+                RseLdUiComponents.liveRow("STATE","variation",()->stabilityClass(m)),
                 new Label().setText("Rolling statistics are synchronized server evidence; numeric zero remains distinct from missing evidence.")
         );
         return p;
@@ -112,6 +114,14 @@ public final class SignalAnalyzerLdUi {
         var f=new TextField().setNumbersOnlyInt(min,max); f.layout(l->l.width(90));
         f.bind(DataBindingBuilder.string(()->Integer.toString(getter.getAsInt()),v->{try{setter.test(Integer.parseInt(v));}catch(NumberFormatException ignored){}}).build());
         return f;
+    }
+
+    private static String stabilityClass(SignalAnalyzerMenu m){
+        if(m.windowCount()<4) return "WARMUP";
+        if(m.peakToPeak()==0 && m.meanStep100()==0) return "STEADY";
+        if(m.peakToPeak()<=1 && m.meanStep100()<=50) return "STABLE";
+        if(m.peakToPeak()<=5 && m.meanStep100()<=200) return "DYNAMIC";
+        return "HIGH VARIATION";
     }
 
     private static String modeName(int mode){return mode==SignalAnalyzerBlock.INLINE?"INLINE":"TAP";}
