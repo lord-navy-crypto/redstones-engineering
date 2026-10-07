@@ -177,6 +177,9 @@ ldlib_contracts = {
     "LogicAnalyzerScreen": (
         "extends LdlibEngineeringHostScreen<LogicAnalyzerMenu>",
     ),
+    "SignalAnalyzerScreen": (
+        "extends LdlibEngineeringHostScreen<SignalAnalyzerMenu>",
+    ),
 }
 
 engineering_families = []
@@ -208,6 +211,7 @@ for menu_name, screen_name in block_facing:
             "MediaConversionScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java",
             "SignalProcessorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java",
             "LogicAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
+            "SignalAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -220,6 +224,17 @@ for menu_name, screen_name in block_facing:
             for token in ("Cycle Δt ▶", "TRIGGER", "SAMPLING EXPERIMENT", "waveform(menu, 0)"):
                 if token not in ld_ui:
                     errors.append(f"OscilloscopeScreen LDLib2 UI missing {token!r}")
+        if screen_name == "SignalAnalyzerScreen":
+            for token in (
+                "PIONEER PATTERN • METROLOGY / CALIBRATION",
+                "SignalAnalyzerPlotElement",
+                "Toggle TAP/INLINE",
+                "Trial baseline",
+                "Trial candidate",
+                "Internal RSE reference comparison only",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"SignalAnalyzerScreen LDLib2 UI missing {token!r}")
         if screen_name == "LogicAnalyzerScreen":
             for token in (
                 "PIONEER PATTERN • DIGITAL TIMING MODEL",
