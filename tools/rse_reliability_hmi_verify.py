@@ -26,7 +26,7 @@ sensor = read("src/main/java/dev/redstoneengineering/block/ServoPositionSensorBl
 voter = read("src/main/java/dev/redstoneengineering/block/RedundantVoterBlock.java")
 latch = read("src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
 
 require(watchdog, "WatchdogBlock.java",
         "boolean resetDiagnostics(Level level, BlockPos pos)",
@@ -63,16 +63,24 @@ require(menu, "ReliabilitySystemMenu.java",
         "latch.manualReset(level, blockPos)",
         "refreshAuthoritativeSnapshot(); broadcastChanges();")
 
-require(screen, "ReliabilitySystemScreen.java",
-        "maintenanceAction",
-        "ReliabilitySystemMenu.BUTTON_ACTION",
+require(screen, "ReliabilitySystemLdUi.java",
+        "Maintenance action",
         '"Reset watchdog diagnostics"',
         '"Home / reset trajectory"',
         '"Reset position metrology"',
         '"Reset voter diagnostics"',
         '"Manual reset latch"',
-        "maintenanceAction.visible = configure",
+        "RseLdUiComponents.authorityFooter()",
         '"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click."')
+require(menu, "ReliabilitySystemMenu.java",
+        "runMaintenance()",
+        "clickMenuButton(playerInventory.player, BUTTON_ACTION)",
+        "runMaintenanceAction(block)",
+        "watchdog.resetDiagnostics(level, blockPos)",
+        "servo.homeAndReset(level, blockPos)",
+        "sensor.resetMetrology(level, blockPos)",
+        "voter.resetDiagnostics(level, blockPos)",
+        "latch.manualReset(level, blockPos)")
 
 if errors:
     print("RSE RELIABILITY HMI VERIFY: FAIL")
