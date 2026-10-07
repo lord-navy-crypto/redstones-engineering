@@ -25,12 +25,16 @@ public final class OscilloscopeLdUi {
         root.addChildren(
                 RseLdUiComponents.title("TWO-CHANNEL ENGINEERING OSCILLOSCOPE"),
                 RseLdUiComponents.formulaCard(() ->
-                        "Δt = N_ticks / 20 s   •   f_s = 20/N_ticks Hz   •   f_N = f_s/2"),
+                        "Δt = N_ticks / 20 s   •   f_s = 1 / Δt = 20 / N_ticks Hz   •   f_N = f_s / 2"),
                 waveformPanel(menu),
                 samplingControls(menu),
                 triggerControls(menu),
                 experimentControls(menu),
                 networkEvidence(menu),
+                RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),
+                RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
+                RseLdUiComponents.liveRow("I/O", "route", menu::portRouteLabel),
+                RseLdUiComponents.liveRow("CONTROLS", "owner", () -> "server-validated menu intents"),
                 RseLdUiComponents.authorityFooter()
         );
 
@@ -71,15 +75,34 @@ public final class OscilloscopeLdUi {
         ).build());
 
         return new UIElement().addClass("panel_bg")
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6).paddingAll(5))
+                .layout(l -> l.paddingAll(5).gapAll(4))
                 .addChildren(
-                        new Label().setText("SAMPLING  N_ticks ∈ {1,2,4,8}"),
-                        dt,
-                        RseLdUiComponents.serverAction("Cycle Δt ▶", menu::cycleSamplePeriod),
-                        new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                Component.literal("f_s=" + formatHz(menu.sampleRateMilliHz())
-                                        + " • Nyquist=" + formatHz(menu.nyquistMilliHz()))
-                        ).build()).layout(l -> l.flex(1))
+                        new Label().setText("SAMPLING MODEL"),
+                        RseLdUiComponents.liveRow("ADJUSTABLE", "N_ticks",
+                                () -> menu.samplePeriodTicks() + " ticks/sample"),
+                        new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                                new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
+                                dt,
+                                new Label().setText("{1,2,4,8} ticks/sample").layout(l -> l.width(135)),
+                                RseLdUiComponents.serverAction("Cycle Δt ▶", menu::cycleSamplePeriod)
+                        ),
+                        RseLdUiComponents.liveRow("DERIVED", "f_s",
+                                () -> formatHz(menu.sampleRateMilliHz())),
+                        RseLdUiComponents.liveRow("DERIVED", "f_N",
+                                () -> formatHz(menu.nyquistMilliHz())),
+                        RseLdUiComponents.liveRow("LIVE SUBSTITUTION", "timebase",
+                                () -> String.format(java.util.Locale.ROOT,
+                                        "Δt=%.3fs → f_s=%s → f_N=%s",
+                                        menu.samplePeriodTicks() / 20.0,
+                                        formatHz(menu.sampleRateMilliHz()),
+                                        formatHz(menu.nyquistMilliHz()))),
+                        RseLdUiComponents.fixedRow("TIMEBASE TABLE", () -> "{1,2,4,8} ticks/sample",
+                                "server-supported exact set"),
+                        RseLdUiComponents.liveRow("EVIDENCE", "alias A",
+                                () -> alias(menu.aliasRisk(0))),
+                        RseLdUiComponents.liveRow("EVIDENCE", "alias B",
+                                () -> alias(menu.aliasRisk(1))),
+                        new Label().setText("Nyquist gives a theoretical boundary, not proof that the captured source was alias-free.")
                 );
     }
 
