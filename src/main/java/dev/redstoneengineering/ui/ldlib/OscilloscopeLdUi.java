@@ -46,9 +46,17 @@ public final class OscilloscopeLdUi {
                 RseLdUiComponents.liveRow("MEASURED", "CH-B", () -> waveform(menu, 1)),
                 RseLdUiComponents.liveRow("LIVE", "A", () -> formatSample(menu.current(0))),
                 RseLdUiComponents.liveRow("LIVE", "B", () -> formatSample(menu.current(1))),
-                RseLdUiComponents.liveRow("EVIDENCE", "capture", () ->
+                RseLdUiComponents.liveRow("QUALITY", "A", () ->
+                        "coverage=" + menu.coverage(0) + "% • mean-step="
+                                + String.format(java.util.Locale.ROOT, "%.2f", menu.meanStep100(0) / 100.0)
+                                + " • period=" + menu.periodTicks(0) + "t"),
+                RseLdUiComponents.liveRow("QUALITY", "B", () ->
+                        "coverage=" + menu.coverage(1) + "% • mean-step="
+                                + String.format(java.util.Locale.ROOT, "%.2f", menu.meanStep100(1) / 100.0)
+                                + " • period=" + menu.periodTicks(1) + "t"),
+                RseLdUiComponents.liveRow("EVIDENCE", "CAPTURE", () ->
                         menu.sampleCount() + " samples • " + captureState(menu.captureState())),
-                RseLdUiComponents.liveRow("DERIVED", "Δcursor", () ->
+                RseLdUiComponents.liveRow("DERIVED", "Cursor Δt", () ->
                         Math.abs(menu.cursorB() - menu.cursorA()) * menu.samplePeriodTicks() + " ticks")
         );
     }
