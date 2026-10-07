@@ -18,7 +18,8 @@ public final class RadioLinkLdUi {
         root.layout(l->l.width(560).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(m.kind()==RadioLinkMenu.KIND_TRANSMITTER?"RADIO TRANSMITTER":"RADIO RECEIVER"),
-                RseLdUiComponents.formulaCard(()->"decode ⇔ coverage ∧ one driver ∧ quality ≥ "+RadioLinkMenu.MIN_DECODE_QUALITY),
+                new Label().setText("PIONEER PATTERN • RADIO LINK BUDGET"),
+                RseLdUiComponents.formulaCard(()->"M_decode = Q_link - Q_min; decode ⇔ coverage ∧ one driver ∧ M_decode ≥ 0; availability = 100 · validSamples / samples"),
                 channelControl(m),
                 RseLdUiComponents.liveRow("MEASURED","payload",()->Integer.toString(m.payload())),
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
