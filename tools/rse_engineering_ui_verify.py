@@ -140,7 +140,7 @@ require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi
         "SampleHoldBlock.modeName(menu.configPrimary())",
         "CalibrationModuleBlock.profileName(menu.configPrimary())",
         "FaultInjectorBlock.modeLabelFor(menu.configPrimary())",
-        "SensorModel.profileName",
+        "SensorModel.condition(x, profile)",
         "primaryCycleKind", "hasExplicitAction", "hasToggle",
         "READ-ONLY HMI • no fake control",
         "numeric values use exact entry",
