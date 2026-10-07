@@ -30,7 +30,7 @@ copper = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeter
 ops = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 workcell = read("src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java")
 universal = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
-enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+enhanced = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
 processor = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
 range_sensor = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
 conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
@@ -268,16 +268,15 @@ for name, (text, tokens) in wave4.items():
 
 
 wave5 = {
-    "EnhancedFieldDeviceScreen.java": (enhanced, (
+    "EnhancedFieldDeviceLdUi.java": (enhanced, (
         "PIONEER PATTERN • SHARED FIELD DEVICE",
-        "pioneerContract()",
-        "sharedPioneerExplanation()",
-        "TOPOLOGY: connected faces = physical graph edges; medium identity is preserved",
-        '"OBSERVE: " + observerEquation()',
-        "observerFixedContract()",
-        "observer-only • read-only",
-        "STATE: safety/process state is server-authoritative; invalid evidence fails closed",
-        '"AUTHORITY", "policy"',
+        "modelContract(m.kind())",
+        "server state → synchronized HMI evidence",
+        "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
+        "valid zero ≠ no source",
+        "TOPOLOGY ERROR • CONFLICT / INVALID PATH",
+        '"EVIDENCE", "PortQuality"',
+        "Client presentation only",
     )),
     "SignalProcessorLdUi.java": (processor, (
         "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
