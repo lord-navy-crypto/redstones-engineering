@@ -197,6 +197,9 @@ ldlib_contracts = {
     "OperationsMonitorScreen": (
         "extends LdlibEngineeringHostScreen<OperationsMonitorMenu>",
     ),
+    "EnhancedFieldDeviceScreen": (
+        "extends LdlibEngineeringHostScreen<FieldDeviceMenu>",
+    ),
 }
 
 engineering_families = []
@@ -243,6 +246,7 @@ for menu_name, screen_name in block_facing:
             "IndustrialBufferScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java",
             "WorkcellControllerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java",
             "OperationsMonitorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java",
+            "EnhancedFieldDeviceScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -424,6 +428,21 @@ for menu_name, screen_name in block_facing:
             ):
                 if token not in ld_ui:
                     errors.append(f"OperationsMonitorScreen LDLib2 UI missing {token!r}")
+        if screen_name == "EnhancedFieldDeviceScreen":
+            for token in (
+                "PIONEER PATTERN • SHARED FIELD DEVICE",
+                "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
+                "DataBindingBuilder.string",
+                "Exact engineering value",
+                "READ-ONLY HMI • no fake control",
+                "Cycle direction ▶",
+                "Cycle RX ▶",
+                "Cycle TX ▶",
+                "PortQuality",
+                "RseLdUiComponents.authorityFooter()",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"EnhancedFieldDeviceScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
@@ -467,7 +486,7 @@ if errors:
 print("RSE ALL-BLOCK UI ROLLOUT VERIFY: PASS")
 print(f" registered blocks reconciled: {len(registered_blocks)} / 122")
 print(f" block-facing UI families: {len(block_facing)}")
-print(f" shared EngineeringScreen families: {len(engineering_families)}")
+print(f" legacy EngineeringScreen families: {len(engineering_families)}")
 print(f" standalone deep-canvas instrument families: {len(standalone_families)}")
 print(f" LDLib2 HMI families: {len(ldlib_families)}")
 print(" global X/Y wheel + draggable scrollbar contract: PASS")
