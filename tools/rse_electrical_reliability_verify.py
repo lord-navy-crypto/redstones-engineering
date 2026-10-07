@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 assessment = (ROOT / "src/main/java/dev/redstoneengineering/diagnostics/ElectricalReliabilityAssessment.java").read_text()
 menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java").read_text()
-screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java").read_text()
+screen = (ROOT / "src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java").read_text()
 tests = (ROOT / "src/main/java/dev/redstoneengineering/gametest/RseElectricalReliabilityGameTests.java").read_text()
 registration = (ROOT / "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java").read_text()
 
