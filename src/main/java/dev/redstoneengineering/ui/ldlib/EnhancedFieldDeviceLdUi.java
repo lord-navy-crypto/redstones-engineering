@@ -37,6 +37,7 @@ public final class EnhancedFieldDeviceLdUi {
                 routePanel(m),
                 evidencePanel(m),
                 sourceMediumIntegrityPanel(m),
+                discreteTransportPanel(m),
                 RseLdUiComponents.authorityFooter()
         );
         return ModularUI.of(
@@ -177,6 +178,80 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().setText("TOPOLOGY ERROR • CONFLICT / INVALID PATH")
         );
         return panel;
+    }
+
+    private static UIElement discreteTransportPanel(FieldDeviceMenu m) {
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.paddingAll(5).gapAll(3));
+        if (!isDiscreteTransportDevice(m.kind())) {
+            panel.addChild(new Label().setText("DISCRETE TRANSPORT MODEL • not applicable to this device"));
+            return panel;
+        }
+        panel.addChildren(
+                new Label().setText("PIONEER PATTERN • RSE DISCRETE TRANSPORT MODEL"),
+                RseLdUiComponents.liveRow("MODEL", "transport", () -> discreteTransportModel(m.kind())),
+                RseLdUiComponents.liveRow("TOPOLOGY", "medium", () -> discreteTransportTopology(m.kind())),
+                new Label().setText("server-owned packet/event state • HMI exposes the implemented bounded abstraction only")
+        );
+        return panel;
+    }
+
+    private static boolean isDiscreteTransportDevice(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_SLIME_VIBRATION,
+                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HONEY_DAMPER,
+                 FieldDeviceMenu.KIND_SCULK_INTERFACE,
+                 FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER,
+                 FieldDeviceMenu.KIND_PHONON_CONDUIT,
+                 FieldDeviceMenu.KIND_THERMAL_ENCODER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER -> true;
+            default -> false;
+        };
+    }
+
+    private static String discreteTransportModel(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_SLIME_VIBRATION ->
+                    "HOP: A_next=max(0,A-1); RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)";
+            case FieldDeviceMenu.KIND_HONEY_DAMPER ->
+                    "HOP: A_next=max(0,A-4), node Q=80; RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
+                    "Lm={water:1,milk-model:2,lava:3} • bounded medium-dependent amplitude loss";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT,
+                 FieldDeviceMenu.KIND_THERMAL_ENCODER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER ->
+                    "PHONON_THERMAL is a finite-bandwidth event-packet abstraction";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE ->
+                    "SCULK / CALIBRATED-SENSOR EVENT CODE";
+            default -> "MECHANICAL_VIBRATION packet amplitude / quality / lifetime are server-authoritative";
+        };
+    }
+
+    private static String discreteTransportTopology(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_SLIME_VIBRATION,
+                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HONEY_DAMPER ->
+                    "MECHANICAL_VIBRATION • SIX-WAY • LOW-LOSS PACKET";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
+                    "HYDROACOUSTIC • SIX-WAY • MEDIUM-DEPENDENT LOSS";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT,
+                 FieldDeviceMenu.KIND_THERMAL_ENCODER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER ->
+                    "PHONON_THERMAL • SIX-WAY • FINITE-BANDWIDTH PACKET";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE ->
+                    "SCULK / CALIBRATED-SENSOR EVENT CODE";
+            default -> "DISCRETE TRANSPORT";
+        };
     }
 
     private static String legacyEngineeringContract(int k) {
