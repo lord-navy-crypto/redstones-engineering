@@ -129,8 +129,13 @@ public final class OscilloscopeLdUi {
                 RseLdUiComponents.liveRow("NETWORK", "channels", () ->
                         "valid=" + menu.validChannels() + " • active=" + menu.activeChannels()
                                 + " • duplicate=" + menu.duplicateChannels()),
-                RseLdUiComponents.liveRow("EVIDENCE", "shielding", () ->
-                        menu.shieldingCoverage() + "% • interference exposure=" + menu.interferenceExposure() + "%")
+                RseLdUiComponents.liveRow("EVIDENCE", "Interference", () ->
+                        "exposure=" + menu.interferenceExposure() + "% • confidence="
+                                + menu.interferenceConfidence() + "% • shielding=" + menu.shieldingCoverage() + "%"),
+                RseLdUiComponents.liveRow("NEXT", "mitigation", () ->
+                        menu.unshieldedExposedNodes() > 0
+                                ? "shield exposed instrument segments first • exposed=" + menu.unshieldedExposedNodes()
+                                : "instrument segments protected or not exposed")
         );
     }
 
