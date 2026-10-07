@@ -16,7 +16,8 @@ def read(rel: str) -> str:
 
 assessment = read("src/main/java/dev/redstoneengineering/diagnostics/OperationWorldPlantStateAssessment.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 
 for token in (
     "class OperationWorldPlantStateAssessment",
@@ -65,13 +66,16 @@ for token in (
     "CONFIGURATION",
     "WIP PRESSURE",
     "RESOURCE HEALTH",
-    "drawPlantMetricBar",
+    "RseLdUiComponents.liveRow",
     "configurationPercent",
     "resourceHealthPercent",
     "EVIDENCE COVERAGE",
 ):
     if screen and token not in screen:
-        errors.append(f"OperationsMonitorScreen missing world plant UI v2 token {token!r}")
+        errors.append(f"OperationsMonitorLdUi missing world plant UI v2 token {token!r}")
+
+if host and "extends LdlibEngineeringHostScreen<OperationsMonitorMenu>" not in host:
+    errors.append("OperationsMonitorScreen missing LDLib2 host contract")
 
 combined = assessment + menu + screen
 for forbidden in (
@@ -98,7 +102,7 @@ for required in (
     "WITHHELD • EVIDENCE MISSING",
 ):
     if screen and required not in screen:
-        errors.append(f"OperationsMonitorScreen must withhold unsupported plant KPIs; missing {required!r}")
+        errors.append(f"OperationsMonitorLdUi must withhold unsupported plant KPIs; missing {required!r}")
 
 if errors:
     print("RSE OPERATIONS MONITOR WORLD PLANT VERIFY: FAIL")
