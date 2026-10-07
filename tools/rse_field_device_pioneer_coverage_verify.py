@@ -93,7 +93,7 @@ for token in (
 
 for token in (
     "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
-    "isSourceMediumIntegrityDevice()",
+    "isSourceMediumIntegrityDevice(int k)",
     "configured zero remains VALID evidence",
     "valid zero ≠ no source",
     "multi-source=TOPOLOGY_ERROR; truncated scan=STALE",
