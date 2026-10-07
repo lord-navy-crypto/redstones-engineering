@@ -120,38 +120,38 @@ require("src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.j
 require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
         "MechanicalExciterBlock.setFrequency", "HydroacousticExciterBlock.setFrequency")
 
-require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
         "{6, 9, 12, 16} gain", "{8, 16, 32, 64} blocks", "1..3 severity",
         "{2, 4, 8, 16} ticks", 'CONFIG_COPPER_CAPACITOR -> "τ"',
         "τ is the visible discrete response constant",
         "SampleHoldBlock.modeName(menu.configPrimary())",
         "CalibrationModuleBlock.profileName(menu.configPrimary())",
         "FaultInjectorBlock.modeLabelFor(menu.configPrimary())",
-        '"Cycle " + primaryName', "primaryPrevious.visible = false",
-        "secondaryPrevious.visible = false")
+        '"Cycle primary ▶"', '"Cycle secondary ▶"',
+        "DataBindingBuilder.string", "applyPrimary(menu, value)", "applySecondary(menu, value)")
 require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
         "MolecularCloudReceiverBlock.SENSITIVITY",
         "LapisPrecisionRangeSensorBlock.RANGE_INDEX",
         "AlarmProcessorBlock.SEVERITY")
 
-require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-        '"ADJUSTABLE", "g"', '"FIXED", "gain map"',
-        '"FIXED", "B_threshold"', '"FIXED", "scan radius"',
-        '"FIXED", "T_floor"', "read-only decay law",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
+        '"g"', '"gain map is FIXED"',
+        '"B_threshold"', '"scan radius"',
+        '"T_floor"', "read-only decay law",
         "server-supported {6,9,12,16} set",
         "packet = 4·u_R • read-only law",
         "y_R=floor(15·Q_s/100) • read-only",
-        '"FIXED", "trigger", "QUARTZ rising edge"',
-        '"FIXED", "Δt_history", "20"',
+        '"trigger"', "QUARTZ rising edge",
+        '"Δt_history"', "20 ticks • read-only retained interval",
         "read-only storage law",
-        '"FIXED", "aperture", "6 adjacent faces"',
+        "aperture is FIXED: 6 adjacent faces",
         "Visible τ selects the implemented discrete response profile",
         "condition↑ latches severity",
         "ARM ? fault_mode(x) : x",
         "RESET∨¬RUN⇒step=0",
         "PERMIT=15 iff A>0 ∧ B>0 ∧ C>0",
         "alarm=15 iff topology report hasIssue()",
-        '"FIXED", "network law"',
+        '"network law"',
         "explicit splice • >1 driver = TOPOLOGY_ERROR",
         "read-only topology contract")
 
@@ -321,6 +321,19 @@ require("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
         "OscilloscopeLdUi.create(this, inventory.player)",
         "setSamplePeriodFromUi", "setTriggerLevelFromUi",
         "setCursorAFromUi", "setCursorBFromUi")
+
+require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+        "extends LdlibEngineeringHostScreen<UniversalFieldDeviceMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
+        "ModularUI", "FORMULA PARAMETER WORKBENCH",
+        "DECLARED ENGINEERING PORTS", "SYSTEM / OPERATOR STATE",
+        "PIONEER WAVE 13 • MEASUREMENT", "SERVER-SYNCHRONIZED DEVICE STATE",
+        "RseLdUiComponents.authorityFooter()")
+require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+        "UniversalFieldDeviceLdUi.create(this, inventory.player)",
+        "applyPrimaryRawTargetFromUi", "applySecondaryRawTargetFromUi",
+        "cycleWholeRouteForward", "cycleInputForward", "cycleOutputForward",
+        "runConfigAction", "toggleConfiguration")
 
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
