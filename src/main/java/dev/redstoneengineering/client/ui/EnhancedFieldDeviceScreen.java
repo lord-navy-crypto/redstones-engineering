@@ -334,6 +334,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         formulaCard(g, pioneerContract(), 105);
         variableRole(g, "ROLE", "device", deviceRole(), family(), 134);
         boolean fixedConverter = isFixedProtocolConverter();
+        boolean fixedObserver = isObserver() && !observerFixedContract().isBlank();
         if (adjustable()) {
             variableRole(g, "ADJUSTABLE", formulaSymbol(), controlValueText(), "server bounded", 152);
             if (directEntryKind()) {
@@ -343,9 +344,11 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             variableRole(g, "MEASURED", metricLabel(0), metricValue(0, menu.primary()), "server snapshot", 152);
             if (fixedConverter) {
                 variableRole(g, "FIXED", "protocol", converterProtocolDetail(), "read-only conversion law", 170);
+            } else if (fixedObserver) {
+                variableRole(g, "FIXED", "measurement law", observerFixedContract(), "observer-only • read-only", 170);
             }
         }
-        boolean expanded = directEntryKind() || fixedConverter;
+        boolean expanded = directEntryKind() || fixedConverter || fixedObserver;
         variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), expanded ? 188 : 170);
         variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
                 menu.topologyValid() ? "PASS" : "FAIL-CLOSED", expanded ? 206 : 188);
@@ -658,7 +661,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return "TOPOLOGY: connected faces = physical graph edges; medium identity is preserved";
         }
         if (isObserver()) {
-            return "OBSERVE: physical/process state → synchronized evidence; network drive = NONE";
+            return "OBSERVE: " + observerEquation();
         }
         if (isDirectionalConverter()) {
             return "FIXED CONVERSION: " + converterEquation();
@@ -689,7 +692,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return "Junction Point remains a same-medium vertical riser: no conversion mode, no routing-mode toggle, and mixed media fail closed.";
         }
         if (isObserver()) {
-            return "Observer controls can select what to measure, but never create network-drive evidence. A valid measured zero remains distinct from missing or invalid evidence.";
+            return "Observer measurements are server-owned and read-only. Fixed aperture/profile/sampling constants are shown explicitly; a valid measured zero remains distinct from missing or invalid evidence.";
         }
         if (isPassiveMedium()) {
             return "Passive media expose continuity, medium identity, links and quality. Open faces are not virtual ports and the HMI never translates one medium into another.";
@@ -1294,6 +1297,38 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> "WIRED INPUT → FREE-SPACE OPTICAL";
             case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> "FREE-SPACE OPTICAL → WIRED OUTPUT";
             default -> "DECLARED COMMUNICATION PATH";
+        };
+    }
+
+    private String observerEquation() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_SIGNAL_TAP -> "y_through = y_tap = x_in ; tap never back-drives input";
+            case FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR ->
+                    "y_R = round(condition_PRECISION(x_servo))";
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER ->
+                    "y_flow = condition_PRECISION(flow_proxy(P_in,P_out,path))";
+            case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR ->
+                    "B = fieldSample(center, r=6)";
+            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER ->
+                    "ΔB_axis = B(+axis,r=6) − B(−axis,r=6)";
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER ->
+                    "P_idx = sampleOptical(target).intensity";
+            case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM ->
+                    "E[f]=ΣA_i(f), f_dom=argmax(E[f])";
+            default -> "physical/process state → synchronized evidence; network drive = NONE";
+        };
+    }
+
+    private String observerFixedContract() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_SIGNAL_TAP -> "active mirror copy • 0..15 • no input back-drive";
+            case FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR -> "PRECISION profile • position 0..15";
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> "PRECISION profile • 10t sampling • 0..100";
+            case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR -> "radius 6 coverage-aware field aperture";
+            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "two radius-6 apertures per axis";
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> "observer-only intensity/channel sample";
+            case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "radius 6 • 10t scan • bands 1..15";
+            default -> "";
         };
     }
 
