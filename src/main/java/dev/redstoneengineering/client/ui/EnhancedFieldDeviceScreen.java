@@ -335,6 +335,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         variableRole(g, "ROLE", "device", deviceRole(), family(), 134);
         boolean fixedConverter = isFixedProtocolConverter();
         boolean fixedPneumatic = isPneumaticFixedModelDevice();
+        boolean fixedOptical = isOpticalFixedModelDevice();
         boolean fixedObserver = isObserver() && !observerFixedContract().isBlank();
         if (adjustable()) {
             variableRole(g, "ADJUSTABLE", formulaSymbol(), controlValueText(), "server bounded", 152);
@@ -439,8 +440,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_LAPIS_LINE -> "0..100 lossless line • single-source topology";
             case FieldDeviceMenu.KIND_QUARTZ_LINE -> "clock period evidence • single-source topology";
             case FieldDeviceMenu.KIND_AMETHYST_DUST -> "frequency 1..15 + amplitude packet • conflict-aware";
-            case FieldDeviceMenu.KIND_OPTICAL_FIBER,
-                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> "intensity/channel transport • service-open = hard isolation";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER -> "passive intensity/channel continuity • no conversion";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> "service splice • SERVICE_OPEN = hard isolation";
             default -> "";
         };
     }
@@ -689,7 +690,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return "FIELD: source / configuration → server field evidence; client does not solve B";
         }
         if (family().equals("OPTICAL")) {
-            return "OPTICAL: channel + intensity + topology → authoritative optical state";
+            return "OPTICAL: " + opticalEquation();
         }
         return "CONTRACT: server state → synchronized HMI evidence; no hidden client physics";
     }
@@ -714,6 +715,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         }
         if (isPneumaticFixedModelDevice()) {
             return "This pneumatic law is implemented server behavior. Pressure, command, topology and actuator state remain synchronized evidence; no client-side fluid solver or fake tuning coefficient is introduced.";
+        }
+        if (isOpticalFixedModelDevice()) {
+            return "This optical behavior is fixed server logic. Receiver/meter views remain observer-only, while the splitter exposes its implemented integer division and quantization loss without inventing gain controls.";
         }
         return "Buttons express operator intent to the server. Runtime state, topology, quality and physical behavior remain authoritative outside the client screen.";
     }
@@ -1338,6 +1342,33 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "two radius-6 apertures per axis";
             case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> "observer-only intensity/channel sample";
             case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "radius 6 • 10t scan • bands 1..15";
+            default -> "";
+        };
+    }
+
+    private boolean isOpticalFixedModelDevice() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_OPTICAL_POWER_METER,
+                 FieldDeviceMenu.KIND_OPTICAL_SPLITTER -> true;
+            default -> false;
+        };
+    }
+
+    private String opticalEquation() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_OPTICAL_SPLITTER -> "I_A = I_B = floor(I_in/2); e_q = I_in - 2·I_A";
+            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> "VALID ⇔ one physical input ∧ one driver ∧ I>0";
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> "measurement = {I, channel, PortQuality}; drive = NONE";
+            default -> "channel + intensity + topology → authoritative optical state";
+        };
+    }
+
+    private String opticalModelDetail() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_OPTICAL_SPLITTER -> "1×2 integer split; odd input loses 1 intensity unit";
+            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> "observer input only; >1 input/driver fails topology";
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> "observer-only I/channel measurement; no backdrive";
             default -> "";
         };
     }
