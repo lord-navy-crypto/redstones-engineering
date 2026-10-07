@@ -30,6 +30,7 @@ public final class SignalConditionerLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
+                new Label().setText("FORMULA-FIRST SERVER CONTROL"),
                 RseLdUiComponents.formulaCard(() -> governingEquation(menu.mode())),
                 RseLdUiComponents.liveRow("MEASURED", "x", () -> menu.input() + " / 15"),
                 RseLdUiComponents.liveRow("STATE", "mode", () -> modeName(menu.mode())),
