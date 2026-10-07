@@ -45,7 +45,7 @@ public final class QuartzTimingLdUi {
                     RseLdUiComponents.liveRow("ADJUSTABLE","N",()->Integer.toString(m.tertiary())),
                     RseLdUiComponents.liveRow("DERIVED","T_out",()->m.secondary()+" ticks"),
                     RseLdUiComponents.liveRow("EVIDENCE","expected",()->expectedDividerPeriod(m)+" ticks"),
-                    RseLdUiComponents.liveRow("EVIDENCE","period limit",()->dividerSaturated(m)?"SATURATED @4096":"IN RANGE")
+                    RseLdUiComponents.liveRow("EVIDENCE", "period limit", () -> dividerSaturated(m) ? "SATURATED @4096" : "IN RANGE")
             );
         } else {
             p.addChildren(
