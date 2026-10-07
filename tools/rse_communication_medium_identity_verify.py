@@ -87,9 +87,10 @@ for forbidden in ("DomainNetwork.recomputeOptical(", "DomainNetwork.driveOptical
 require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "OpticalCommissioningSupport.segmentBudget", "budgetSourceIntensity", "budgetObservedLoss",
         "budgetReceiverHeadroom", "receiverCommissioning", "budgetPassiveNodes", "budgetSourceCount")
-require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
         "Segment TX / RX", "Observed segment loss", "Receiver headroom", "Passive nodes / hops",
-        "Intensity-unit segment budget only", "upstream splitter/attenuator loss")
+        "Intensity-unit segment budget only", "upstream splitter/attenuator loss",
+        "Observer-only commissioning evidence does not mutate or re-solve the optical network.")
 
 # Radio differentiation must expose the existing authoritative distance / obstruction /
 # adjacent-channel / collision model rather than inventing a client-side RF solver.
