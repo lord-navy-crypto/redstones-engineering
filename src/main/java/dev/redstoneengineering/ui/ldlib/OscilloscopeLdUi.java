@@ -131,17 +131,30 @@ public final class OscilloscopeLdUi {
     private static UIElement experimentControls(OscilloscopeMenu menu) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(4)).addChildren(
                 new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                        new Label().setText("SAMPLING EXPERIMENT").layout(l -> l.flex(1)),
+                        new Label().setText("SAMPLING EXPERIMENT • FROZEN EVIDENCE COMPARISON").layout(l -> l.flex(1)),
                         RseLdUiComponents.serverAction("Capture baseline", menu::captureBaseline),
                         RseLdUiComponents.serverAction("Capture candidate", menu::captureCandidate),
                         RseLdUiComponents.serverAction("Clear experiment", menu::clearExperiment)
                 ),
+                RseLdUiComponents.formulaCard(() ->
+                        "N_cycle = T_obs / Δt_sample = captured periodSamples"),
+                RseLdUiComponents.fixedRow("acceptance bands", () ->
+                        "≤2 samples/cycle → FAIL • 3–4 → MARGINAL • ≥5 → PASS",
+                        "server-owned sampling experiment verdict"),
                 RseLdUiComponents.liveRow("BASELINE", "Δt", () ->
                         menu.baselinePresent() ? menu.baselineSamplePeriodTicks() + " t/sample" : "NOT CAPTURED"),
+                RseLdUiComponents.liveRow("BASELINE", "N_cycle", () ->
+                        menu.baselinePresent() ? Integer.toString(menu.baselinePeriodSamples()) : "NOT READY"),
                 RseLdUiComponents.liveRow("CANDIDATE", "Δt", () ->
                         menu.candidatePresent() ? menu.candidateSamplePeriodTicks() + " t/sample" : "NOT CAPTURED"),
+                RseLdUiComponents.liveRow("CANDIDATE", "N_cycle", () ->
+                        menu.candidatePresent() ? Integer.toString(menu.candidatePeriodSamples()) : "NOT READY"),
                 RseLdUiComponents.liveRow("EVIDENCE", "alias", () ->
-                        "baseline=" + alias(menu.baselineAliasRisk()) + " • candidate=" + alias(menu.candidateAliasRisk()))
+                        "baseline=" + alias(menu.baselineAliasRisk()) + " • candidate=" + alias(menu.candidateAliasRisk())),
+                RseLdUiComponents.liveRow("EVIDENCE", "status", () ->
+                        samplingExperimentStatus(menu.experimentStatus())),
+                new Label().setText("Nyquist/observed-frequency evidence is not proof that the original source is alias-free."),
+                new Label().setText("A vanilla Redstone clock is a valid source for the sampling experiment.")
         );
     }
 
@@ -213,6 +226,15 @@ public final class OscilloscopeLdUi {
 
     private static String captureState(int state) {
         return switch (state) { case 1 -> "ARMED"; case 2 -> "TRIGGERED"; default -> "HOLD"; };
+    }
+
+    private static String samplingExperimentStatus(int ordinal) {
+        return switch (ordinal) {
+            case 1 -> "PASS";
+            case 2 -> "MARGINAL";
+            case 3 -> "FAIL";
+            default -> "NOT_READY";
+        };
     }
 
     private static String alias(int code) {
