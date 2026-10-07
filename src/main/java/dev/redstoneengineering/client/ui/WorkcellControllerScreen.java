@@ -54,13 +54,14 @@ public final class WorkcellControllerScreen extends EngineeringScreen<WorkcellCo
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "PIONEER PATTERN • WORKCELL ADMISSION GATE", INFO, 16, 78);
         formulaCard(graphics, "PERMIT ⇔ valid capacity evidence ∧ no fault ∧ output space ∧ resource capacity", 105);
-        variableRole(graphics, "MEASURED", "BOUND RESOURCES", menu.validResourceCount() + "/" + menu.boundResourceCount(), "valid/bound", 134);
-        variableRole(graphics, "MEASURED", "input WIP", menu.capacityEvidenceAvailable() ? menu.inputWipPressurePercent() + "%" : "UNAVAILABLE", "", 152);
-        variableRole(graphics, "MEASURED", "output WIP", menu.capacityEvidenceAvailable() ? menu.outputWipPressurePercent() + "%" : "UNAVAILABLE", "", 170);
-        variableRole(graphics, "DERIVED", "queue pressure", menu.queuePressure() < 0 ? "UNAVAILABLE" : menu.queuePressure() + "/15", "vanilla boundary", 188);
-        variableRole(graphics, "DERIVED", "admission", menu.admissionPermitted() ? "PERMIT" : "HOLD", "", 206);
-        variableRole(graphics, "EVIDENCE", "reason", menu.admissionReason(), "", 224);
-        wrappedText(graphics, "Use the Operations Binding Tool to select resources and INPUT/OUTPUT buffers. Binding and admission are server-authoritative; this HMI cannot rewrite lot, quality, scheduling, setup or maintenance state.", 16, 248, workspaceWidth() - 24, MUTED);
+        variableRole(graphics, "EXTERNAL", "binding authority", "Operations Binding Tool", "resources + INPUT/OUTPUT buffers", 134);
+        variableRole(graphics, "MEASURED", "BOUND RESOURCES", menu.validResourceCount() + "/" + menu.boundResourceCount(), "valid/bound", 152);
+        variableRole(graphics, "MEASURED", "input WIP", menu.capacityEvidenceAvailable() ? menu.inputWipPressurePercent() + "%" : "UNAVAILABLE", "", 170);
+        variableRole(graphics, "MEASURED", "output WIP", menu.capacityEvidenceAvailable() ? menu.outputWipPressurePercent() + "%" : "UNAVAILABLE", "", 188);
+        variableRole(graphics, "DERIVED", "queue pressure", menu.queuePressure() < 0 ? "UNAVAILABLE" : menu.queuePressure() + "/15", "vanilla boundary", 206);
+        variableRole(graphics, "DERIVED", "admission", menu.admissionPermitted() ? "PERMIT" : "HOLD", "", 224);
+        variableRole(graphics, "EVIDENCE", "reason", menu.admissionReason(), "", 242);
+        wrappedText(graphics, "Binding is external server authority: this HMI cannot rewrite resources, buffers, lot identity, scheduling, setup or maintenance state.", 16, 266, workspaceWidth() - 24, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
