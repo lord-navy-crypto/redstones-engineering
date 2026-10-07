@@ -25,7 +25,7 @@ reliability = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilityS
 radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
 analyzer = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
 buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
-logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java")
+logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
 copper = read("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
 ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
 workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
@@ -221,7 +221,7 @@ for name, (text, tokens) in wave3.items():
 
 
 wave4 = {
-    "LogicAnalyzerScreen.java": (logic, (
+    "LogicAnalyzerLdUi.java": (logic, (
         "PIONEER PATTERN • DIGITAL TIMING MODEL",
         "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW",
         '"Δt_sample"',
