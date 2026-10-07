@@ -6,6 +6,8 @@ import dev.redstoneengineering.block.PrecisionFilterBlock;
 import dev.redstoneengineering.block.PulseShaperBlock;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.SignalProcessorLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -52,6 +54,9 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.SIGNAL_PROCESSOR.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(SignalProcessorLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -161,6 +166,25 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    public boolean cycleParameterForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_NEXT);
+    }
+
+    public boolean setParameterFromUi(int value) {
+        if (kind() == KIND_FILTER && (value < 1 || value > 4)) return false;
+        if (kind() == KIND_PULSE && (value < 1 || value > 8)) return false;
+        if (kind() == KIND_EDGE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_DIRECT_BASE + value);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
     }
 
     public int kind() { return kind.get(); }
