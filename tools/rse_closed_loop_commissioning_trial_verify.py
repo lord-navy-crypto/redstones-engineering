@@ -124,7 +124,7 @@ for token in (
     "Δsettle",
     "Δovershoot",
     "Δsat",
-    "TRIAL ",
+    'liveRow("TRIAL"' ,
 ):
     if token not in pid_screen:
         errors.append(f"PidControllerScreen missing trial HMI token {token!r}")
