@@ -298,7 +298,7 @@ for name, (text, tokens) in wave5.items():
 
 wave6_tokens = (
     "PIONEER PATTERN • RSE DISCRETE TRANSPORT MODEL",
-    "isDiscreteTransportDevice()",
+    "isDiscreteTransportDevice(int kind)",
     "HOP: A_next=max(0,A-1); RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)",
     "HOP: A_next=max(0,A-4), node Q=80; RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)",
     "Lm={water:1,milk-model:2,lava:3}",
