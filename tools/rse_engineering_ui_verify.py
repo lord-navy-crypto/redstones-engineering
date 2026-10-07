@@ -146,6 +146,11 @@ require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScr
         "read-only storage law",
         '"FIXED", "aperture", "6 adjacent faces"',
         "Visible τ selects the implemented discrete response profile",
+        "condition↑ latches severity",
+        "ARM ? fault_mode(x) : x",
+        "RESET∨¬RUN⇒step=0",
+        "PERMIT=15 iff A>0 ∧ B>0 ∧ C>0",
+        "alarm=15 iff topology report hasIssue()",
         '"FIXED", "network law"',
         "explicit splice • >1 driver = TOPOLOGY_ERROR",
         "read-only topology contract")
