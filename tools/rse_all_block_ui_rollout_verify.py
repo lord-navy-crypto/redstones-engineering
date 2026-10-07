@@ -143,25 +143,6 @@ standalone_contracts = {
         "[ADJUSTABLE] α",
         "[MEASURED]  x[n]",
     ),
-    "OscilloscopeScreen": (
-        "mouseScrolled",
-        "scrollX",
-        "scrollY",
-        "renderScrollIndicators",
-        "INSTRUMENT_CONTENT_WIDTH = 980",
-        "SAMPLING_CONTENT_WIDTH = 1120",
-        "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
-        "SAMPLING MODEL",
-        "MECHANISM FLOW • LIVE SERVER STRUCTURE",
-        "PROBES / RX",
-        "SAMPLER",
-        "CAPTURE STATE",
-        "DISPLAY / EVIDENCE",
-        "[ADJUSTABLE] N_ticks",
-        "[DERIVED] Δt",
-        "CAPTURE EVIDENCE",
-        "TRIGGER / CURSOR MODEL",
-    ),
 }
 
 ldlib_contracts = {
@@ -169,6 +150,11 @@ ldlib_contracts = {
         "AbstractContainerScreen<SignalConditionerMenu>",
         "IModularUIHolderMenu",
         "LDLib2 renders the complete engineering HMI",
+    ),
+    "OscilloscopeScreen": (
+        "AbstractContainerScreen<OscilloscopeMenu>",
+        "IModularUIHolderMenu",
+        "LDLib2 renders the complete instrument workspace",
     ),
 }
 
@@ -193,10 +179,21 @@ for menu_name, screen_name in block_facing:
         for token in ldlib_required:
             if token not in source:
                 errors.append(f"{screen_name} missing LDLib2 host token {token!r}")
-        ld_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
-        for token in ("ModularUI", "DataBindingBuilder.string", "SERVER AUTHORITY", "Cycle mode ▶"):
+        ld_path = {
+            "SignalConditionerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java",
+            "OscilloscopeScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
+        }[screen_name]
+        ld_ui = read(ld_path)
+        common_tokens = ("ModularUI", "DataBindingBuilder.string", "SERVER AUTHORITY")
+        for token in common_tokens:
             if token not in ld_ui:
                 errors.append(f"{screen_name} LDLib2 UI missing {token!r}")
+        if screen_name == "SignalConditionerScreen" and "Cycle mode ▶" not in ld_ui:
+            errors.append("SignalConditionerScreen LDLib2 UI missing 'Cycle mode ▶'")
+        if screen_name == "OscilloscopeScreen":
+            for token in ("Cycle Δt ▶", "TRIGGER", "SAMPLING EXPERIMENT", "waveform(menu, 0)"):
+                if token not in ld_ui:
+                    errors.append(f"OscilloscopeScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
