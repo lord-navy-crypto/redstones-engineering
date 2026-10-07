@@ -296,7 +296,10 @@ require("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.ja
         "ModularUI", "DataBindingBuilder.string",
         "setNumbersOnlyInt(-5, 15)",
         "Cycle mode ▶", "Cycle RX ▶", "Cycle TX ▶",
-        "SERVER AUTHORITY", "governingEquation(menu.mode())")
+        "RseLdUiComponents.authorityFooter()", "governingEquation(menu.mode())")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java",
+        "authorityFooter()", "SERVER AUTHORITY",
+        "presentation + validated operator intent")
 require("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java",
         "setFormulaParameter(Level level, BlockPos pos, int formulaValue)",
         "formulaValue + 5")
