@@ -188,6 +188,7 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
     }
 
     private String magneticEquation(){
+        if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET)return "S_field = valid(Copper) ? V_coil : 0 ; 0≤S_field≤15";
         if(menu.kind()==MagneticSystemMenu.KIND_COIL)return "V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)";
         if(menu.kind()==MagneticSystemMenu.KIND_GRADIENT)return "B_local = clamp(round(Σ S_i / max(1,r_i²)), 0, 15) ; G = spatial ΔB";
         return "B = clamp(round(Σ S_i / max(1,r_i²)), 0, 15)";
