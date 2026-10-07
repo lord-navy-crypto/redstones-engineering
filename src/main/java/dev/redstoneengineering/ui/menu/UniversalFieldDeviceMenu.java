@@ -864,6 +864,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             min = 1; max = 15;
             current = () -> level.getBlockState(blockPos).getValue(CopperFuseBlock.RATING);
             stepForward = ignored -> fuse.adjustRating(level, blockPos, 1);
+        } else if (block instanceof CopperCapacitorBlock capacitor) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(CopperCapacitorBlock.C_INDEX);
+            stepForward = ignored -> capacitor.adjustCapacitance(level, blockPos, 1);
         } else if (block instanceof LapisNoiseSourceBlock noise) {
             min = 0; max = 20;
             current = () -> level.getBlockState(blockPos).getValue(LapisNoiseSourceBlock.BASELINE);
