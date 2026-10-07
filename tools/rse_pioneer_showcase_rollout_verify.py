@@ -803,8 +803,20 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text and "formulaCard(" in text:
             formula_migrated += 1
 
-if formula_migrated < 20:
-    errors.append(f"expected at least 20 formula-first EngineeringScreen families after Wave 5, found {formula_migrated}")
+ldlib_formula_migrated = 0
+ldlib_dir = root / "src/main/java/dev/redstoneengineering/ui/ldlib"
+if ldlib_dir.is_dir():
+    for path in ldlib_dir.glob("*LdUi.java"):
+        text = path.read_text(errors="ignore")
+        if "ModularUI" in text and ("formulaCard(" in text or "governingEquation(" in text):
+            ldlib_formula_migrated += 1
+
+formula_migrated_total = formula_migrated + ldlib_formula_migrated
+if formula_migrated_total < 20:
+    errors.append(
+        f"expected at least 20 formula-first HMI families after Wave 5, "
+        f"found EngineeringScreen={formula_migrated}, LDLib2={ldlib_formula_migrated}, total={formula_migrated_total}"
+    )
 
 if errors:
     print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: FAIL")
@@ -832,5 +844,7 @@ print(" Wave 16 seven-block active-source / timing Pioneer rollout PASS")
 print(" Wave 17 final seven-block material / storage / thermal rollout PASS")
 print(" Pioneer completion ledger: 122 / 122 processed; 0 remain")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
-print(f" formula-first EngineeringScreen families: {formula_migrated}")
+print(f" formula-first legacy EngineeringScreen families: {formula_migrated}")
+print(f" formula-first LDLib2 HMI families: {ldlib_formula_migrated}")
+print(f" formula-first HMI families total: {formula_migrated_total}")
 print(" no client-side second physics/robotics/metrology/Copper/timing/thermal solver in Waves 2-17: PASS")
