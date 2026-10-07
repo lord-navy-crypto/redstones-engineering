@@ -287,10 +287,11 @@ require("src/main/java/dev/redstoneengineering/block/PrecisionFilterBlock.java",
 require("src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java",
         "setWidth(Level level, BlockPos pos, int width)")
 
+require("src/main/java/dev/redstoneengineering/client/ui/ldlib/LdlibEngineeringHostScreen.java",
+        "IModularUIHolderMenu", "AbstractContainerScreen<M>",
+        "getModularUI()", "LDLib2 owns the engineering HMI canvas")
 require("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java",
-        "AbstractContainerScreen<SignalConditionerMenu>",
-        "IModularUIHolderMenu",
-        "LDLib2 renders the complete engineering HMI")
+        "extends LdlibEngineeringHostScreen<SignalConditionerMenu>")
 require("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java",
         "ModularUI", "DataBindingBuilder.string",
         "setNumbersOnlyInt(-5, 15)",
@@ -306,8 +307,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.jav
         "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
-        "AbstractContainerScreen<OscilloscopeMenu>", "IModularUIHolderMenu",
-        "LDLib2 renders the complete instrument workspace")
+        "extends LdlibEngineeringHostScreen<OscilloscopeMenu>")
 require("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
         "ModularUI", "Cycle Δt ▶", "SAMPLING EXPERIMENT",
         "setTriggerLevelFromUi", "setCursorAFromUi", "setCursorBFromUi")
