@@ -165,6 +165,15 @@ ldlib_contracts = {
     "UniversalFieldDeviceScreen": (
         "extends LdlibEngineeringHostScreen<UniversalFieldDeviceMenu>",
     ),
+    "RangeSensorScreen": (
+        "extends LdlibEngineeringHostScreen<RangeSensorMenu>",
+    ),
+    "MediaConversionScreen": (
+        "extends LdlibEngineeringHostScreen<MediaConversionMenu>",
+    ),
+    "SignalProcessorScreen": (
+        "extends LdlibEngineeringHostScreen<SignalProcessorMenu>",
+    ),
 }
 
 engineering_families = []
@@ -192,9 +201,12 @@ for menu_name, screen_name in block_facing:
             "SignalConditionerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java",
             "OscilloscopeScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
             "UniversalFieldDeviceScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
+            "RangeSensorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java",
+            "MediaConversionScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java",
+            "SignalProcessorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
-        common_tokens = ("ModularUI", "DataBindingBuilder.string", "RseLdUiComponents.authorityFooter()")
+        common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
         for token in common_tokens:
             if token not in ld_ui:
                 errors.append(f"{screen_name} LDLib2 UI missing {token!r}")
@@ -216,6 +228,18 @@ for menu_name, screen_name in block_facing:
             ):
                 if token not in ld_ui:
                     errors.append(f"UniversalFieldDeviceScreen LDLib2 UI missing {token!r}")
+        if screen_name == "RangeSensorScreen":
+            for token in ("DataBindingBuilder.string", "{4,8,15}", "Cycle detect ▶", "Cycle response ▶"):
+                if token not in ld_ui:
+                    errors.append(f"RangeSensorScreen LDLib2 UI missing {token!r}")
+        if screen_name == "MediaConversionScreen":
+            for token in ("FORMULA-FIRST MEDIA BOUNDARY", "Cycle RX ▶", "Cycle TX ▶", "Quantization loss"):
+                if token not in ld_ui:
+                    errors.append(f"MediaConversionScreen LDLib2 UI missing {token!r}")
+        if screen_name == "SignalProcessorScreen":
+            for token in ("DataBindingBuilder.string", "PIONEER PATTERN • SIGNAL PROCESSOR MODEL", "Cycle edge mode ▶"):
+                if token not in ld_ui:
+                    errors.append(f"SignalProcessorScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
