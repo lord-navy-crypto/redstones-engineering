@@ -116,7 +116,7 @@ require(
     "MagneticGradientMeterBlock.gradientX",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "PROPORTIONAL VALVE",
     "RELIEF ARMED",
     "PNEUMATIC ACTUATOR",
