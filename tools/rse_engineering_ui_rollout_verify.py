@@ -106,20 +106,6 @@ required = {
         "|e_T| = |T_meas - T_upstream|",
         "f_nom = 20 / T  Hz",
     ),
-    "MediaConversionScreen.java": (
-        "FORMULA-FIRST MEDIA BOUNDARY",
-        "conversionEquation()",
-        "round(100 · x_R / 15)",
-        "round(15 · x_L / 100)",
-        'variableRole(g, "EVIDENCE", "quality"',
-    ),
-    "RangeSensorScreen.java": (
-        "FORMULA-FIRST SENSOR RESPONSE",
-        "responseEquation()",
-        "d ≤ 0",
-        "max(1, floor(R/2))",
-        'variableRole(g, "EVIDENCE", "scan"',
-    ),
 }
 
 ld_conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
@@ -163,6 +149,68 @@ oscilloscope_host = read("src/main/java/dev/redstoneengineering/client/ui/Oscill
 for token in ("extends LdlibEngineeringHostScreen<OscilloscopeMenu>",):
     if token not in oscilloscope_host:
         errors.append(f"Oscilloscope LDLib2 host missing {token!r}")
+
+range_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
+for token in (
+    "ModularUI",
+    "FORMULA-FIRST SENSOR RESPONSE",
+    "DataBindingBuilder.string",
+    "{4,8,15}",
+    "Cycle detect ▶",
+    "Cycle response ▶",
+    "A complete CLEAR scan with d=0 is valid evidence",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in range_ld:
+        errors.append(f"LDLib2 Range Sensor rollout missing {token!r}")
+range_host = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
+if "extends LdlibEngineeringHostScreen<RangeSensorMenu>" not in range_host:
+    errors.append("Range Sensor LDLib2 host missing")
+range_menu = read("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java")
+for token in ("RangeSensorLdUi.create(this, inventory.player)", "setRangeFromUi", "cycleDetectForward", "cycleResponseForward"):
+    if token not in range_menu:
+        errors.append(f"Range Sensor LDLib2 server-intent facade missing {token!r}")
+
+media_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
+for token in (
+    "ModularUI",
+    "FORMULA-FIRST MEDIA BOUNDARY",
+    "y_L = round(100 · x_R / 15)",
+    "y_R = round(15 · x_L / 100)",
+    "Quantization loss",
+    "Cycle RX ▶",
+    "Cycle TX ▶",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in media_ld:
+        errors.append(f"LDLib2 Media Conversion rollout missing {token!r}")
+media_host = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
+if "extends LdlibEngineeringHostScreen<MediaConversionMenu>" not in media_host:
+    errors.append("Media Conversion LDLib2 host missing")
+media_menu = read("src/main/java/dev/redstoneengineering/ui/menu/MediaConversionMenu.java")
+for token in ("MediaConversionLdUi.create(this, inventory.player)", "cycleRxForward", "cycleTxForward"):
+    if token not in media_menu:
+        errors.append(f"Media Conversion LDLib2 server-intent facade missing {token!r}")
+
+processor_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
+for token in (
+    "ModularUI",
+    "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
+    "DataBindingBuilder.string",
+    "r ∈ 1..4",
+    "W ∈ 1..8 ticks",
+    "Cycle edge mode ▶",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in processor_ld:
+        errors.append(f"LDLib2 Signal Processor rollout missing {token!r}")
+processor_host = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
+if "extends LdlibEngineeringHostScreen<SignalProcessorMenu>" not in processor_host:
+    errors.append("Signal Processor LDLib2 host missing")
+processor_menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java")
+for token in ("SignalProcessorLdUi.create(this, inventory.player)", "setParameterFromUi", "cycleParameterForward"):
+    if token not in processor_menu:
+        errors.append(f"Signal Processor LDLib2 server-intent facade missing {token!r}")
 
 universal_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
 for token in (
@@ -271,5 +319,5 @@ print(" responsive 3x2 navigation rail + header/content separation: PASS")
 print(" one-button cyclic direction routing: PASS")
 print(" closed-form-only formula policy / no fabricated equations: PASS")
 print(" shared formula / variable / evidence primitives: PASS")
-print(" conditioner / quartz / conversion / range-sensor rollout: PASS")
+print(" conditioner / quartz / conversion / range-sensor / signal-processor rollout: PASS")
 print(" client/no-second-physics-solver boundary: PASS")
