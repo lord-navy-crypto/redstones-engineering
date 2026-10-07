@@ -305,6 +305,17 @@ require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.jav
         "applyVisibleFormulaParameter", "cycleModeForward",
         "cycleInputForward", "cycleOutputForward")
 
+require("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
+        "AbstractContainerScreen<OscilloscopeMenu>", "IModularUIHolderMenu",
+        "LDLib2 renders the complete instrument workspace")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
+        "ModularUI", "Cycle Δt ▶", "SAMPLING EXPERIMENT",
+        "setTriggerLevelFromUi", "setCursorAFromUi", "setCursorBFromUi")
+require("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
+        "OscilloscopeLdUi.create(this, inventory.player)",
+        "setSamplePeriodFromUi", "setTriggerLevelFromUi",
+        "setCursorAFromUi", "setCursorBFromUi")
+
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
         "fitForWidth(label, 72)", "fitForWidth(value, 72)",
