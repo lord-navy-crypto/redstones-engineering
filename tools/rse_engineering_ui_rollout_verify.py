@@ -98,15 +98,7 @@ for forbidden in (
     if forbidden in base:
         errors.append(f"shared engineering workspace retained legacy fixed geometry {forbidden!r}")
 
-required = {
-    "QuartzTimingScreen.java": (
-        "FORMULA-FIRST TIMING MODEL",
-        "timingEquation()",
-        "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
-        "|e_T| = |T_meas - T_upstream|",
-        "f_nom = 20 / T  Hz",
-    ),
-}
+required = {}
 
 ld_conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
 for token in (
@@ -211,6 +203,33 @@ processor_menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalProce
 for token in ("SignalProcessorLdUi.create(this, inventory.player)", "setParameterFromUi", "cycleParameterForward"):
     if token not in processor_menu:
         errors.append(f"Signal Processor LDLib2 server-intent facade missing {token!r}")
+
+quartz_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java")
+for token in (
+    "FORMULA-FIRST TIMING MODEL",
+    "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
+    "|e_T| = |T_meas - T_upstream|",
+    "f_nom = 20 / T Hz",
+    "SATURATED @4096",
+    "DataBindingBuilder.string",
+):
+    if token not in quartz_ld:
+        errors.append(f"LDLib2 Quartz rollout missing {token!r}")
+
+radio_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
+for token in ("PIONEER PATTERN • RADIO LINK BUDGET", "M_decode = Q_link - Q_min", "availability = 100 · validSamples / samples", "DataBindingBuilder.string"):
+    if token not in radio_ld:
+        errors.append(f"LDLib2 Radio rollout missing {token!r}")
+
+copper_meter_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
+for token in ("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL", "I = V / R_eq ; P = V · I", "observer-only", "COMMISSIONING"):
+    if token not in copper_meter_ld:
+        errors.append(f"LDLib2 Copper meter rollout missing {token!r}")
+
+magnetic_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java")
+for token in ("PIONEER PATTERN • MAGNETIC MODEL", "V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)", "Σ S_i / max(1,r_i²)", "DataBindingBuilder.string"):
+    if token not in magnetic_ld:
+        errors.append(f"LDLib2 Magnetic rollout missing {token!r}")
 
 universal_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
 for token in (
