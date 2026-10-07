@@ -174,6 +174,9 @@ ldlib_contracts = {
     "SignalProcessorScreen": (
         "extends LdlibEngineeringHostScreen<SignalProcessorMenu>",
     ),
+    "LogicAnalyzerScreen": (
+        "extends LdlibEngineeringHostScreen<LogicAnalyzerMenu>",
+    ),
 }
 
 engineering_families = []
@@ -204,6 +207,7 @@ for menu_name, screen_name in block_facing:
             "RangeSensorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java",
             "MediaConversionScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java",
             "SignalProcessorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java",
+            "LogicAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -216,6 +220,17 @@ for menu_name, screen_name in block_facing:
             for token in ("Cycle Δt ▶", "TRIGGER", "SAMPLING EXPERIMENT", "waveform(menu, 0)"):
                 if token not in ld_ui:
                     errors.append(f"OscilloscopeScreen LDLib2 UI missing {token!r}")
+        if screen_name == "LogicAnalyzerScreen":
+            for token in (
+                "PIONEER PATTERN • DIGITAL TIMING MODEL",
+                "LogicAnalyzerPlotElement",
+                "Trigger CH ▶",
+                "Trigger edge ▶",
+                "Bus interference",
+                "shield exposed instrument segments",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"LogicAnalyzerScreen LDLib2 UI missing {token!r}")
         if screen_name == "UniversalFieldDeviceScreen":
             for token in (
                 "DECLARED ENGINEERING PORTS",
