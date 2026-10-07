@@ -219,26 +219,32 @@ public final class EnhancedFieldDeviceLdUi {
                     "HOP: A_next=max(0,A-1); RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)";
             case FieldDeviceMenu.KIND_HONEY_DAMPER ->
                     "HOP: A_next=max(0,A-4), node Q=80; RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)";
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER ->
+                    "OUT: y_R=valid?min(15,A):0; RETAIN @4t: A←max(0,A-2), Q←max(0,Q-5)";
             case FieldDeviceMenu.KIND_HYDRO_TUBE,
-                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
-                 FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
-                    "Lm={water:1,milk-model:2,lava:3} • bounded medium-dependent amplitude loss";
-            case FieldDeviceMenu.KIND_PHONON_CONDUIT,
-                 FieldDeviceMenu.KIND_THERMAL_ENCODER,
-                 FieldDeviceMenu.KIND_THERMAL_RECEIVER ->
-                    "PHONON_THERMAL is a finite-bandwidth event-packet abstraction";
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER ->
+                    "Lm={water:1,milk-model:2,lava:3} • RSE DISCRETE MODEL: this is a bounded game-domain pressure-packet network";
+            case FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
+                    "OUT: y_R=valid?min(15,A):0; RETAIN @4t: A←max(0,A-1), Q←max(0,Q-5)";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT ->
+                    "HOP: A_next=max(0,A-1); RETAIN @8t: A←max(0,A-2), Q←max(0,Q-10) • PHONON_THERMAL is a finite-bandwidth event-packet abstraction";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER ->
+                    "PHONON_THERMAL is a finite-bandwidth event-packet abstraction • not a Fourier heat-transfer or continuously driven temperature-field solver";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER ->
+                    "OUT: y_R=valid?min(15,A):0; RETAIN @8t: A←max(0,A-1), Q←max(0,Q-5)";
             case FieldDeviceMenu.KIND_SCULK_INTERFACE ->
-                    "SCULK / CALIBRATED-SENSOR EVENT CODE";
+                    "Event counters are retained server evidence • SCULK / CALIBRATED-SENSOR EVENT CODE";
             default -> "MECHANICAL_VIBRATION packet amplitude / quality / lifetime are server-authoritative";
         };
     }
 
     private static String discreteTransportTopology(int kind) {
         return switch (kind) {
+            case FieldDeviceMenu.KIND_HONEY_DAMPER ->
+                    "MECHANICAL_VIBRATION • SIX-WAY • HIGH-DAMPING PACKET";
             case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
                  FieldDeviceMenu.KIND_SLIME_VIBRATION,
-                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
-                 FieldDeviceMenu.KIND_HONEY_DAMPER ->
+                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER ->
                     "MECHANICAL_VIBRATION • SIX-WAY • LOW-LOSS PACKET";
             case FieldDeviceMenu.KIND_HYDRO_TUBE,
                  FieldDeviceMenu.KIND_HYDRO_EXCITER,
