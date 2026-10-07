@@ -194,6 +194,9 @@ ldlib_contracts = {
     "WorkcellControllerScreen": (
         "extends LdlibEngineeringHostScreen<WorkcellControllerMenu>",
     ),
+    "OperationsMonitorScreen": (
+        "extends LdlibEngineeringHostScreen<OperationsMonitorMenu>",
+    ),
 }
 
 engineering_families = []
@@ -239,6 +242,7 @@ for menu_name, screen_name in block_facing:
             "LapisLowPassScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java",
             "IndustrialBufferScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java",
             "WorkcellControllerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java",
+            "OperationsMonitorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -407,6 +411,19 @@ for menu_name, screen_name in block_facing:
             ):
                 if token not in ld_ui:
                     errors.append(f"WorkcellControllerScreen LDLib2 UI missing {token!r}")
+        if screen_name == "OperationsMonitorScreen":
+            for token in (
+                "PIONEER PATTERN • PLANT STATE / KPI AUTHORITY",
+                "WORLD PLANT STATE",
+                "PLANT EVENT TIMELINE",
+                "FIRST OUT",
+                "First-out source",
+                "WITHHELD • EVIDENCE MISSING",
+                "OBSERVER AUTHORITY BOUNDARY",
+                "RseLdUiComponents.authorityFooter()",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"OperationsMonitorScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
