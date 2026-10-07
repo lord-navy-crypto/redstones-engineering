@@ -217,6 +217,12 @@ require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.
         "BUTTON_PARAMETER_DIRECT_BASE = 13000", "percent == 20 ? 0",
         "percent == 40 ? 1", "percent == 60 ? 2")
 
+require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+        "P_out = round(100 · u_R / 15)",
+        "y_R = min(15, floor(15 · P_in / 100))",
+        "OPEN ⇒ BACK ↔ FRONT ; CLOSED ⇒ isolated",
+        "permitted flow = BACK → FRONT only ; reverse blocked")
+
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
         "EditBox", "submitPrimary", "submitSecondary",
         "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE")
