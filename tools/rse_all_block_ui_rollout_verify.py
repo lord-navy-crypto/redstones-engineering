@@ -207,6 +207,9 @@ ldlib_contracts = {
     "AmethystSystemScreen": (
         "extends LdlibEngineeringHostScreen<AmethystSystemMenu>",
     ),
+    "PidControllerScreen": (
+        "extends LdlibEngineeringHostScreen<PidControllerMenu>",
+    ),
 }
 
 engineering_families = []
@@ -248,6 +251,7 @@ for menu_name, screen_name in block_facing:
             "MagneticSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java",
             "PneumaticSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
             "AmethystSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java",
+            "PidControllerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -369,6 +373,18 @@ for menu_name, screen_name in block_facing:
             for token in ("PIONEER PATTERN • RESONANCE MODEL", "Frequency values are deliberate model indices, not fabricated Hz", "Pulse", "Cycle RX ▶", "BW = 5 - Q"):
                 if token not in ld_ui:
                     errors.append(f"AmethystSystemScreen LDLib2 UI missing {token!r}")
+        if screen_name == "PidControllerScreen":
+            for token in (
+                "PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL",
+                "e[n]=SP[n]-PV[n]",
+                "anti-windup",
+                "PidTrendPlotElement",
+                "Cycle tuning preset ▶",
+                "Capture acceptance",
+                "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"PidControllerScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
