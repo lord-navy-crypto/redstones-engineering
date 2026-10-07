@@ -7,6 +7,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.PneumaticSystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -81,6 +83,9 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.PNEUMATIC_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(PneumaticSystemLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -274,6 +279,16 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         if (changed && level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
         return changed;
     }
+
+    /** LDLib2 intent facade; all mutations reuse existing pneumatic menu validation. */
+    public boolean setSetpointFromUi(int pressure) {
+        if (pressure < 25 || pressure > 100 || pressure % 25 != 0) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_SETPOINT_DIRECT_BASE + pressure);
+    }
+    public boolean toggleValve() { return clickMenuButton(playerInventory.player, BUTTON_TOGGLE); }
+    public boolean cycleWholeRouteForward() { return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT); }
+    public boolean cycleInputForward() { return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT); }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
 
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }
