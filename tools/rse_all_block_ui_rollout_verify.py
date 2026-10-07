@@ -189,6 +189,18 @@ ldlib_contracts = {
     "OpticalSystemScreen": (
         "extends LdlibEngineeringHostScreen<OpticalSystemMenu>",
     ),
+    "QuartzTimingScreen": (
+        "extends LdlibEngineeringHostScreen<QuartzTimingMenu>",
+    ),
+    "RadioLinkScreen": (
+        "extends LdlibEngineeringHostScreen<RadioLinkMenu>",
+    ),
+    "CopperCircuitMeterScreen": (
+        "extends LdlibEngineeringHostScreen<CopperCircuitMeterMenu>",
+    ),
+    "MagneticSystemScreen": (
+        "extends LdlibEngineeringHostScreen<MagneticSystemMenu>",
+    ),
 }
 
 engineering_families = []
@@ -224,6 +236,10 @@ for menu_name, screen_name in block_facing:
             "ReliabilitySystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
             "DigitalCommunicationScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java",
             "OpticalSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
+            "QuartzTimingScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java",
+            "RadioLinkScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java",
+            "CopperCircuitMeterScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java",
+            "MagneticSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -321,6 +337,22 @@ for menu_name, screen_name in block_facing:
             for token in ("DataBindingBuilder.string", "PIONEER PATTERN • SIGNAL PROCESSOR MODEL", "Cycle edge mode ▶"):
                 if token not in ld_ui:
                     errors.append(f"SignalProcessorScreen LDLib2 UI missing {token!r}")
+        if screen_name == "QuartzTimingScreen":
+            for token in ("DataBindingBuilder.string", "DIRECT T", "DIRECT N", "Reset measurement", "Cycle RX ▶"):
+                if token not in ld_ui:
+                    errors.append(f"QuartzTimingScreen LDLib2 UI missing {token!r}")
+        if screen_name == "RadioLinkScreen":
+            for token in ("DataBindingBuilder.string", "ADJUSTABLE", "availability", "decode", "Cycle output direction ▶"):
+                if token not in ld_ui:
+                    errors.append(f"RadioLinkScreen LDLib2 UI missing {token!r}")
+        if screen_name == "CopperCircuitMeterScreen":
+            for token in ("I = V / R_eq", "COMMISSIONING", "OBSERVER ONLY", "Cycle measurement face ▶"):
+                if token not in ld_ui:
+                    errors.append(f"CopperCircuitMeterScreen LDLib2 UI missing {token!r}")
+        if screen_name == "MagneticSystemScreen":
+            for token in ("DataBindingBuilder.string", "V_ind = clamp", "bounded inverse-square-style accumulation", "Cycle N marker ▶"):
+                if token not in ld_ui:
+                    errors.append(f"MagneticSystemScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
