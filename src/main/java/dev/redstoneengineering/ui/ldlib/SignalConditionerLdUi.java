@@ -29,47 +29,21 @@ public final class SignalConditionerLdUi {
                 .layout(l -> l.width(360).paddingAll(8).gapAll(6));
 
         root.addChildren(
-                title("SERIES SIGNAL CONDITIONER"),
-                formula(menu),
-                liveRow("INPUT", () -> menu.input() + " / 15"),
-                liveRow("MODE", () -> modeName(menu.mode())),
+                RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
+                RseLdUiComponents.formulaCard(() -> governingEquation(menu.mode())),
+                RseLdUiComponents.liveRow("MEASURED", "x", () -> menu.input() + " / 15"),
+                RseLdUiComponents.liveRow("STATE", "mode", () -> modeName(menu.mode())),
                 parameterControl(menu),
-                liveRow("OUTPUT", () -> menu.output() + " / 15"),
-                liveRow("BOUNDARY", () -> menu.limiting() ? "SATURATED" : "IN RANGE"),
+                RseLdUiComponents.liveRow("DERIVED", "y", () -> menu.output() + " / 15"),
+                RseLdUiComponents.liveRow("EVIDENCE", "boundary", () -> menu.limiting() ? "SATURATED" : "IN RANGE"),
                 routeRow(menu),
-                new Label().bind(DataBindingBuilder.componentS2C(() ->
-                        Component.literal("SERVER AUTHORITY • formula controls submit validated intent only")
-                ).build())
+                RseLdUiComponents.authorityFooter()
         );
 
         return ModularUI.of(
                 UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
                 player
         );
-    }
-
-    private static Label title(String text) {
-        return new Label().setText(text);
-    }
-
-    private static UIElement formula(SignalConditionerMenu menu) {
-        return new UIElement()
-                .addClass("panel_bg")
-                .layout(l -> l.paddingAll(5))
-                .addChild(new Label().bind(DataBindingBuilder.componentS2C(() ->
-                        Component.literal(governingEquation(menu.mode()))
-                ).build()));
-    }
-
-    private static UIElement liveRow(String name, java.util.function.Supplier<String> value) {
-        return new UIElement()
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6))
-                .addChildren(
-                        new Label().setText(name).layout(l -> l.width(92)),
-                        new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                Component.literal(value.get())
-                        ).build()).layout(l -> l.flex(1))
-                );
     }
 
     private static UIElement parameterControl(SignalConditionerMenu menu) {
