@@ -41,6 +41,7 @@ public final class UniversalFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("I/O", "route", menu::portRouteLabel),
                 RseLdUiComponents.formulaCard(() -> universalContract(menu.configKind())),
                 portsPanel(menu),
+                mechanismPanel(menu),
                 parameterPanel(menu),
                 systemStatePanel(menu),
                 pioneerPanel(menu),
@@ -61,11 +62,46 @@ public final class UniversalFieldDeviceLdUi {
             panel.addChild(RseLdUiComponents.liveRow("PORT", side.getName().toUpperCase(Locale.ROOT),
                     () -> portText(menu, side)));
         }
-        panel.addChild(new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                RseLdUiComponents.serverAction("Cycle direction ▶", menu::cycleWholeRouteForward),
-                RseLdUiComponents.serverAction("Cycle RX ▶", menu::cycleInputForward),
-                RseLdUiComponents.serverAction("Cycle TX ▶", menu::cycleOutputForward)
-        ));
+        var routeControls = new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6));
+        boolean hasRouteControl = false;
+        if (menu.routeKind() != UniversalFieldDeviceMenu.ROUTE_NONE) {
+            routeControls.addChild(RseLdUiComponents.serverAction("Cycle direction ▶", menu::cycleWholeRouteForward));
+            hasRouteControl = true;
+        }
+        if (menu.hasInputEndpoint()) {
+            routeControls.addChild(RseLdUiComponents.serverAction("Cycle RX ▶", menu::cycleInputForward));
+            hasRouteControl = true;
+        }
+        if (menu.hasOutputEndpoint()) {
+            routeControls.addChild(RseLdUiComponents.serverAction("Cycle TX ▶", menu::cycleOutputForward));
+            hasRouteControl = true;
+        }
+        if (hasRouteControl) {
+            panel.addChild(routeControls);
+        } else {
+            panel.addChild(new Label().setText(
+                    "READ-ONLY TOPOLOGY • no server-supported route mutation for this device"));
+        }
+        return panel;
+    }
+
+    private static UIElement mechanismPanel(UniversalFieldDeviceMenu menu) {
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.paddingAll(5).gapAll(3));
+        panel.addChildren(
+                new Label().setText("MECHANISM FLOW • SERVER-AUTHORITATIVE"),
+                RseLdUiComponents.liveRow("RX / INPUT", "endpoint",
+                        () -> menu.hasInputEndpoint() ? "DECLARED • synchronized port evidence" : "NONE"),
+                RseLdUiComponents.liveRow("MODEL", "contract",
+                        () -> universalContract(menu.configKind())),
+                RseLdUiComponents.liveRow("STATE", "snapshot", menu::operationalHealthLabel),
+                RseLdUiComponents.liveRow("TX / OUTPUT", "endpoint",
+                        () -> menu.hasOutputEndpoint() ? "DECLARED • synchronized port evidence" : "NONE"),
+                RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
+                new Label().setText(
+                        "Client presents synchronized evidence and validated operator intent; "
+                                + "routing, physics, process state and mutations remain server-owned.")
+        );
         return panel;
     }
 
@@ -216,10 +252,18 @@ public final class UniversalFieldDeviceLdUi {
         panel.addChildren(
                 new Label().setText("SYSTEM / OPERATOR STATE"),
                 RseLdUiComponents.liveRow("STATE", "device", () -> systemHeadline(menu)),
-                RseLdUiComponents.liveRow("STATE", "detail", () -> systemDetail(menu)),
-                RseLdUiComponents.liveRow("ACTION", "operator", () -> actionLabel(menu)),
-                RseLdUiComponents.serverAction("Execute explicit action", menu::runConfigAction)
+                RseLdUiComponents.liveRow("STATE", "detail", () -> systemDetail(menu))
         );
+        if (hasExplicitAction(menu.configKind())) {
+            panel.addChildren(
+                    RseLdUiComponents.liveRow("ACTION", "operator", () -> actionLabel(menu)),
+                    RseLdUiComponents.serverAction("Execute explicit action", menu::runConfigAction)
+            );
+        } else {
+            panel.addChild(RseLdUiComponents.fixedRow(
+                    "operator action", () -> "NONE",
+                    "no fake action is exposed when the authoritative server model has no explicit action"));
+        }
         return panel;
     }
 
