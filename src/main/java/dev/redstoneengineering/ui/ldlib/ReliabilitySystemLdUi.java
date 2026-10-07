@@ -60,6 +60,7 @@ public final class ReliabilitySystemLdUi {
                         field,
                         RseLdUiComponents.serverAction("Maintenance action", m::runMaintenance)
                 ),
+                RseLdUiComponents.liveRow("ACTION","maintenance",()->maintenanceName(m.kind())),
                 new Label().setText("Maintenance is an explicit server action, not a hidden state edit.")
         );
         return p;
@@ -170,6 +171,16 @@ public final class ReliabilitySystemLdUi {
             case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> m.quality().name();
             case ReliabilitySystemMenu.KIND_VOTER -> m.extraC() == 1 ? "DEGRADED" : "NOMINAL";
             default -> m.extraA() == 1 ? "LATCHED" : "CLEAR";
+        };
+    }
+
+    private static String maintenanceName(int kind) {
+        return switch (kind) {
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> "Reset watchdog diagnostics";
+            case ReliabilitySystemMenu.KIND_SERVO -> "Home / reset trajectory";
+            case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> "Reset position metrology";
+            case ReliabilitySystemMenu.KIND_VOTER -> "Reset voter diagnostics";
+            default -> "Manual reset latch";
         };
     }
 
