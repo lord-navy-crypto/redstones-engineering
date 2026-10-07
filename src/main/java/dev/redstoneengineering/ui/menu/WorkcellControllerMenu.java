@@ -4,6 +4,8 @@ import dev.redstoneengineering.EngineeringSystemsModule;
 import dev.redstoneengineering.block.WorkcellControllerBlock;
 import dev.redstoneengineering.operations.world.OperationWorkcellStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.WorkcellControllerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
@@ -41,6 +43,9 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
         setup.set(0);
         maintenance.set(0);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(WorkcellControllerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
