@@ -444,7 +444,7 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR ->
                     "MODEL: every 10 ticks each adjacent mass T>20 ⇒ T←max(20,T-k_cool)";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER ->
-                    "MODEL: T=mean(adjacent thermal masses); ΔT_20t=T[n]-T[n-1]; relative heat=C_sum·ΔT";
+                    "MODEL: Δt_history = 20 ticks • read-only retained interval; T=mean(adjacent thermal masses); ΔT_20t=T[n]-T[n-1]; relative heat=C_sum·ΔT";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT ->
                     "MODEL (fictional): transient Soul Flux J decays by 1 each 20 ticks; zero/absent conduit flux is NO_SIGNAL";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR ->
