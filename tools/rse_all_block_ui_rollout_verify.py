@@ -116,6 +116,11 @@ for token in (
     if token not in base:
         errors.append(f"shared EngineeringScreen missing all-block rollout token {token!r}")
 
+ldlib_host = read("src/main/java/dev/redstoneengineering/client/ui/ldlib/LdlibEngineeringHostScreen.java")
+for token in ("IModularUIHolderMenu", "AbstractContainerScreen<M>", "getModularUI()", "LDLib2 owns the engineering HMI canvas"):
+    if token not in ldlib_host:
+        errors.append(f"shared LDLib2 host missing {token!r}")
+
 standalone_contracts = {
     "LapisLowPassScreen": (
         "mouseScrolled",
@@ -147,14 +152,10 @@ standalone_contracts = {
 
 ldlib_contracts = {
     "SignalConditionerScreen": (
-        "AbstractContainerScreen<SignalConditionerMenu>",
-        "IModularUIHolderMenu",
-        "LDLib2 renders the complete engineering HMI",
+        "extends LdlibEngineeringHostScreen<SignalConditionerMenu>",
     ),
     "OscilloscopeScreen": (
-        "AbstractContainerScreen<OscilloscopeMenu>",
-        "IModularUIHolderMenu",
-        "LDLib2 renders the complete instrument workspace",
+        "extends LdlibEngineeringHostScreen<OscilloscopeMenu>",
     ),
 }
 
