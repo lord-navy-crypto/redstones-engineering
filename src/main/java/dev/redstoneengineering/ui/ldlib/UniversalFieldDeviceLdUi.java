@@ -123,7 +123,7 @@ public final class UniversalFieldDeviceLdUi {
 
         panel.addChild(new Label().setText(
                 "Universal HMI rule: numeric values use exact entry; discrete modes use one-button cycle; "
-                        + "actions/toggles appear only when the server model actually supports them."));
+                        + "actions/toggles appear only when the server model actually supports them; no hidden universal physics."));
         return panel;
     }
 
