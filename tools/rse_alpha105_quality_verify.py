@@ -61,7 +61,7 @@ require(
     "meanStep100",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
     "stabilityClass",
     "sampleAgeTicks",
     "DISPLAY ONLY",
