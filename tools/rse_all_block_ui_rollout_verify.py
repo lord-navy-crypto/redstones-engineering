@@ -200,6 +200,9 @@ ldlib_contracts = {
     "EnhancedFieldDeviceScreen": (
         "extends LdlibEngineeringHostScreen<FieldDeviceMenu>",
     ),
+    "FieldDeviceScreen": (
+        "extends LdlibEngineeringHostScreen<FieldDeviceMenu>",
+    ),
 }
 
 engineering_families = []
@@ -247,6 +250,7 @@ for menu_name, screen_name in block_facing:
             "WorkcellControllerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java",
             "OperationsMonitorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java",
             "EnhancedFieldDeviceScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
+            "FieldDeviceScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -428,7 +432,7 @@ for menu_name, screen_name in block_facing:
             ):
                 if token not in ld_ui:
                     errors.append(f"OperationsMonitorScreen LDLib2 UI missing {token!r}")
-        if screen_name == "EnhancedFieldDeviceScreen":
+        if screen_name in ("EnhancedFieldDeviceScreen", "FieldDeviceScreen"):
             for token in (
                 "PIONEER PATTERN • SHARED FIELD DEVICE",
                 "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
