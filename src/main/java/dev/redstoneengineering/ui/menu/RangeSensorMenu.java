@@ -2,6 +2,8 @@ package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.RangeSensorBlock;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.RangeSensorLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -50,6 +52,9 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.RANGE_SENSOR.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(RangeSensorLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -137,6 +142,23 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         refreshAuthoritativeSnapshot();
         broadcastChanges();
         return true;
+    }
+
+    public boolean cycleDetectForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_MODE_NEXT);
+    }
+
+    public boolean cycleResponseForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_RESPONSE_NEXT);
+    }
+
+    public boolean cycleDirectionForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean setRangeFromUi(int range) {
+        if (range != 4 && range != 8 && range != 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_RANGE_DIRECT_BASE + range);
     }
 
     public int distance() { return distance.get(); }
