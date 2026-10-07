@@ -98,7 +98,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "0..100 lossless line • single-source topology",
         "clock period evidence • single-source topology",
         "frequency 1..15 + amplitude packet • conflict-aware",
-        "service-open = hard isolation",
+        "SERVICE_OPEN = hard isolation",
         "y_byte = x_R ∈ [0,15]  (no rescale)",
         "y_R = valid ? min(15, x_byte) : 0",
         "serial_byte = bus_byte ; frame = 8 t/word",
