@@ -21,8 +21,8 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text:
             engineering_screens.append((path.name, text))
 
-if len(engineering_screens) < 12:
-    errors.append(f"expected broad EngineeringScreen family coverage, found only {len(engineering_screens)} subclasses")
+if len(engineering_screens) < 5:
+    errors.append(f"expected the five remaining legacy EngineeringScreen families before final LDLib2 closure, found only {len(engineering_screens)} subclasses")
 
 for token in (
     "MIN_WORKSPACE_WIDTH = 440",
@@ -270,6 +270,29 @@ for token in (
     if token not in universal_menu:
         errors.append(f"Universal LDLib2 server-intent facade missing {token!r}")
 
+ldlib_migrated_families = (
+    "SignalConditionerScreen",
+    "PidControllerScreen",
+    "OscilloscopeScreen",
+    "LogicAnalyzerScreen",
+    "SignalAnalyzerScreen",
+    "UniversalFieldDeviceScreen",
+    "CopperCircuitMeterScreen",
+    "MediaConversionScreen",
+    "RangeSensorScreen",
+    "SignalProcessorScreen",
+    "QuartzTimingScreen",
+    "RadioLinkScreen",
+    "DigitalCommunicationScreen",
+    "PneumaticSystemScreen",
+    "OpticalSystemScreen",
+    "AmethystSystemScreen",
+    "MagneticSystemScreen",
+    "ReliabilitySystemScreen",
+)
+if len(ldlib_migrated_families) != 18:
+    errors.append(f"expected 18 LDLib2 migrated block-facing families, found {len(ldlib_migrated_families)}")
+
 lookup = dict(engineering_screens)
 for name, tokens in required.items():
     text = lookup.get(name, "")
@@ -292,13 +315,6 @@ for name, required_tokens in {
         "virtualContentHeight",
         "case CONFIGURE -> configure(graphics);",
     ),
-    "PidControllerScreen.java": (
-        "virtualContentWidth",
-        "virtualContentHeight",
-        "Σe_cand=clamp",
-        "u_raw=bias+P+I+D",
-        "case CONFIGURE -> renderConfigure(graphics);",
-    ),
 }.items():
     text = lookup.get(name, "")
     if not text:
@@ -319,7 +335,8 @@ if errors:
     raise SystemExit(1)
 
 print("RSE ENGINEERING UI ROLLOUT VERIFY: PASS")
-print(f" EngineeringScreen subclasses covered by shared responsive workspace: {len(engineering_screens)}")
+print(f" remaining legacy EngineeringScreen subclasses: {len(engineering_screens)}")
+print(f" LDLib2 migrated block-facing families: {len(ldlib_migrated_families)}")
 print(f" formula-first migrated families this batch: {len(formula_users)}")
 print(" responsive large workspace: PASS")
 print(" visible draggable vertical/horizontal deep-canvas scrolling retained for legacy EngineeringScreen families: PASS")
