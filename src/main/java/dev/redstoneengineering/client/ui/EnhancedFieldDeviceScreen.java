@@ -334,6 +334,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         formulaCard(g, pioneerContract(), 105);
         variableRole(g, "ROLE", "device", deviceRole(), family(), 134);
         boolean fixedConverter = isFixedProtocolConverter();
+        boolean fixedPneumatic = isPneumaticFixedModelDevice();
         boolean fixedObserver = isObserver() && !observerFixedContract().isBlank();
         if (adjustable()) {
             variableRole(g, "ADJUSTABLE", formulaSymbol(), controlValueText(), "server bounded", 152);
@@ -682,7 +683,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return "STATE: safety/process state is server-authoritative; invalid evidence fails closed";
         }
         if (family().equals("PNEUMATIC")) {
-            return "PROCESS: command / inlet → server pneumatic solve → realized state";
+            return "PNEUMATIC: " + pneumaticEquation();
         }
         if (family().equals("MAGNETIC")) {
             return "FIELD: source / configuration → server field evidence; client does not solve B";
@@ -710,6 +711,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return isFixedProtocolConverter()
                     ? "The conversion law above is fixed server behavior. The HMI exposes synchronized input/output evidence but does not invent a configurable scaling coefficient."
                     : "The conversion boundary is explicit: input and output domains stay distinct and the client only presents the server-authoritative result.";
+        }
+        if (isPneumaticFixedModelDevice()) {
+            return "This pneumatic law is implemented server behavior. Pressure, command, topology and actuator state remain synchronized evidence; no client-side fluid solver or fake tuning coefficient is introduced.";
         }
         return "Buttons express operator intent to the server. Runtime state, topology, quality and physical behavior remain authoritative outside the client screen.";
     }
@@ -1334,6 +1338,39 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "two radius-6 apertures per axis";
             case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> "observer-only intensity/channel sample";
             case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "radius 6 • 10t scan • bands 1..15";
+            default -> "";
+        };
+    }
+
+    private boolean isPneumaticFixedModelDevice() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR,
+                 FieldDeviceMenu.KIND_AIR_RESERVOIR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> true;
+            default -> false;
+        };
+    }
+
+    private String pneumaticEquation() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR -> "P_cmd = round(100 · u_R / 15)";
+            case FieldDeviceMenu.KIND_AIR_RESERVOIR -> "P_store[n+1] = min(P_line, P_store[n] + 5) when charging";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE -> "flow permitted BACK → FRONT only";
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE -> "opening = valid(u_UP) ? u_UP : 0";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> "x_target = clamp(round(15 · P / 100), 0, 15)";
+            default -> "command / inlet → authoritative pneumatic solve → realized state";
+        };
+    }
+
+    private String pneumaticModelDetail() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR -> "Redstone 0..15 maps to pressure 0..100";
+            case FieldDeviceMenu.KIND_AIR_RESERVOIR -> "charge step +5 toward line pressure";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE -> "one-way BACK→FRONT; reverse path blocked";
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE -> "UP command 0..15 owns opening";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> "response Δt: P≥75→1t; ≥50→2t; ≥25→3t; else 4t";
             default -> "";
         };
     }
