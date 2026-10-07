@@ -96,7 +96,7 @@ require("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
 # adjacent-channel / collision model rather than inventing a client-side RF solver.
 radio_kernel_rel = "src/main/java/dev/redstoneengineering/physics/RadioKernel.java"
 radio_menu_rel = "src/main/java/dev/redstoneengineering/ui/menu/RadioLinkMenu.java"
-radio_screen_rel = "src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java"
+radio_screen_rel = "src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java"
 require(radio_kernel_rel,
         "public static final int RANGE = 32;", "public static final int MIN_DECODE_QUALITY = 20;",
         "int distanceBlocks,", "public int decodeMargin()", "return quality - MIN_DECODE_QUALITY;",
@@ -126,7 +126,7 @@ require(radio_screen_rel,
 radio_screen = read(radio_screen_rel)
 for forbidden in ("dev.redstoneengineering.physics", "RadioKernel.receivePacket", "RuntimeIntStore", "level.getBlockState(",
                   "level.hasChunkAt(", "Math.sqrt(", "distanceLoss", "obstacleLoss", "interferencePenalty", "deterministicFade"):
-    if forbidden in radio_screen: errors.append(f"RadioLinkScreen must remain observer-only; found {forbidden!r}")
+    if forbidden in radio_screen: errors.append(f"RadioLinkLdUi must remain observer-only; found {forbidden!r}")
 
 require("docs/COMMUNICATION_MEDIUM_IDENTITY.md", "Shared information envelope", "Medium identity rule",
         "Communication choice hierarchy", "How much information must move?", "No medium should be the universal upgrade of another",
