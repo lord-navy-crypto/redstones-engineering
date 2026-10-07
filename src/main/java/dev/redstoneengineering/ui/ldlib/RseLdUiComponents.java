@@ -14,7 +14,9 @@ public final class RseLdUiComponents {
     private RseLdUiComponents() {}
 
     public static Label title(String text) {
-        return new Label().setText(text);
+        var label = new Label();
+        label.setText(text);
+        return label;
     }
 
     public static UIElement formulaCard(Supplier<String> equation) {
@@ -57,6 +59,8 @@ public final class RseLdUiComponents {
     }
 
     public static Label authorityFooter() {
-        return new Label().setText("SERVER AUTHORITY • UI is presentation + validated operator intent");
+        var label = new Label();
+        label.setText("SERVER AUTHORITY • UI is presentation + validated operator intent");
+        return label;
     }
 }
