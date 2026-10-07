@@ -428,12 +428,18 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
 
     private String sourceMediumFixedProtocol() {
         return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REDSTONE_CABLE,
+                 FieldDeviceMenu.KIND_REDSTONE_JUNCTION -> "hop loss = 1; strongest-source resolution";
             case FieldDeviceMenu.KIND_INSTRUMENT_CABLE,
                  FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "4 measurement channels";
             case FieldDeviceMenu.KIND_DATA_BUS_8 -> "8-bit payload • 0..255";
             case FieldDeviceMenu.KIND_SERIAL_LINE -> "byte-frame transport • fixed link timing";
             case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> "1-bit balanced logic";
-            case FieldDeviceMenu.KIND_QUARTZ_LINE -> "period evidence from source clock";
+            case FieldDeviceMenu.KIND_LAPIS_LINE -> "0..100 lossless line • single-source topology";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> "clock period evidence • single-source topology";
+            case FieldDeviceMenu.KIND_AMETHYST_DUST -> "frequency 1..15 + amplitude packet • conflict-aware";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> "intensity/channel transport • service-open = hard isolation";
             default -> "";
         };
     }
