@@ -56,15 +56,18 @@ scope_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi
 if scope_ui and "new OscilloscopePlotElement(menu)" not in scope_ui:
     errors.append("Oscilloscope LDLib2 HMI does not embed the real plot element")
 
-logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java")
+logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerPlotElement.java")
 for token in (
     "EngineeringPlot.digitalTrace",
     "EngineeringPlot.verticalMarker",
-    "int lane = channel;",
-    "slot -> menu.displayState(lane, slot)",
+    "for(int ch=0;ch<4;ch++)",
+    "slot->menu.displayState(c,slot)",
 ):
     if logic and token not in logic:
-        errors.append(f"Logic Analyzer visualization missing {token!r}")
+        errors.append(f"Logic Analyzer LDLib2 visualization missing {token!r}")
+logic_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
+if logic_ui and "new LogicAnalyzerPlotElement(menu)" not in logic_ui:
+    errors.append("Logic Analyzer LDLib2 HMI does not embed the real digital plot element")
 
 signal = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
 for token in (
