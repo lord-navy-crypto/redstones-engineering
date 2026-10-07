@@ -19,6 +19,7 @@ Minecraft-native engineering systems laboratory while preserving the familiar
 Required runtime platform dependencies:
 - Jade ${jade_version} or newer compatible 15.x release
 - GeckoLib ${geckolib_version} or newer compatible 4.x release
+- LDLib2 ${ldlib2_version} or newer compatible 2.x release
 
 Minecraft ${minecraft_version}
 NeoForge ${neo_version} or newer compatible release
@@ -70,5 +71,14 @@ side="BOTH"
 modId="geckolib"
 type="required"
 versionRange="[${geckolib_version},5)"
+ordering="AFTER"
+side="BOTH"
+
+
+# Required modular engineering UI platform.
+[[dependencies.${mod_id}]]
+modId="ldlib2"
+type="required"
+versionRange="[${ldlib2_version},3)"
 ordering="AFTER"
 side="BOTH"
