@@ -31,11 +31,11 @@ ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScr
 workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
 universal = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
 enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
-processor = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
-range_sensor = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
+processor = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
+range_sensor = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
 conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
 quartz = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
-media_conversion = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
+media_conversion = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
 client_registration = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
@@ -278,7 +278,7 @@ wave5 = {
         "STATE: safety/process state is server-authoritative; invalid evidence fails closed",
         '"AUTHORITY", "policy"',
     )),
-    "SignalProcessorScreen.java": (processor, (
+    "SignalProcessorLdUi.java": (processor, (
         "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
         "processorEquation()",
         "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)",
@@ -329,7 +329,7 @@ for kind in (
         errors.append(f"EnhancedFieldDeviceScreen missing Wave-6 device kind {kind}")
 
 wave7 = {
-    "RangeSensorScreen.java": (range_sensor, (
+    "RangeSensorLdUi.java": (range_sensor, (
         "FORMULA-FIRST SENSOR RESPONSE",
         "y = (d ≤ 0) ? 0 : round(15 · (R - d + 1) / R)",
         '"EVIDENCE", "scan"',
@@ -349,7 +349,7 @@ wave7 = {
         "SATURATED @4096",
         "|e_T| = |T_meas - T_upstream|",
     )),
-    "MediaConversionScreen.java": (media_conversion, (
+    "MediaConversionLdUi.java": (media_conversion, (
         "FORMULA-FIRST MEDIA BOUNDARY",
         "y_L = round(100 · x_R / 15)",
         "y_R = round(15 · x_L / 100)",
