@@ -17,10 +17,10 @@ lowpass = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScre
 scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
 pid = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
 digital = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
-pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
+pneumatic = read("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java")
 optical = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
 magnetic = read("src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java")
-amethyst = read("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java")
+amethyst = read("src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java")
 reliability = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
 radio = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
 analyzer = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
@@ -143,12 +143,12 @@ wave2 = {
         "Q_bus = max(35, 100 - loadingPenalty - contentionPenalty)",
         '"MEASURED", "Q_link"',
     )),
-    "PneumaticSystemScreen.java": (pneumatic, (
+    "PneumaticSystemLdUi.java": (pneumatic, (
         "PIONEER PATTERN • PNEUMATIC MODEL",
-        "pneumaticEquation()",
         "ΔP_path = ΔP_line + ΔP_restriction",
         "H_charge = max(0, P_line - P_stored)",
         "ΔP_local = max(0, P_in - P_out)",
+        "SERVER PNEUMATIC NETWORK",
     )),
     "OpticalSystemLdUi.java": (optical, (
         "PIONEER PATTERN • OPTICAL MODEL",
@@ -174,12 +174,12 @@ for name, (text, tokens) in wave2.items():
 
 
 wave3 = {
-    "AmethystSystemScreen.java": (amethyst, (
+    "AmethystSystemLdUi.java": (amethyst, (
         "PIONEER PATTERN • RESONANCE MODEL",
-        "resonanceEquation()",
         "A_out = (f_in = f_target) ? max(0, A_in - 1) : 0",
         "BW = 5 - Q",
         "Frequency values are deliberate model indices, not fabricated Hz",
+        "no client-side spectrum/history is invented",
     )),
     "ReliabilitySystemLdUi.java": (reliability, (
         "PIONEER PATTERN • RELIABILITY / SAFE STATE",
