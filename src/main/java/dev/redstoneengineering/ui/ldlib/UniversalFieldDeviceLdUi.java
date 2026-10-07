@@ -41,7 +41,9 @@ public final class UniversalFieldDeviceLdUi {
                 RseLdUiComponents.formulaCard(() -> universalContract(menu.configKind())),
                 portsPanel(menu),
                 parameterPanel(menu),
+                systemStatePanel(menu),
                 pioneerPanel(menu),
+                historyPolicyPanel(menu),
                 RseLdUiComponents.authorityFooter()
         );
         return ModularUI.of(
@@ -117,6 +119,96 @@ public final class UniversalFieldDeviceLdUi {
                         RseLdUiComponents.serverAction("Toggle", menu::toggleConfiguration)
                 ),
                 RseLdUiComponents.liveRow("EVIDENCE", "process", () -> menu.pioneerProcessEvidenceQuality().name())
+        );
+        return panel;
+    }
+
+    private static UIElement systemStatePanel(UniversalFieldDeviceMenu menu) {
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.paddingAll(5).gapAll(3));
+        panel.addChildren(
+                new Label().setText("SYSTEM / OPERATOR STATE"),
+                RseLdUiComponents.liveRow("STATE", "device", () -> systemHeadline(menu)),
+                RseLdUiComponents.liveRow("STATE", "detail", () -> systemDetail(menu)),
+                RseLdUiComponents.liveRow("ACTION", "operator", () -> actionLabel(menu)),
+                RseLdUiComponents.serverAction("Execute explicit action", menu::runConfigAction)
+        );
+        return panel;
+    }
+
+    private static String systemHeadline(UniversalFieldDeviceMenu menu) {
+        return switch (menu.configKind()) {
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> switch (menu.configSecondary()) {
+                case 2 -> "ALARM • ACTIVE / UNACK";
+                case 1 -> "ALARM • ACTIVE / ACK";
+                default -> "ALARM • CLEAR";
+            };
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR ->
+                    menu.configSecondary() != 0 ? "FAULT INJECTOR • ARMED" : "FAULT INJECTOR • SAFE";
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER ->
+                    menu.configPrimary() <= 0 ? "SEQUENCE • IDLE" : "SEQUENCE • STEP " + Math.min(4, menu.configPrimary());
+            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK ->
+                    menu.configPrimary() < 0 ? "INTERLOCK • REACQUIRING"
+                            : menu.configSecondary() != 0 ? "INTERLOCK • PERMIT" : "INTERLOCK • BLOCKED";
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER ->
+                    "TOPOLOGY DEBUGGER • SYNCHRONIZED";
+            default -> "SERVER-SYNCHRONIZED DEVICE STATE";
+        };
+    }
+
+    private static String systemDetail(UniversalFieldDeviceMenu menu) {
+        return switch (menu.configKind()) {
+            case UniversalFieldDeviceMenu.CONFIG_ALARM ->
+                    menu.configSecondary() == 2 ? "attention=UNACKNOWLEDGED • ACK is allowed"
+                            : menu.configSecondary() == 1 ? "attention=ACKNOWLEDGED • process alarm may remain latched"
+                            : "condition clear";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR ->
+                    menu.configSecondary() != 0 ? "ARMED / INJECTION ACTIVE" : "SAFE / PASS-THROUGH";
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER ->
+                    "Completed cycles = " + menu.configSecondary();
+            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK ->
+                    "Missing permissives = " + failedPermissives(menu.configPrimary())
+                            + " • permit=" + (menu.configSecondary() != 0 ? "15" : "0");
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER ->
+                    "Target mode = " + (menu.configSecondary() != 0 ? "VANILLA REDSTONE" : "ENGINEERING PORTS")
+                            + " • scan count=" + menu.configPrimary();
+            default -> "Current evidence = SYNCHRONIZED SNAPSHOT";
+        };
+    }
+
+    private static String actionLabel(UniversalFieldDeviceMenu menu) {
+        return switch (menu.configKind()) {
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Reset measurement history";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM ->
+                    menu.configSecondary() == 2 ? "Acknowledge active alarm" : "Alarm already clear / acknowledged";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "Clear held value";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Reset fault statistics";
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> "Reset sequence to IDLE";
+            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> "Reset diagnostic counters";
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> "Reset scan counters";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "Reset fuse latch • re-evaluate next tick";
+            case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> "Demagnetize core";
+            default -> "No explicit operator action";
+        };
+    }
+
+    private static String failedPermissives(int mask) {
+        if (mask < 0) return "NOT EVALUATED";
+        if (mask == 0) return "NONE";
+        StringBuilder missing = new StringBuilder();
+        if ((mask & 1) != 0) missing.append("A");
+        if ((mask & 2) != 0) missing.append(missing.isEmpty() ? "B" : ", B");
+        if ((mask & 4) != 0) missing.append(missing.isEmpty() ? "C" : ", C");
+        return missing.toString();
+    }
+
+    private static UIElement historyPolicyPanel(UniversalFieldDeviceMenu menu) {
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.paddingAll(5).gapAll(3));
+        panel.addChildren(
+                new Label().setText("LIVE ONLY • NO RETAINED HISTORY"),
+                RseLdUiComponents.liveRow("Current evidence", "snapshot", () -> "SYNCHRONIZED SNAPSHOT • " + menu.evidenceStateLabel()),
+                new Label().setText("Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.")
         );
         return panel;
     }
