@@ -140,6 +140,25 @@ for token in ("AbstractContainerScreen<SignalConditionerMenu>", "IModularUIHolde
     if token not in conditioner_host:
         errors.append(f"Signal Conditioner LDLib2 host missing {token!r}")
 
+oscilloscope_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+for token in (
+    "ModularUI",
+    "DataBindingBuilder.string",
+    "Cycle Δt ▶",
+    "SAMPLING EXPERIMENT",
+    "waveform(menu, 0)",
+    "setTriggerLevelFromUi",
+    "setCursorAFromUi",
+    "setCursorBFromUi",
+):
+    if token not in oscilloscope_ld:
+        errors.append(f"LDLib2 Oscilloscope rollout missing {token!r}")
+
+oscilloscope_host = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
+for token in ("AbstractContainerScreen<OscilloscopeMenu>", "IModularUIHolderMenu"):
+    if token not in oscilloscope_host:
+        errors.append(f"Oscilloscope LDLib2 host missing {token!r}")
+
 lookup = dict(engineering_screens)
 for name, tokens in required.items():
     text = lookup.get(name, "")
