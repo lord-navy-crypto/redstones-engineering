@@ -21,7 +21,7 @@ pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSyste
 optical = read("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java")
 magnetic = read("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java")
 amethyst = read("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java")
-reliability = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java")
+reliability = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
 radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
 analyzer = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
 buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
@@ -182,9 +182,9 @@ wave3 = {
         "BW = 5 - Q",
         "Frequency values are deliberate model indices, not fabricated Hz",
     )),
-    "ReliabilitySystemScreen.java": (reliability, (
+    "ReliabilitySystemLdUi.java": (reliability, (
         "PIONEER PATTERN • RELIABILITY / SAFE STATE",
-        "reliabilityEquation()",
+        "reliabilityEquation(m)",
         "heartbeat seen ∧ age ≥ timeout",
         "spread ≤ tolerance",
         "fault ≥ threshold",
