@@ -16,6 +16,12 @@ RSE directly imports GeckoLib from the mechatronics block entity, model and rend
 
 Pinned development version: `4.9.2` for Minecraft 1.21.1 NeoForge.
 
+### LDLib2 — required client/server dependency
+
+RSE uses LDLib2 as the modular engineering-HMI infrastructure. The integration entry point directly imports the LDLib2 plugin API, and new HMI work will use LDLib2 layout, reusable components, synchronized data binding/RPC and UI debugging/editor facilities while keeping simulation authority in RSE server state.
+
+Pinned development version: `2.2.26` for Minecraft 1.21.1 NeoForge.
+
 ## Not hard runtime dependencies
 
 ### JEI
@@ -38,6 +44,7 @@ End-user/runtime foundation:
 - Java 21
 - Jade
 - GeckoLib
+- LDLib2
 
 Development/build-only tooling:
 - `net.neoforged.moddev` Gradle plugin
