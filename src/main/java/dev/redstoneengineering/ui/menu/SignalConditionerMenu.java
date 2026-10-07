@@ -4,6 +4,8 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.SignalConditionerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -45,6 +47,9 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.SIGNAL_CONDITIONER.get(), containerId, inventory, pos,
                 RedstoneEngineering.SIGNAL_CONDITIONER.get());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if (this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(SignalConditionerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -82,6 +87,33 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    /** LDLib2 server-event facade: preserve the existing validated menu mutation path. */
+    public boolean cycleModeForward() {
+        return clickMenuButton(player, BUTTON_MODE_NEXT);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    public boolean applyVisibleFormulaParameter(int value) {
+        if (!validVisibleFormulaParameter(mode(), value)) return false;
+        return clickMenuButton(player, BUTTON_PARAM_DIRECT_BASE + value + 16);
+    }
+
+    private static boolean validVisibleFormulaParameter(int mode, int value) {
+        return switch (mode) {
+            case 0, 4 -> value >= 1 && value <= 4;
+            case 1 -> value >= -5 && value <= 5;
+            case 2, 3 -> value >= 1 && value <= 15;
+            default -> false;
+        };
     }
 
     public int mode() { return mode.get(); }
