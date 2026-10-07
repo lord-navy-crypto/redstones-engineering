@@ -15,7 +15,7 @@ def read(rel):
 doc = read("docs/PIONEER_SHOWCASE_STANDARD.md")
 lowpass = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
 scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
-pid = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
+pid = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java")
 digital = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
 pneumatic = read("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java")
 optical = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
@@ -127,10 +127,12 @@ for token in (
 for token in (
     "Capture acceptance",
     "historyCount()",
-    "AcceptanceEvidenceTrend",
+    "comparisonTrend()",
     "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL",
     "Trial baseline",
     "Trial candidate",
+    "trialTrend()",
+    "trialRobust()",
 ):
     if token not in pid:
         errors.append(f"PID pioneer missing acceptance-evidence token {token!r}")
