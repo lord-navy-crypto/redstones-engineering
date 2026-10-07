@@ -183,8 +183,19 @@ require("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen
         "stopped+queued 600t ⇒ FAILED")
 
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
-        "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
-        "BUTTON_TUNING_NEXT", "BUTTON_INPUT_NEXT", "BUTTON_OUTPUT_NEXT")
+        "extends LdlibEngineeringHostScreen<PidControllerMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java",
+        "PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL",
+        "e[n]=SP[n]-PV[n]", "saturation may hold integral",
+        "PidTrendPlotElement", "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "Capture acceptance", "Trial baseline", "Trial candidate",
+        "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL",
+        "RseLdUiComponents.authorityFooter()")
+require("src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java",
+        "PidControllerLdUi.create(this, inventory.player)",
+        "cycleTuningForward", "cycleInputForward", "cycleOutputForward",
+        "captureAcceptance", "resetRuntimeTrend",
+        "captureTrialBaseline", "captureTrialCandidate", "clearTrial")
 
 require("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java",
         "extends LdlibEngineeringHostScreen<CopperCircuitMeterMenu>")
