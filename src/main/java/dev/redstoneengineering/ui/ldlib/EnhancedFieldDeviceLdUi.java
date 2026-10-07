@@ -9,6 +9,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import org.appliedenergistics.yoga.YogaFlexDirection;
 
@@ -152,6 +153,9 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().setText(engineeringHint(m.kind())),
                 new Label().setText(diagnosticHint(m.kind())),
                 new Label().setText(fixedTransportPolicy(m.kind())),
+                new Label().bind(DataBindingBuilder.componentS2C(() ->
+                        Component.literal(legacyEngineeringContract(m.kind()))
+                ).build()),
                 new Label().setText("Client presentation only • mutation, topology and solver authority remain server-owned.")
         );
     }
@@ -173,6 +177,42 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().setText("TOPOLOGY ERROR • CONFLICT / INVALID PATH")
         );
         return panel;
+    }
+
+    private static String legacyEngineeringContract(int k) {
+        return switch (k) {
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "REDSTONE → DIFFERENTIAL";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "DIFFERENTIAL → REDSTONE";
+            case FieldDeviceMenu.KIND_AMETHYST_DUST -> "RESONANCE BUS";
+            case FieldDeviceMenu.KIND_AMETHYST_TUNED -> "TUNED AMETHYST RESONATOR";
+            case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "SPECTRUM ANALYZER • OBSERVER";
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> "MECHANICAL VIBRATION RECEIVER";
+            case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "SHIELDED INSTRUMENT BUS";
+            case FieldDeviceMenu.KIND_WATCHDOG -> "HEARTBEAT WATCHDOG";
+            case FieldDeviceMenu.KIND_SERVO_ACTUATOR -> "MECHATRONIC_POSITION OUTPUT";
+            case FieldDeviceMenu.KIND_REDUNDANT_VOTER -> "2oo3 REDUNDANT VOTER";
+            case FieldDeviceMenu.KIND_FAULT_LATCH -> "RESET input with priority over FAULT";
+            case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "OPERATIONS MONITOR • OBSERVER • READ-ONLY CPS / RELIABILITY DEVICE";
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR -> "PNEUMATIC COMPRESSED-AIR OUTPUT";
+            case FieldDeviceMenu.KIND_PNEUMATIC_PIPE -> "PNEUMATIC • SIX-WAY BIDIRECTIONAL PIPE";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "PNEUMATIC → REDSTONE";
+            case FieldDeviceMenu.KIND_SIGNAL_TAP -> "NON-INVASIVE SIGNAL TAP";
+            case FieldDeviceMenu.KIND_RANGE_SENSOR -> "SENSING APERTURE • NO WIRED PORT";
+            case FieldDeviceMenu.KIND_LAPIS_LINE, FieldDeviceMenu.KIND_LAPIS_SOURCE ->
+                    "LAPIS_PRECISION • FOUR HORIZONTAL OUTPUTS";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE, FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR ->
+                    "QUARTZ_TIMING • FOUR HORIZONTAL OUTPUTS";
+            case FieldDeviceMenu.KIND_PULSE_SHAPER -> "Pulse remaining";
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE -> "PROPORTIONAL VALVE";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "RELIEF ARMED";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> "PNEUMATIC ACTUATOR";
+            case FieldDeviceMenu.KIND_ELECTROMAGNET -> "COPPER → MAGNETIC";
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> "PERMANENT FIELD SOURCE";
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "MAGNETIC INDUCTION";
+            case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR -> "MAGNETIC FIELD SENSOR";
+            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "MAGNETIC GRADIENT";
+            default -> "No additional legacy diagnostic contract for this device.";
+        };
     }
 
     private static boolean discreteExciterAdjustable(int k) {
