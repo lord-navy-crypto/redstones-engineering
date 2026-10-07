@@ -5,6 +5,8 @@ import dev.redstoneengineering.block.LogicAnalyzerBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.LogicAnalyzerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -73,6 +75,9 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(LogicAnalyzerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -126,6 +131,38 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         }
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
+    }
+
+    /** LDLib2 HMI intent facade; all mutations reuse the existing validated server path. */
+    public boolean armOrHold() {
+        return clickMenuButton(playerInventory.player, BUTTON_ARM);
+    }
+
+    public boolean cycleTriggerChannel() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIGGER_CHANNEL);
+    }
+
+    public boolean cycleTriggerEdge() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIGGER_EDGE);
+    }
+
+    public boolean clearCapture() {
+        return clickMenuButton(playerInventory.player, BUTTON_CLEAR);
+    }
+
+    public boolean setThresholdFromUi(int value) {
+        if (value < 1 || value > 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_THRESHOLD_DIRECT_BASE + value);
+    }
+
+    public boolean setCursorAFromUi(int value) {
+        if (value < 0 || value >= LogicAnalyzerBlockEntity.DISPLAY_SAMPLES) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CURSOR_A_DIRECT_BASE + value);
+    }
+
+    public boolean setCursorBFromUi(int value) {
+        if (value < 0 || value >= LogicAnalyzerBlockEntity.DISPLAY_SAMPLES) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CURSOR_B_DIRECT_BASE + value);
     }
 
     public int threshold() { return threshold.get(); }
