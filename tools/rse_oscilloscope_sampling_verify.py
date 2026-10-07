@@ -16,6 +16,9 @@ be = read("src/main/java/dev/redstoneengineering/blockentity/OscilloscopeBlockEn
 block = read("src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java")
 screen = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
+hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+plot = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopePlotElement.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/ldlib/LdlibEngineeringHostScreen.java")
 gametest = read("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
 
 for token in (
@@ -58,39 +61,54 @@ for token in (
         errors.append(f"oscilloscope menu missing synchronized sampling token {token!r}")
 
 for token in (
-    'SAMPLING("Sampling")',
-    "mouseScrolled",
-    "mouseClicked",
-    "mouseDragged",
-    "mouseReleased",
-    "beginScrollbarDrag",
-    "dragScrollbarTo",
-    "hasShiftDown()",
-    "enableScissor",
+    "ModularUI",
+    "SAMPLING MODEL",
     "Δt = N_ticks / 20 s",
     "f_s = 1 / Δt = 20 / N_ticks Hz",
     "f_N = f_s / 2",
-    "[ADJUSTABLE] N_ticks",
-    "[DERIVED] f_s",
-    "[DERIVED] f_N",
-    "LIVE SUBSTITUTION",
-    "TIMEBASE TABLE",
-    "aliasLabel(menu.aliasRisk(channel))",
+    '"ADJUSTABLE", "N_ticks"',
+    '"DERIVED", "f_s"',
+    '"DERIVED", "f_N"',
+    '"LIVE SUBSTITUTION", "timebase"',
+    '"TIMEBASE TABLE"',
+    "alias(menu.aliasRisk(0))",
+    "alias(menu.aliasRisk(1))",
     "Nyquist gives a theoretical boundary, not proof",
-    "FOOTER_HEIGHT = 132",
-    "LIVE STATE • HEALTH ",
-    "I/O • ",
-    "menu.portRouteLabel()",
-    "CONTROLS ",
-    "INSTRUMENT_CONTENT_WIDTH = 980",
-    "SAMPLING_CONTENT_WIDTH = 1120",
-    "renderScrollIndicators",
-    'Component.literal("Arm / Hold")',
-    'Component.literal("Trigger source")',
-    "int plotWidth = Math.min(760, contentWidth() - CONTENT_X - 90)",
+    '"LIVE STATE", "HEALTH"',
+    '"I/O", "route"',
+    "menu::portRouteLabel",
+    '"CONTROLS", "owner"',
+    '"Arm / Hold"',
+    '"Cycle source ▶"',
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in hmi:
+        errors.append(f"oscilloscope LDLib2 HMI missing formula-first sampling token {token!r}")
+
+for token in (
+    "extends LdlibEngineeringHostScreen<OscilloscopeMenu>",
 ):
     if token not in screen:
-        errors.append(f"oscilloscope screen missing formula-first sampling token {token!r}")
+        errors.append(f"oscilloscope screen missing LDLib2 host token {token!r}")
+
+for token in (
+    "IModularUIHolderMenu",
+    "getModularUI()",
+    "LDLib2 owns the engineering HMI canvas",
+):
+    if token not in host:
+        errors.append(f"shared LDLib2 host missing {token!r}")
+
+for token in (
+    "OscilloscopePlotElement",
+    "EngineeringPlot.analogFrame",
+    "EngineeringPlot.analogTrace",
+    "EngineeringPlot.horizontalMarker",
+    "EngineeringPlot.verticalMarker",
+):
+    target = hmi if token == "OscilloscopePlotElement" else plot
+    if token not in target:
+        errors.append(f"oscilloscope LDLib2 visualization missing {token!r}")
 
 for token in (
     "setSamplePeriodTicks(int ticks)",
@@ -107,13 +125,15 @@ for token in (
         errors.append(f"oscilloscope menu missing direct timebase token {token!r}")
 
 for token in (
-    "EditBox",
-    "submitSamplePeriod",
-    "{1, 2, 4, 8} ticks/sample",
-    "BUTTON_SAMPLE_PERIOD_DIRECT_BASE + ticks",
+    "TextField",
+    "setNumbersOnlyInt(1, 8)",
+    "{1,2,4,8} ticks/sample",
+    "setSamplePeriodFromUi",
+    "DataBindingBuilder.string",
+    "DIRECT ENTRY",
 ):
-    if token not in screen:
-        errors.append(f"oscilloscope screen missing direct timebase token {token!r}")
+    if token not in hmi:
+        errors.append(f"oscilloscope LDLib2 HMI missing direct timebase token {token!r}")
 
 for token in (
     "setTriggerLevel(int level)",
@@ -135,23 +155,26 @@ for token in (
         errors.append(f"oscilloscope menu missing direct trigger/cursor token {token!r}")
 
 for token in (
-    "submitTriggerLevel",
-    "submitCursorA",
-    "submitCursorB",
-    "[DIRECT ENTRY] trigger",
-    "[DIRECT ENTRY] cursors",
+    "setTriggerLevelFromUi",
+    "setCursorAFromUi",
+    "setCursorBFromUi",
+    'controlRow("T", "trigger level 1..15"',
+    'controlRow("cursor A", "0..15"',
+    'controlRow("cursor B", "0..15"',
 ):
-    if token not in screen:
-        errors.append(f"oscilloscope screen missing direct trigger/cursor token {token!r}")
+    if token not in hmi:
+        errors.append(f"oscilloscope LDLib2 HMI missing direct trigger/cursor token {token!r}")
 
+client_surface = "\n".join((screen, hmi, plot, host))
 for forbidden in (
     "dev.redstoneengineering.physics",
     "RuntimeIntStore",
     "scheduleTick(",
     "setBlock(",
+    "level.getBlockState(",
 ):
-    if forbidden in screen:
-        errors.append(f"oscilloscope client screen violates authority boundary with {forbidden!r}")
+    if forbidden in client_surface:
+        errors.append(f"oscilloscope LDLib2 presentation violates authority boundary with {forbidden!r}")
 
 for token in (
     "BUTTON_SAMPLE_PERIOD",
@@ -177,10 +200,10 @@ print(" fs and Nyquist derivation: PASS")
 print(" timebase change invalidates mixed-dt capture: PASS")
 print(" observed period/frequency evidence: PASS")
 print(" alias-margin evidence classification: PASS")
-print(" spacious two-axis formula-first Sampling HMI: PASS")
+print(" LDLib2 formula-first Sampling HMI with automatic layout: PASS")
 print(" live probes -> sampler -> capture -> evidence mechanism flow: PASS")
-print(" draggable visible scrollbars + non-compressed waveform canvas: PASS")
-print(" fixed sampling/trigger controls remain outside server model ownership: PASS")
+print(" real dual-channel EngineeringPlot embedded in LDLib2 canvas: PASS")
+print(" direct sampling/trigger controls remain server-authoritative: PASS")
 print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" client/no-second-solver boundary: PASS")
 print(" authoritative sampling GameTest source: PASS")
