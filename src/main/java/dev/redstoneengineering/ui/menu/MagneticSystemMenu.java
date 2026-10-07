@@ -5,6 +5,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.MagneticSystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -54,6 +56,9 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.MAGNETIC_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(MagneticSystemLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -168,6 +173,14 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
     }
+
+    /** LDLib2 intent facade; mutations reuse existing server validation. */
+    public boolean setPrimaryFromUi(int value) {
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DIRECT_BASE + value);
+    }
+    public boolean cycleOrientationForward() { return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT); }
+    public boolean cycleInputForward() { return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT); }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
 
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }
