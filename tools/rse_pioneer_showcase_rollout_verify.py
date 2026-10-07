@@ -280,7 +280,7 @@ wave5 = {
     )),
     "SignalProcessorLdUi.java": (processor, (
         "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
-        "processorEquation()",
+        "processorEquation(",
         "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)",
         "e[n] = edge_mode(x[n-1], x[n]); e[n] ⇒ y=15 for 2 ticks",
         "rising edge(x) ⇒ y=15 for W ticks; otherwise y=0",
@@ -332,7 +332,7 @@ wave7 = {
     "RangeSensorLdUi.java": (range_sensor, (
         "FORMULA-FIRST SENSOR RESPONSE",
         "y = (d ≤ 0) ? 0 : round(15 · (R - d + 1) / R)",
-        '"EVIDENCE", "scan"',
+        '"EVIDENCE","scan"',
         "A complete CLEAR scan with d=0 is valid evidence",
     )),
     "SignalConditionerLdUi.java": (conditioner, (
