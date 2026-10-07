@@ -73,10 +73,18 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOve
         "screen.height - margin - panelHeight", "connectionMask(menu)", "linkEvidenceKnown",
         '"DECLARED"', '"AIR PATH"', '"LOS PATH"', '"LINKED"', '"OPEN"')
 require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
-        "EditBox", "submitSetpoint", "BUTTON_SETPOINT_DIRECT_BASE",
-        "P ∈ {25,50,75,100}")
+        "extends LdlibEngineeringHostScreen<PneumaticSystemMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
+        "DataBindingBuilder.string", "P ∈ {25,50,75,100}",
+        "Toggle valve", "Cycle direction ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "ΔP_path = ΔP_line + ΔP_restriction",
+        "COMMISSIONING", "cylinderSupply()", "cylinderRestrictionLoss()",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java",
-        "BUTTON_SETPOINT_DIRECT_BASE", "pressure % 25")
+        "BUTTON_SETPOINT_DIRECT_BASE", "pressure % 25",
+        "PneumaticSystemLdUi.create(this, inventory.player)",
+        "setSetpointFromUi", "toggleValve",
+        "cycleWholeRouteForward", "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java",
         "extends LdlibEngineeringHostScreen<MagneticSystemMenu>")
@@ -244,14 +252,21 @@ require("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java",
         "setRangeFromUi", "cycleDetectForward", "cycleResponseForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java",
-        "EditBox", "submitPrimary", "submitSecondary",
-        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE",
-        "f_target", "Q_idx")
+        "extends LdlibEngineeringHostScreen<AmethystSystemMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java",
+        "DataBindingBuilder.string", "f_target", "Q_idx",
+        "A_out = (f_in = f_target) ? max(0, A_in - 1) : 0",
+        "BW = 5 - Q", "Frequency values are deliberate model indices, not fabricated Hz",
+        "Pulse", "Cycle direction ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java",
         "BUTTON_PRIMARY_DIRECT_BASE = 15000", "BUTTON_SECONDARY_DIRECT_BASE = 15100",
         "AmethystResonatorBlock.FREQUENCY", "AmethystResonatorBlock.AMPLITUDE",
         "AmethystFrequencyFilterBlock.TARGET", "AmethystTunedResonatorBlock.NATURAL",
-        "AmethystTunedResonatorBlock.Q_INDEX")
+        "AmethystTunedResonatorBlock.Q_INDEX",
+        "AmethystSystemLdUi.create(this, inventory.player)",
+        "setPrimaryFromUi", "setSecondaryFromUi", "pulse",
+        "cycleWholeRouteForward", "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java",
         "extends LdlibEngineeringHostScreen<RadioLinkMenu>")
@@ -278,11 +293,13 @@ require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.
         "setRegeneratorThresholdFromUi", "cycleWholeRouteForward",
         "cycleRxForward", "cycleTxForward")
 
-require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
         "P_out = round(100 · u_R / 15)",
         "y_R = min(15, floor(15 · P_in / 100))",
         "OPEN ⇒ BACK ↔ FRONT ; CLOSED ⇒ isolated",
-        "permitted flow = BACK → FRONT only ; reverse blocked")
+        "permitted flow = BACK → FRONT only ; reverse blocked",
+        "H_charge = max(0, P_line - P_stored)",
+        "ΔP_local = max(0, P_in - P_out)")
 
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
         "extends LdlibEngineeringHostScreen<OpticalSystemMenu>")
