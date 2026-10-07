@@ -249,6 +249,12 @@ for token in (
     "primaryCycleKind",
     "READ-ONLY HMI • no fake control",
     "numeric values use exact entry",
+    "MECHANISM FLOW • SERVER-AUTHORITATIVE",
+    "READ-ONLY TOPOLOGY • no server-supported route mutation for this device",
+    "no fake action is exposed when the authoritative server model has no explicit action",
+    "menu.routeKind() != UniversalFieldDeviceMenu.ROUTE_NONE",
+    "menu.hasInputEndpoint()",
+    "menu.hasOutputEndpoint()",
 ):
     if token not in universal_ld:
         errors.append(f"LDLib2 Universal rollout missing {token!r}")
