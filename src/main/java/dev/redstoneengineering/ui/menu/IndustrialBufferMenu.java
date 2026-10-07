@@ -8,6 +8,8 @@ import dev.redstoneengineering.operations.world.OperationPlantSavedData;
 import dev.redstoneengineering.operations.world.OperationWorkcellBufferBinding;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import dev.redstoneengineering.ui.IndustrialBufferUi;
+import dev.redstoneengineering.ui.ldlib.IndustrialBufferLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
@@ -52,6 +54,9 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
         totalLotCount.set(Math.max(0, payload.totalLotCount()));
         visibleLots = List.copyOf(payload.visibleLots());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(IndustrialBufferLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
