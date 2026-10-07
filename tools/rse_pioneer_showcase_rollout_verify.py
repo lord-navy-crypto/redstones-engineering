@@ -16,7 +16,7 @@ doc = read("docs/PIONEER_SHOWCASE_STANDARD.md")
 lowpass = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
 scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
 pid = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
-digital = read("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java")
+digital = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
 pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
 optical = read("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java")
 magnetic = read("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java")
@@ -136,12 +136,12 @@ for token in (
         errors.append(f"PID pioneer missing acceptance-evidence token {token!r}")
 
 wave2 = {
-    "DigitalCommunicationScreen.java": (digital, (
+    "DigitalCommunicationLdUi.java": (digital, (
         "PIONEER PATTERN • COMMUNICATION MODEL",
-        "communicationEquation()",
+        "communicationEquation(m)",
         "U = min(100%, 100 · T_frame / Δt_arrival)",
         "Q_bus = max(35, 100 - loadingPenalty - contentionPenalty)",
-        'variableRole(g, "MEASURED", "Q_link"',
+        '"MEASURED", "Q_link"',
     )),
     "PneumaticSystemScreen.java": (pneumatic, (
         "PIONEER PATTERN • PNEUMATIC MODEL",
