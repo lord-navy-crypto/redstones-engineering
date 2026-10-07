@@ -970,7 +970,6 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                  UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
-                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE,
                  UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
@@ -986,6 +985,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         return switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
                  UniversalFieldDeviceMenu.CONFIG_PWM,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
