@@ -40,6 +40,8 @@ public final class LapisLowPassLdUi {
                 RseLdUiComponents.liveRow("MEASURED", "x[n]", () -> m.inputValue() + " precision units"),
                 RseLdUiComponents.liveRow("SOLVER", "y[n-1]", () -> m.previousOutput() + " precision units"),
                 RseLdUiComponents.liveRow("ADJUSTABLE", "α", () -> formatAlpha(m.alphaIndex())),
+                RseLdUiComponents.fixedRow("profile", LapisLowPassMenu::profileId,
+                        "central EngineeringParameterProfile provenance"),
                 RseLdUiComponents.fixedRow("Δt", () -> LapisLowPassMenu.samplePeriodTicks() + " ticks",
                         "server sample period"),
                 RseLdUiComponents.liveRow("DERIVED", "τ", () ->
