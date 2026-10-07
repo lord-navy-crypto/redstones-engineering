@@ -14,12 +14,13 @@ Only dependencies with current direct implementation use are hard runtime requir
 | --- | --- | --- | --- |
 | Jade | `15.10.6` | Client + Server | RSE directly compiles against `snownee.jade.api` for the engineering HUD and server-backed diagnostics |
 | GeckoLib | `4.9.2` | Client + Server | RSE directly compiles against GeckoLib and ships GeckoLib `.geo.json` / animation resources for Servo, Pneumatic Cylinder and Proportional Valve visualization |
+| LDLib2 | `2.2.26` | Client + Server | Modular engineering HMI platform for layout, reusable components, bindings/RPC, UI tooling and progressive replacement of manual Screen boilerplate |
 
 **Not required by the current implementation:** JEI, Cloth Config and Fusion. RSE currently has no JEI plugin/category code, no Cloth Config screen/API use, and no Fusion API/resource contract. They should not block startup or be required for installation.
 
 Minecraft 1.21.1, NeoForge 21.1.249 and Java 21 remain foundational platform/runtime requirements. Build-only tooling such as NeoGradle/ModDev, Parchment mappings and the Foojay toolchain resolver is for development and is not an end-user mod prerequisite.
 
-RSE does not shade or bundle Jade or GeckoLib. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
+RSE does not shade or bundle Jade, GeckoLib or LDLib2. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
 
 ## Project information
 
