@@ -79,10 +79,15 @@ require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
         "BUTTON_SETPOINT_DIRECT_BASE", "pressure % 25")
 
 require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java",
-        "EditBox", "submitPrimary", "BUTTON_PRIMARY_DIRECT_BASE",
-        "S = 1..15", "N = 1..4")
+        "extends LdlibEngineeringHostScreen<MagneticSystemMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java",
+        "DataBindingBuilder.string", "V_ind = clamp", "1..15", "1..4",
+        "Cycle N marker ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
-        "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS")
+        "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS",
+        "MagneticSystemLdUi.create(this, inventory.player)",
+        "setPrimaryFromUi", "cycleOrientationForward", "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "KIND_MECHANICAL_EXCITER", "KIND_HYDRO_EXCITER",
@@ -174,7 +179,12 @@ require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.jav
         "BUTTON_TUNING_NEXT", "BUTTON_INPUT_NEXT", "BUTTON_OUTPUT_NEXT")
 
 require("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java",
-        "Cycle measure face ▶", "Cycle face • ")
+        "extends LdlibEngineeringHostScreen<CopperCircuitMeterMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java",
+        "I = V / R_eq", "COMMISSIONING", "OBSERVER ONLY",
+        "Cycle measurement face ▶", "RseLdUiComponents.authorityFooter()")
+require("src/main/java/dev/redstoneengineering/ui/menu/CopperCircuitMeterMenu.java",
+        "CopperCircuitMeterLdUi.create(this, inventory.player)", "cycleFaceForward")
 require("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java",
         "extends LdlibEngineeringHostScreen<MediaConversionMenu>")
 require("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java",
@@ -244,11 +254,16 @@ require("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java",
         "AmethystTunedResonatorBlock.Q_INDEX")
 
 require("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java",
-        "EditBox", "submitChannel", "BUTTON_CHANNEL_DIRECT_BASE",
-        "0..3 • direct entry")
+        "extends LdlibEngineeringHostScreen<RadioLinkMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java",
+        "DataBindingBuilder.string", "ADJUSTABLE", "0..3",
+        "availability", "decode", "Cycle output direction ▶",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/RadioLinkMenu.java",
         "BUTTON_CHANNEL_DIRECT_BASE = 14000",
-        "RadioTransmitterBlock.CHANNEL", "RadioReceiverBlock.CHANNEL")
+        "RadioTransmitterBlock.CHANNEL", "RadioReceiverBlock.CHANNEL",
+        "RadioLinkLdUi.create(this, inventory.player)",
+        "setChannelFromUi", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
         "extends LdlibEngineeringHostScreen<DigitalCommunicationMenu>")
@@ -282,10 +297,17 @@ require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "cycleWholeRouteForward", "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
-        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
-        "T={2,4,8,16,32}", "N={2,4,8,16}")
+        "extends LdlibEngineeringHostScreen<QuartzTimingMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java",
+        "DataBindingBuilder.string", "DIRECT T", "DIRECT N",
+        "Reset measurement", "Cycle RX ▶",
+        "f_nom = 20 / T Hz", "|e_T| = |T_meas - T_upstream|",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
-        "BUTTON_PARAMETER_DIRECT_BASE", "QuartzClockDividerBlock.cycleDivision")
+        "BUTTON_PARAMETER_DIRECT_BASE", "QuartzClockDividerBlock.cycleDivision",
+        "QuartzTimingLdUi.create(this, inventory.player)",
+        "setTimingParameterFromUi", "resetMeasurement",
+        "cycleInputForward", "cycleOutputForward", "cycleWholeRouteForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java",
         "extends LdlibEngineeringHostScreen<ReliabilitySystemMenu>")
@@ -317,11 +339,11 @@ require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.jav
         "RedundantVoterBlock.TOLERANCE", "FaultLatchBlock.THRESHOLD",
         "validVisibleParameter")
 
-require("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
-        "EditBox", "submitParameter", "T={2,4,8,16,32}", "N={2,4,8,16}",
-        "BUTTON_PARAMETER_DIRECT_BASE")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java",
+        "DIRECT T", "DIRECT N", "DataBindingBuilder.string")
 require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
-        "BUTTON_PARAMETER_DIRECT_BASE = 11000", "QuartzClockDividerBlock.setDivision")
+        "BUTTON_PARAMETER_DIRECT_BASE = 11000", "QuartzClockDividerBlock.setDivision",
+        "setTimingParameterFromUi")
 require("src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java",
         "setDivision(ServerLevel level, BlockPos pos, int divisor)")
 
