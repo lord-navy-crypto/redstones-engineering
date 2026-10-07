@@ -99,13 +99,6 @@ for forbidden in (
         errors.append(f"shared engineering workspace retained legacy fixed geometry {forbidden!r}")
 
 required = {
-    "SignalConditionerScreen.java": (
-        "FORMULA-FIRST SERVER CONTROL",
-        "governingEquation()",
-        'variableRole(graphics, "MEASURED", "x"',
-        'variableRole(graphics, "ADJUSTABLE"',
-        'variableRole(graphics, "DERIVED", "y"',
-    ),
     "QuartzTimingScreen.java": (
         "FORMULA-FIRST TIMING MODEL",
         "timingEquation()",
@@ -128,6 +121,24 @@ required = {
         'variableRole(g, "EVIDENCE", "scan"',
     ),
 }
+
+ld_conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
+for token in (
+    "ModularUI",
+    "DataBindingBuilder.componentS2C",
+    "DataBindingBuilder.string",
+    "governingEquation",
+    "setNumbersOnlyInt(-5, 15)",
+    "SERVER AUTHORITY",
+    "Cycle mode ▶",
+):
+    if token not in ld_conditioner:
+        errors.append(f"LDLib2 Signal Conditioner rollout missing {token!r}")
+
+conditioner_host = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
+for token in ("AbstractContainerScreen<SignalConditionerMenu>", "IModularUIHolderMenu"):
+    if token not in conditioner_host:
+        errors.append(f"Signal Conditioner LDLib2 host missing {token!r}")
 
 lookup = dict(engineering_screens)
 for name, tokens in required.items():
