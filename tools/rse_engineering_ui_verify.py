@@ -288,13 +288,22 @@ require("src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java",
         "setWidth(Level level, BlockPos pos, int width)")
 
 require("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java",
-        "EditBox", "submitParameter", "BUTTON_PARAM_DIRECT_BASE",
-        "visibleFormulaParameter", "Direct entry submits the formula value to the server")
+        "AbstractContainerScreen<SignalConditionerMenu>",
+        "IModularUIHolderMenu",
+        "LDLib2 renders the complete engineering HMI")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java",
+        "ModularUI", "DataBindingBuilder.string",
+        "setNumbersOnlyInt(-5, 15)",
+        "Cycle mode ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "SERVER AUTHORITY", "governingEquation(menu.mode())")
 require("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java",
         "setFormulaParameter(Level level, BlockPos pos, int formulaValue)",
         "formulaValue + 5")
 require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java",
-        "BUTTON_PARAM_DIRECT_BASE", "setFormulaParameter(level, blockPos")
+        "BUTTON_PARAM_DIRECT_BASE", "setFormulaParameter(level, blockPos",
+        "SignalConditionerLdUi.create(this, inventory.player)",
+        "applyVisibleFormulaParameter", "cycleModeForward",
+        "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
