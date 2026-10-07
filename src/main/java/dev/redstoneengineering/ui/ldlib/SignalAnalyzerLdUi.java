@@ -23,7 +23,7 @@ public final class SignalAnalyzerLdUi {
         root.layout(l->l.width(640).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("SIGNAL ANALYZER • METROLOGY / CALIBRATION"),
-                RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(x_cal) - x_ref"),
+                RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref"),
                 new SignalAnalyzerPlotElement(m),
                 measurementPanel(m),
                 controlPanel(m),
@@ -70,7 +70,7 @@ public final class SignalAnalyzerLdUi {
         p.addChildren(
                 RseLdUiComponents.liveRow("WINDOW","avg / p2p",()->decimal100(m.average100())+" / "+m.peakToPeak()),
                 RseLdUiComponents.liveRow("WINDOW","meanStep",()->decimal100(m.meanStep100())),
-                RseLdUiComponents.liveRow("WINDOW","coverage",()->m.validWindowCount()+"/"+m.windowCount()+" • "+m.coveragePercent()+"%"),
+                RseLdUiComponents.liveRow("WINDOW","measurement coverage",()->"measurement coverage="+m.validWindowCount()+"/"+m.windowCount()+" • "+m.coveragePercent()+"%"),
                 RseLdUiComponents.liveRow("SYNC","age",()->m.sampleAgeTicks()<0?"NO SAMPLE":m.sampleAgeTicks()+" ticks"),
                 RseLdUiComponents.liveRow("LIFETIME","min / max",()->m.lifeMin()+" / "+m.lifeMax()),
                 RseLdUiComponents.liveRow("LIFETIME","changes / edges",()->m.changes()+" • ↑"+m.rising()+" ↓"+m.falling()),
