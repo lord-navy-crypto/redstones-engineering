@@ -5,6 +5,8 @@ import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.EngineeringParameterProfile;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.LapisLowPassLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -50,6 +52,9 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.LAPIS_LOW_PASS.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(LapisLowPassLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -121,6 +126,32 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    /** LDLib2 intent facade: exact visible α values only; mutations remain server-authoritative. */
+    public boolean applyAlphaVisibleValue(String value) {
+        try {
+            double entered = Double.parseDouble(value);
+            for (int i = 0; i < alphaSteps(); i++) {
+                if (Math.abs(entered - alphaForIndex(i)) < 0.0001) {
+                    return clickMenuButton(playerInventory.player, BUTTON_ALPHA_DIRECT_BASE + i);
+                }
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return false;
+    }
+
+    public boolean restoreDefaultAlpha() {
+        return clickMenuButton(playerInventory.player, BUTTON_ALPHA_DEFAULT);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
     }
 
     public int alphaIndex() { return alphaIndex.get(); }
