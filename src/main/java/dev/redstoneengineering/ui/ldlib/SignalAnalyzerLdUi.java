@@ -39,6 +39,9 @@ public final class SignalAnalyzerLdUi {
         p.addChildren(
                 new Label().setText("PIONEER PATTERN • METROLOGY / CALIBRATION"),
                 RseLdUiComponents.liveRow("STATE","mode",()->modeName(m.mode())),
+                RseLdUiComponents.liveRow("MODEL","boundary",()->m.mode()==SignalAnalyzerBlock.TAP
+                        ? "TAP • NON-INVASIVE • no output drive"
+                        : "INLINE • explicit two-port boundary"),
                 RseLdUiComponents.liveRow("MEASURED","x_raw",()->m.raw()+" / 15"),
                 RseLdUiComponents.liveRow("DERIVED","x_cal",()->m.calibrated()+" / 15"),
                 RseLdUiComponents.liveRow("OUTPUT","inline",()->m.output()+" / 15 • raw pass-through semantics"),
