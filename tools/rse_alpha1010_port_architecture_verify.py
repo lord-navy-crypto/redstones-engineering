@@ -92,9 +92,13 @@ for subtree in ["core", "physics", "signal"]:
                 failed.append(f"core boundary violation: {java.relative_to(root)} imports {token}")
 
 build = text("build.gradle")
-for token in ["mezz.jei", "nvQzSEkH", "geckolib-neoforge", "cloth-config-neoforge", "fusion-connected-textures"]:
+for token in ["nvQzSEkH", "geckolib-neoforge"]:
     if token not in build:
-        failed.append(f"required dependency disappeared from build.gradle: {token}")
+        failed.append(f"current required dependency disappeared from build.gradle: {token}")
+
+for obsolete in ["mezz.jei", "cloth-config-neoforge", "fusion-connected-textures"]:
+    if obsolete in build:
+        failed.append(f"unused hard dependency returned to build.gradle: {obsolete}")
 
 # Historical release evidence belongs in the historical manifest/documentation.
 # The README is allowed to advance to the current Alpha instead of permanently
@@ -120,5 +124,5 @@ print("RSE Alpha 1.0.10 engineering-port architecture verification: PASS")
 print(" static port descriptor + runtime snapshot separation: PASS")
 print(" domain/direction compatibility model: PASS")
 print(" representative legacy migration/inheritance: PASS")
-print(" required-dependency core boundary: PASS")
+print(" evidence-based dependency core boundary: PASS")
 print(" forward-compatible historical documentation gate: PASS")
