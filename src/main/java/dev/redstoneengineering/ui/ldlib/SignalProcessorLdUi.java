@@ -19,7 +19,7 @@ public final class SignalProcessorLdUi {
         root.layout(l->l.width(540).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("PIONEER PATTERN • SIGNAL PROCESSOR MODEL"),
-                RseLdUiComponents.formulaCard(()->equation(menu.kind())),
+                RseLdUiComponents.formulaCard(()->processorEquation(menu.kind())),
                 RseLdUiComponents.liveRow("MEASURED","x[n]",()->menu.input()+" / 15"),
                 RseLdUiComponents.liveRow("DERIVED","y[n]",()->menu.output()+" / 15"),
                 RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu)),
@@ -74,7 +74,7 @@ public final class SignalProcessorLdUi {
         return p;
     }
 
-    private static String equation(int k){return switch(k){
+    private static String processorEquation(int k){return switch(k){
         case SignalProcessorMenu.KIND_EDGE -> "e[n] = edge_mode(x[n-1], x[n]); e[n] ⇒ y=15 for 2 ticks";
         case SignalProcessorMenu.KIND_PULSE -> "rising edge(x) ⇒ y=15 for W ticks; otherwise y=0";
         default -> "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)";
