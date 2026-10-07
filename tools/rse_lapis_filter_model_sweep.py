@@ -9,7 +9,7 @@ import sys
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 profile_path = root / "src/main/java/dev/redstoneengineering/physics/EngineeringParameterProfile.java"
 block_path = root / "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
-screen_path = root / "src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java"
+screen_path = root / "src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java"
 
 errors = []
 
