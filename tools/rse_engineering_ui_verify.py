@@ -127,7 +127,10 @@ require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi
         "SampleHoldBlock.modeName(menu.configPrimary())",
         "CalibrationModuleBlock.profileName(menu.configPrimary())",
         "FaultInjectorBlock.modeLabelFor(menu.configPrimary())",
-        '"Cycle primary ▶"', '"Cycle secondary ▶"',
+        "SensorModel.profileName(menu.configPrimary())",
+        "primaryCycleKind", "hasExplicitAction", "hasToggle",
+        "READ-ONLY HMI • no fake control",
+        "numeric values use exact entry",
         "DataBindingBuilder.string", "applyPrimary(menu, value)", "applySecondary(menu, value)")
 require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
         "MolecularCloudReceiverBlock.SENSITIVITY",
