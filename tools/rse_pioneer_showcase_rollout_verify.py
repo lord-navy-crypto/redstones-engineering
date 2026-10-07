@@ -29,7 +29,7 @@ logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScree
 copper = read("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
 ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
 workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
-universal = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
+universal = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
 enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
 processor = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
 range_sensor = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
@@ -249,8 +249,8 @@ wave4 = {
         '"reason"',
         "Operations Binding Tool",
     )),
-    "UniversalFieldDeviceScreen.java": (universal, (
-        "universalContract(kind)",
+    "UniversalFieldDeviceLdUi.java": (universal, (
+        "universalContract(menu.configKind())",
         "Universal HMI rule:",
         "reset statistics does not disarm",
         "PERMIT=15 iff A>0 ∧ B>0 ∧ C>0",
@@ -432,14 +432,15 @@ wave13_screen_tokens = (
     "m = unique Lapis sample on selected face",
     "target ⇒ x = round(100·d/R)",
     "display = clamp(x_back,0,15)",
-    'variableRole(g, "MEASURED"',
-    'variableRole(g, "EVIDENCE"',
+    "measurementRoles(int kind)",
+    '"MEASURED"',
+    '"EVIDENCE"',
     "no experiment tab is invented",
 )
 # The no-experiment rule is documented rather than duplicated in client prose.
 for token in wave13_screen_tokens[:-1]:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-13 measurement token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-13 measurement token {token!r}")
 if wave13_screen_tokens[-1] not in doc:
     errors.append("Pioneer standard lost the Wave-13 no-invented-experiment rule")
 
@@ -495,14 +496,15 @@ wave14_screen_tokens = (
     "100·clamp(B,0,15)/15",
     "100·clamp(I,0,15)/15",
     "100·clamp(V,0,15)/15",
-    'variableRole(g, "PROFILE", "Δt_sample"',
-    'variableRole(g, "PROFILE", "resolution"',
-    'variableRole(g, "PROFILE", "noise"',
-    'variableRole(g, "PROFILE", "latency"',
+    "processRoles(int kind)",
+    '"Δt_sample"',
+    '"resolution"',
+    '"noise"',
+    '"latency"',
 )
 for token in wave14_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-14 process token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-14 process token {token!r}")
 
 for token in (
     "Calibration Module",
@@ -556,14 +558,16 @@ wave15_screen_tokens = (
     "V_out = V_in·R_load/(R_s+R_load)",
     "q_target=round(100·V_in/15)",
     "TRIPPED ← TRIPPED ∨ (I>I_rating)",
-    'variableRole(g, "SOLVER", "R_load"',
-    'variableRole(g, "SOLVER", "charge"',
-    'variableRole(g, "STATE", "trip latch"',
+    '"R_load"',
+    '"charge"',
+    '"trip latch"',
+    '"SOLVER"',
+    '"STATE"',
     "Opening the HMI never performs another load-network scan",
 )
 for token in wave15_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-15 Copper token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-15 Copper token {token!r}")
 
 for token in (
     "Copper Wire",
@@ -650,14 +654,17 @@ wave16_screen_tokens = (
     "packet=4u",
     "floor(15·Q_s/100)",
     "c_raw=clamp(round(g·Σ r_cloud/(1+d²)),0,15)",
-    'variableRole(g, "ADJUSTABLE", "μ"',
-    'variableRole(g, "EVIDENCE", "jitter offset"',
-    'variableRole(g, "SOLVER", "pending"',
-    'variableRole(g, "SOLVER", "c_filt"',
+    '"μ"',
+    '"jitter offset"',
+    '"pending"',
+    '"c_filt"',
+    '"ADJUSTABLE"',
+    '"EVIDENCE"',
+    '"SOLVER"',
 )
 for token in wave16_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-16 active-source token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-16 active-source token {token!r}")
 
 for token in (
     "Lapis Noise Source",
@@ -727,13 +734,16 @@ wave17_screen_tokens = (
     "ΔT_20t=T[n]-T[n-1]",
     "transient Soul Flux J decays by 1 each 20 ticks",
     "stored Q_s decays by 1 each 40 ticks",
-    'variableRole(g, "STATE", "remanence"',
-    'variableRole(g, "ADJUSTABLE", "C_index"',
-    'variableRole(g, "DERIVED", "C·ΔT"',
+    '"remanence"',
+    '"C_index"',
+    '"C·ΔT"',
+    '"STATE"',
+    '"ADJUSTABLE"',
+    '"DERIVED"',
 )
 for token in wave17_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-17 closure token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-17 closure token {token!r}")
 
 for token in (
     "Iron Core",
@@ -775,7 +785,7 @@ if "event.register(RsePioneerWave17GameTests.class);" not in gametest_registrati
     errors.append("Wave-17 GameTests are not registered")
 
 if "dev.redstoneengineering.physics" in universal:
-    errors.append("UniversalFieldDeviceScreen imports physics directly; final client must remain presentation-only")
+    errors.append("UniversalFieldDeviceLdUi imports physics directly; final client must remain presentation-only")
 
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
