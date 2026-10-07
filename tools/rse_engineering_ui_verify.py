@@ -173,7 +173,16 @@ require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.jav
 require("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java",
         "Cycle measure face ▶", "Cycle face • ")
 require("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java",
-        "Cycle RX ▶", "Cycle TX ▶", "Cycle RX • ", "Cycle TX • ")
+        "extends LdlibEngineeringHostScreen<MediaConversionMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java",
+        "Cycle RX ▶", "Cycle TX ▶",
+        "menu.inputFace().getName().toUpperCase()",
+        "menu.outputFace().getName().toUpperCase()",
+        "NO NEW SOURCE PRECISION",
+        "RseLdUiComponents.authorityFooter()")
+require("src/main/java/dev/redstoneengineering/ui/menu/MediaConversionMenu.java",
+        "MediaConversionLdUi.create(this, inventory.player)",
+        "cycleRxForward", "cycleTxForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
         "EditBox", "submitThreshold", "submitCursorA", "submitCursorB",
@@ -197,12 +206,18 @@ require("src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
         "setReference(Level level, BlockPos pos, int reference)")
 
 require("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java",
-        "EditBox", "submitRange", "BUTTON_RANGE_DIRECT_BASE",
-        "{4,8,15} blocks • direct entry",
-        "Cycle detect • ", "Cycle response • ")
+        "extends LdlibEngineeringHostScreen<RangeSensorMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java",
+        "TextField", "DataBindingBuilder.string",
+        "{4,8,15}", "Cycle detect ▶", "Cycle response ▶",
+        "FORMULA-FIRST SENSOR RESPONSE",
+        "A complete CLEAR scan with d=0 is valid evidence",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java",
         "BUTTON_RANGE_DIRECT_BASE = 16000",
-        "range == 4 ? 0", "range == 8 ? 1", "range == 15 ? 2")
+        "range == 4 ? 0", "range == 8 ? 1", "range == 15 ? 2",
+        "RangeSensorLdUi.create(this, inventory.player)",
+        "setRangeFromUi", "cycleDetectForward", "cycleResponseForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java",
         "EditBox", "submitPrimary", "submitSecondary",
@@ -278,10 +293,16 @@ require("src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.jav
         "setDivision(ServerLevel level, BlockPos pos, int divisor)")
 
 require("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java",
-        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
-        "r ∈ 1..4", "W ∈ 1..8 ticks")
+        "extends LdlibEngineeringHostScreen<SignalProcessorMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java",
+        "TextField", "DataBindingBuilder.string",
+        "r ∈ 1..4", "W ∈ 1..8 ticks",
+        "Cycle edge mode ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java",
-        "BUTTON_PARAMETER_DIRECT_BASE", "PrecisionFilterBlock.setRate", "PulseShaperBlock.setWidth")
+        "BUTTON_PARAMETER_DIRECT_BASE", "PrecisionFilterBlock.setRate", "PulseShaperBlock.setWidth",
+        "SignalProcessorLdUi.create(this, inventory.player)",
+        "setParameterFromUi", "cycleParameterForward")
 require("src/main/java/dev/redstoneengineering/block/PrecisionFilterBlock.java",
         "setRate(Level level, BlockPos pos, int rate)")
 require("src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java",
