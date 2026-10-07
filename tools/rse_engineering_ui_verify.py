@@ -200,12 +200,18 @@ require("src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEnt
         "setCursorA(int slot)", "setCursorB(int slot)")
 
 require("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
-        "EditBox", "submitCalibration", "submitReference",
-        "BUTTON_CALIBRATION_DIRECT_BASE", "BUTTON_REFERENCE_DIRECT_BASE",
-        "-2..+2 • direct entry", "0..15 • direct entry")
+        "extends LdlibEngineeringHostScreen<SignalAnalyzerMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
+        "ModularUI", "DataBindingBuilder.string", "SignalAnalyzerPlotElement",
+        "-2..+2 • direct entry", "0..15 • direct entry",
+        "PIONEER WORKFLOW • INTERNAL REFERENCE CALIBRATION TRIAL",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
         "BUTTON_CALIBRATION_DIRECT_BASE = 18000", "BUTTON_REFERENCE_DIRECT_BASE = 18100",
-        "setCalibrationOffset", "setReference")
+        "setCalibrationOffset", "setReference",
+        "SignalAnalyzerLdUi.create(this, inventory.player)",
+        "setCalibrationFromUi", "setReferenceFromUi",
+        "captureTrialBaseline", "captureTrialCandidate", "clearTrial")
 require("src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
         "setCalibrationOffset(Level level, BlockPos pos, int offset)",
         "setReference(Level level, BlockPos pos, int reference)")
