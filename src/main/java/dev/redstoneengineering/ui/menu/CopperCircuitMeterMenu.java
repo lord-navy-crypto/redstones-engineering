@@ -6,6 +6,8 @@ import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.diagnostic.CopperCommissioningAssessment;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.CopperCircuitMeterLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -35,6 +37,9 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.COPPER_CIRCUIT_METER.get(), containerId, inventory, pos,
                 RedstoneEngineering.COPPER_CIRCUIT_METER.get());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(CopperCircuitMeterLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -73,6 +78,9 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
         long rounded = Math.round(value * scale);
         return (int) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, rounded));
     }
+
+    /** LDLib2 observer-HMI intent facade. */
+    public boolean cycleFaceForward() { return clickMenuButton(playerInventory.player, BUTTON_FACE_NEXT); }
 
     public Direction facing() {
         int ordinal = facing.get();
