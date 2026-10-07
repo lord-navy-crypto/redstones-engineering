@@ -58,6 +58,34 @@ public final class RadioLinkLdUi {
                     RseLdUiComponents.liveRow("HISTORY","faults",()->"collision="+m.collisions()+" • dropout="+m.dropouts()+" • handoff="+m.handoffs())
             );
         }
+        p.addChildren(
+                RseLdUiComponents.liveRow("DIAGNOSIS","link",()->diagnosis(m)),
+                RseLdUiComponents.liveRow("NEXT","action",()->nextAction(m)),
+                RseLdUiComponents.fixedRow("history",()->"receiver-tick counters",
+                        "Counters are receiver-tick evidence; the client does not fabricate packet history."),
+                RseLdUiComponents.fixedRow("payload 0",()->"VALID DATA",
+                        "Payload 0 is a valid frame when source evidence is VALID.")
+        );
         return p;
+    }
+
+    private static String diagnosis(RadioLinkMenu m){
+        if(m.kind()==RadioLinkMenu.KIND_TRANSMITTER) return m.quality().name();
+        if(m.collision()) return "SAME-CHANNEL COLLISION";
+        if(!m.coverageComplete()) return "STALE / INCOMPLETE COVERAGE";
+        if(m.decodeMargin()<0) return "BELOW DECODE MARGIN";
+        if(m.decodeMargin()<10) return "MARGINAL LINK";
+        if(m.adjacentAggressors()>0) return "VALID • ADJACENT INTERFERENCE";
+        if(m.obstacleHits()>0) return "VALID • OBSTRUCTED PATH";
+        return "HEALTHY LINK";
+    }
+
+    private static String nextAction(RadioLinkMenu m){
+        String d=diagnosis(m);
+        if(d.contains("COLLISION")) return "NEXT • move one same-channel transmitter or change one channel.";
+        if(d.contains("ADJACENT")) return "NEXT • separate adjacent channels first; then re-check margin.";
+        if(d.contains("OBSTRUCTED") || d.contains("MARGIN") || d.contains("STALE"))
+            return "NEXT • improve line-of-sight or shorten the path before accepting the link.";
+        return "NEXT • retain this healthy link as commissioning evidence.";
     }
 }
