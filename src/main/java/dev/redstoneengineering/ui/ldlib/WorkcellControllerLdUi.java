@@ -54,7 +54,11 @@ public final class WorkcellControllerLdUi {
                         m.queuePressure() < 0 ? "UNAVAILABLE" : m.queuePressure() + "/15"),
                 RseLdUiComponents.liveRow("ADMISSION", "state", () -> m.admissionPermitted() ? "PERMIT" : "HOLD"),
                 RseLdUiComponents.liveRow("EVIDENCE", "reason", m::admissionReason),
-                RseLdUiComponents.liveRow("SAFETY", "fault resources", () -> Integer.toString(m.faultResourceCount()))
+                RseLdUiComponents.liveRow("SAFETY", "fault resources", () -> Integer.toString(m.faultResourceCount())),
+                RseLdUiComponents.liveRow("EVIDENCE", "SETUP", () ->
+                        m.setupEvidenceAvailable() ? "AVAILABLE" : "WITHHELD • WORLD EVIDENCE NOT PERSISTED"),
+                RseLdUiComponents.liveRow("EVIDENCE", "MAINTENANCE", () ->
+                        m.maintenanceEvidenceAvailable() ? "AVAILABLE" : "WITHHELD • WORLD EVIDENCE NOT PERSISTED")
         );
     }
 
