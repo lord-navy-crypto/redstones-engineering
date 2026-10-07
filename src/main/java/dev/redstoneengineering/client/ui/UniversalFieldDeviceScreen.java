@@ -1292,6 +1292,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Model link: g is the visible receiver gain; the server maps it to the supported sensitivity profile.";
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "State-equation link: trigger-edge selection determines when y_hold acquires a new sample.";
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Model link: transfer profile selects the server calibration mapping.";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "State link: severity is latched on condition rise and maps {1,2,3} → alarm output {5,10,15}; ACK does not clear the process alarm.";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "State link: selected mode is one of {STUCK LOW, STUCK HIGH, BIAS +4, BIAS -4}; ARM remains the independent physical gate.";
             default -> "This control changes authoritative device state; downstream values remain server-derived evidence.";
         };
     }
@@ -1325,14 +1327,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> "MODEL: profile owns sampling / resolution / noise / latency";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "MODEL: profile + bounded range; changing either invalidates stale sample";
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "ACTION: reset retained measurement history ≠ change fixed aperture";
-            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "STATE: ACK changes operator attention; physical RESET/CLEAR remains external";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "STATE: condition↑ latches severity; y={1→5,2→10,3→15}; ACK clears attention only; RESET clears only when condition=0";
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "STATE: held value changes on configured trigger; CLEAR is explicit operator action";
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "MODEL: profile-owned transfer; OBSERVED / REFERENCE / CALIBRATED remain distinct";
             case UniversalFieldDeviceMenu.CONFIG_PWM -> "MODEL: period profile + polarity inversion; INHIBIT remains physical";
-            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "STATE: ARM gates injection; reset statistics does not disarm";
-            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> "STATE: sequence runtime is server-owned; operator reset returns to IDLE";
-            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> "STATE: permit follows server permissive evidence; diagnostics reset never bypasses";
-            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> "EVIDENCE: scan target + counters are observer diagnostics, not topology mutation";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "STATE: ARM ? fault_mode(x) : x; modes={0,15,clamp(x+4),max(0,x-4)}; reset statistics does not disarm";
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> "FSM: RESET∨¬RUN⇒step=0; RUN↑ from IDLE⇒1; HOLD freezes; ADVANCE↑:1→2→3→4→0";
+            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> "SAFETY: PERMIT=15 iff A>0 ∧ B>0 ∧ C>0; otherwise 0; failed-mask={A:1,B:2,C:4}; reset never bypasses";
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> "OBSERVER: alarm=15 iff topology report hasIssue(); runtime/timing/QC classifications remain evidence-only";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "MODEL: deterministic bounded source; baseline and noise bound are real server parameters";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "MODEL: nominal period + bounded scheduling jitter; realized interval is retained evidence";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "MODEL: post-init rising-edge delay; configuration change invalidates pending runtime";
