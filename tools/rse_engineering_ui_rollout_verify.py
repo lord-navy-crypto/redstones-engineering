@@ -21,8 +21,8 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text:
             engineering_screens.append((path.name, text))
 
-if len(engineering_screens) < 5:
-    errors.append(f"expected the five remaining legacy EngineeringScreen families before final LDLib2 closure, found only {len(engineering_screens)} subclasses")
+if len(engineering_screens) < 4:
+    errors.append(f"expected the four remaining legacy EngineeringScreen families before final LDLib2 closure, found only {len(engineering_screens)} subclasses")
 
 for token in (
     "MIN_WORKSPACE_WIDTH = 440",
@@ -289,9 +289,10 @@ ldlib_migrated_families = (
     "AmethystSystemScreen",
     "MagneticSystemScreen",
     "ReliabilitySystemScreen",
+    "LapisLowPassScreen",
 )
-if len(ldlib_migrated_families) != 18:
-    errors.append(f"expected 18 LDLib2 migrated block-facing families, found {len(ldlib_migrated_families)}")
+if len(ldlib_migrated_families) != 19:
+    errors.append(f"expected 19 LDLib2 migrated block-facing families, found {len(ldlib_migrated_families)}")
 
 lookup = dict(engineering_screens)
 for name, tokens in required.items():
