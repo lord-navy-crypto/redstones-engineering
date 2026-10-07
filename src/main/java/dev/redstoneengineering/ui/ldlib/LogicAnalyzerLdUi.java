@@ -43,7 +43,8 @@ public final class LogicAnalyzerLdUi {
                 RseLdUiComponents.liveRow("ADJUSTABLE","trigger",()->"CH "+channelName(m.triggerChannel())+" "+edgeName(m.triggerEdge())),
                 RseLdUiComponents.liveRow("ADJUSTABLE","cursor A/B",()->m.cursorA()+" / "+m.cursorB()),
                 RseLdUiComponents.liveRow("DERIVED","Δt_cursor",()->Math.abs(m.cursorB()-m.cursorA())*LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS+" ticks"),
-                RseLdUiComponents.liveRow("EVIDENCE","capture",()->m.sampleCount()+"/32 • "+captureCoverage(m)+"%")
+                RseLdUiComponents.liveRow("EVIDENCE","capture",()->m.sampleCount()+"/32 • "+captureCoverage(m)+"%"),
+                new Label().setText("Threshold/cursors/trigger remain server-authoritative; retained capture evidence is synchronized only.")
         );
         return p;
     }
