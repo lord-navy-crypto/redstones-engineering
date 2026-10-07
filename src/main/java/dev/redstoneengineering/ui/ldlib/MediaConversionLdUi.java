@@ -16,7 +16,8 @@ public final class MediaConversionLdUi {
         var root=new UIElement().addClass("panel_bg");
         root.layout(l->l.width(520).paddingAll(8).gapAll(6));
         root.addChildren(
-                RseLdUiComponents.title("FORMULA-FIRST MEDIA BOUNDARY"),
+                RseLdUiComponents.title(menu.redstoneToLapis() ? "REDSTONE → LAPIS SCALER" : "LAPIS → REDSTONE QUANTIZER"),
+                new Label().setText("FORMULA-FIRST MEDIA BOUNDARY • SERVER-SYNCHRONIZED OBSERVER"),
                 RseLdUiComponents.formulaCard(()->menu.redstoneToLapis()
                         ? "y_L = round(100 · x_R / 15)"
                         : "y_R = round(15 · x_L / 100)"),
@@ -42,12 +43,13 @@ public final class MediaConversionLdUi {
         if(menu.redstoneToLapis()){
             p.addChildren(
                     RseLdUiComponents.liveRow("FIXED","code spacing",()->Integer.toString(menu.sourceSpacing())),
+                    new Label().setText("UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION"),
                     new Label().setText("Redstone→Lapis expands representation only; source code spacing remains visible.")
             );
         }else{
             p.addChildren(
                     RseLdUiComponents.liveRow("DERIVED","x_reconstructed",()->Integer.toString(menu.reconstructedLapis())),
-                    RseLdUiComponents.liveRow("EVIDENCE","|e_q|",()->Integer.toString(menu.quantizationLoss())),
+                    RseLdUiComponents.liveRow("EVIDENCE","Quantization loss |e_q|",()->Integer.toString(menu.quantizationLoss())),
                     new Label().setText("Quantization error is explicit evidence at the Lapis→Redstone boundary.")
             );
         }
