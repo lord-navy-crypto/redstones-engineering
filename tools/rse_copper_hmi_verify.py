@@ -27,7 +27,7 @@ assessment = text("src/main/java/dev/redstoneengineering/core/diagnostic/CopperC
 evidence_assessment = text("src/main/java/dev/redstoneengineering/diagnostics/CopperEvidenceAssessment.java")
 operations_menu = text("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
 kinds = text("src/main/java/dev/redstoneengineering/diagnostics/events/SystemEventKind.java")
-operations = text("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+operations = text("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 reliability = text("src/main/java/dev/redstoneengineering/diagnostics/ElectricalReliabilityAssessment.java")
 registration = text("src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java")
 client_registration = text("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
@@ -96,7 +96,7 @@ require(operations_menu, "copperEvidenceActiveFailed", "synchronized active Copp
 require(operations_menu, "copperEvidenceActiveDegraded", "synchronized active Copper degradation")
 require(operations, "COPPER EVIDENCE FAILURE", "distinct Copper evidence diagnosis")
 require(operations, "COPPER EVIDENCE DEGRADED", "distinct Copper degradation diagnosis")
-require(operations, "without treating degradation as protection downtime", "semantic separation guidance")
+require(operations, "do not count degradation as protection downtime", "semantic separation guidance")
 
 # Fuse protection reliability must remain based only on trip/ready lifecycle evidence.
 for forbidden in (
