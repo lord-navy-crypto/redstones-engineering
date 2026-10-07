@@ -38,7 +38,7 @@ for forbidden in (
     if plot and forbidden in plot:
         errors.append(f"EngineeringPlot must remain render-only; found {forbidden!r}")
 
-scope = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
+scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopePlotElement.java")
 for token in (
     "EngineeringPlot.analogFrame",
     "EngineeringPlot.analogTrace",
@@ -48,9 +48,13 @@ for token in (
     "plotChannel(g, 1",
 ):
     if scope and token not in scope:
-        errors.append(f"Oscilloscope visualization missing {token!r}")
+        errors.append(f"Oscilloscope LDLib2 visualization missing {token!r}")
 if scope and "fullTrace(" in scope:
     errors.append("Oscilloscope retains the old per-channel fullTrace background redraw path")
+
+scope_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+if scope_ui and "new OscilloscopePlotElement(menu)" not in scope_ui:
+    errors.append("Oscilloscope LDLib2 HMI does not embed the real plot element")
 
 logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java")
 for token in (
