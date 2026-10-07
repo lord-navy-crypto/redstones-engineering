@@ -151,6 +151,7 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().setText("ENGINEERING / DIAGNOSTIC HINTS"),
                 new Label().setText(engineeringHint(m.kind())),
                 new Label().setText(diagnosticHint(m.kind())),
+                new Label().setText(fixedTransportPolicy(m.kind())),
                 new Label().setText("Client presentation only • mutation, topology and solver authority remain server-owned.")
         );
     }
@@ -172,6 +173,16 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().setText("TOPOLOGY ERROR • CONFLICT / INVALID PATH")
         );
         return panel;
+    }
+
+    private static boolean discreteExciterAdjustable(int k) {
+        return k == FieldDeviceMenu.KIND_MECHANICAL_EXCITER || k == FieldDeviceMenu.KIND_HYDRO_EXCITER;
+    }
+
+    private static String fixedTransportPolicy(int k) {
+        return discreteExciterAdjustable(k)
+                ? "exact server-backed frequency"
+                : "read-only implemented model • read-only transport contract";
     }
 
     private static boolean directEntryKind(int k) {
@@ -401,14 +412,14 @@ public final class EnhancedFieldDeviceLdUi {
             case FieldDeviceMenu.KIND_AMETHYST_DUST -> "MEDIUM: resonance packet preserves frequency identity";
             case FieldDeviceMenu.KIND_AMETHYST_FILTER -> "PROCESS: A_out = (f_in=f_target) ? max(0,A_in-1) : 0";
             case FieldDeviceMenu.KIND_AMETHYST_TUNED -> "PROCESS: tuned resonance uses server Q/f0 configuration";
-            case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "OBSERVE: bounded spectrum evidence; no backdrive";
-            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> "SOURCE: frequency 1..15 + amplitude packet • conflict-aware";
+            case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "OBSERVE: E[f]=ΣA_i(f), f_dom=argmax(E[f]) • radius 6 • 10t scan • bands 1..15 • observer-only • read-only";
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> "SOURCE: frequency 1..15 + amplitude packet • conflict-aware • exact server-backed frequency";
             case FieldDeviceMenu.KIND_SLIME_VIBRATION -> "HOP: A_next=max(0,A-1); RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)";
             case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> "CONVERSION: mechanical packet → Redstone 0..15";
             case FieldDeviceMenu.KIND_HONEY_DAMPER -> "HOP: A_next=max(0,A-4); damping is fixed";
             case FieldDeviceMenu.KIND_SCULK_INTERFACE -> "SCULK / CALIBRATED-SENSOR EVENT CODE";
             case FieldDeviceMenu.KIND_HYDRO_TUBE -> "HYDROACOUSTIC: medium-dependent packet loss";
-            case FieldDeviceMenu.KIND_HYDRO_EXCITER -> "SOURCE: hydro frequency 1..15 + amplitude packet";
+            case FieldDeviceMenu.KIND_HYDRO_EXCITER -> "SOURCE: hydro frequency 1..15 + amplitude packet • exact server-backed frequency";
             case FieldDeviceMenu.KIND_HYDRO_RECEIVER -> "CONVERSION: hydro packet → Redstone 0..15";
             case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "PHONON_THERMAL: TTL=8t; retain A−2, Q−10";
             case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "SOURCE: event packet; source clears after 1t";
@@ -416,7 +427,7 @@ public final class EnhancedFieldDeviceLdUi {
             case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "MEDIUM: shielded instrument transport; exposed segments reduce confidence";
             case FieldDeviceMenu.KIND_WATCHDOG -> "STATE: heartbeat age vs timeout; missing evidence fails safe";
             case FieldDeviceMenu.KIND_SERVO_ACTUATOR -> "ACTUATOR: command → bounded position state";
-            case FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR -> "OBSERVE: servo position evidence only";
+            case FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR -> "OBSERVE: y_R = round(condition_PRECISION(x_servo)) • observer-only • read-only";
             case FieldDeviceMenu.KIND_REDUNDANT_VOTER -> "STATE: spread ≤ tolerance; invalid channel evidence fails closed";
             case FieldDeviceMenu.KIND_FAULT_LATCH -> "STATE: fault ≥ threshold latches until explicit server reset";
             case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "OBSERVE: plant state/KPI evidence; never drives process";
@@ -427,7 +438,7 @@ public final class EnhancedFieldDeviceLdUi {
             case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "OBSERVE: pressure → synchronized receiver evidence";
             case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> "PNEUMATIC: OPEN ⇒ BACK ↔ FRONT ; CLOSED ⇒ isolated";
             case FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE -> "PNEUMATIC: permitted flow = BACK → FRONT only ; reverse blocked";
-            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> "OBSERVE: flow/ΔP measurement; no pressure backdrive";
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> "OBSERVE: y_flow = condition_PRECISION(flow_proxy(P_in,P_out,path)) • observer-only • read-only";
             case FieldDeviceMenu.KIND_EDGE_DETECTOR -> "PROCESS: edge mode(x[n-1],x[n]) → pulse";
             case FieldDeviceMenu.KIND_PULSE_SHAPER -> "PROCESS: rising edge → y=15 for W ticks";
             case FieldDeviceMenu.KIND_SIGNAL_TAP -> "FIXED: y_through = y_tap = x_in ; tap never back-drives input";
@@ -443,7 +454,7 @@ public final class EnhancedFieldDeviceLdUi {
             case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> "FIELD: B_src is a bounded source-strength index";
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> "FIELD: N_turns + changing field → synchronized EMF evidence";
             case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR -> "OBSERVE: server field sample; client does not solve B";
-            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "OBSERVE: server field gradient evidence";
+            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "OBSERVE: ΔB_axis = B(+axis,r=6) − B(−axis,r=6) • observer-only • read-only";
             case FieldDeviceMenu.KIND_OPTICAL_FIBER -> "MEDIUM: passive optical continuity • no conversion";
             case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "SOURCE: configured intensity/channel → optical network";
             case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> "OBSERVE: VALID ⇔ one physical input ∧ one driver ∧ I>0";
