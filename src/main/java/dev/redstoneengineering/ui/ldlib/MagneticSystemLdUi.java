@@ -18,6 +18,7 @@ public final class MagneticSystemLdUi {
         root.layout(l->l.width(580).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(m)),
+                RseLdUiComponents.title("PIONEER PATTERN • MAGNETIC MODEL"),
                 RseLdUiComponents.formulaCard(()->equation(m)),
                 overview(m),
                 controls(m),
