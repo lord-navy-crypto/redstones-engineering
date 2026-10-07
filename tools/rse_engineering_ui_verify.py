@@ -93,7 +93,14 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "8-bit payload • 0..255",
         "byte-frame transport • fixed link timing",
         "1-bit balanced logic",
-        "read-only transport contract")
+        "read-only transport contract",
+        "y_byte = x_R ∈ [0,15]  (no rescale)",
+        "y_R = valid ? min(15, x_byte) : 0",
+        "serial_byte = bus_byte ; frame = 8 t/word",
+        "bus_byte = serial_byte ; watchdog = 16 t",
+        "b = (x_R > 0) ? 1 : 0",
+        "y_R = (valid ∧ b=1) ? 15 : 0",
+        "read-only conversion law")
 require("src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
         "setFrequency(Level level, BlockPos pos, int frequency)")
 require("src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
