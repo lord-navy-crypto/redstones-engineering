@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.MediaConversionLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -48,6 +50,9 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.MEDIA_CONVERSION.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(MediaConversionLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -151,6 +156,14 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
     private static boolean isFailure(PortQuality quality) {
         return quality == PortQuality.FAULT || quality == PortQuality.DOMAIN_MISMATCH
                 || quality == PortQuality.TOPOLOGY_ERROR;
+    }
+
+    public boolean cycleRxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_RX_NEXT);
+    }
+
+    public boolean cycleTxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_TX_NEXT);
     }
 
     public int mode() { return mode.get(); }
