@@ -164,6 +164,42 @@ for token in ("extends LdlibEngineeringHostScreen<OscilloscopeMenu>",):
     if token not in oscilloscope_host:
         errors.append(f"Oscilloscope LDLib2 host missing {token!r}")
 
+universal_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+for token in (
+    "ModularUI",
+    "FORMULA PARAMETER WORKBENCH",
+    "DECLARED ENGINEERING PORTS",
+    "SYSTEM / OPERATOR STATE",
+    "DataBindingBuilder.string",
+    "applyPrimary(menu, value)",
+    "applySecondary(menu, value)",
+    "0.00..1.00 Lapis • step 0.05",
+    "0.00..0.20 Lapis • step 0.02",
+    "{4, 8, 16, 32} ticks",
+    "{2, 4, 8, 16, 32} ticks",
+    "{1, 2, 4, 8} R-eq",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in universal_ld:
+        errors.append(f"LDLib2 Universal rollout missing {token!r}")
+
+universal_host = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
+for token in ("extends LdlibEngineeringHostScreen<UniversalFieldDeviceMenu>",):
+    if token not in universal_host:
+        errors.append(f"Universal LDLib2 host missing {token!r}")
+
+universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
+for token in (
+    "UniversalFieldDeviceLdUi.create(this, inventory.player)",
+    "applyPrimaryRawTargetFromUi",
+    "applySecondaryRawTargetFromUi",
+    "cycleWholeRouteForward",
+    "cycleInputForward",
+    "cycleOutputForward",
+):
+    if token not in universal_menu:
+        errors.append(f"Universal LDLib2 server-intent facade missing {token!r}")
+
 lookup = dict(engineering_screens)
 for name, tokens in required.items():
     text = lookup.get(name, "")
@@ -178,34 +214,9 @@ formula_users = [name for name, text in engineering_screens if "formulaCard(" in
 if len(formula_users) < 4:
     errors.append(f"expected formula-first rollout across at least four EngineeringScreen families, found {formula_users}")
 
+# Legacy EngineeringScreen families still require deep-canvas ownership.
+# Universal has migrated to LDLib2 and is verified separately below.
 for name, required_tokens in {
-    "UniversalFieldDeviceScreen.java": (
-        "virtualContentWidth",
-        "virtualContentHeight",
-        "FORMULA-LINKED CONTROL",
-        "FORMULA PARAMETER WORKBENCH",
-        "SERVER-BACKED",
-        "EditBox",
-        "submitDirectPrimaryValue",
-        "submitDirectSecondaryValue",
-        "DIRECT ENTRY",
-        "BUTTON_CONFIG_PRIMARY_DIRECT_BASE",
-        "BUTTON_CONFIG_SECONDARY_DIRECT_BASE",
-        "directSecondaryNumericKind",
-        "directPrimaryDisplayValue",
-        "directSecondaryDisplayValue",
-        "0.00..1.00 Lapis • step 0.05",
-        "0.00..0.20 Lapis • step 0.02",
-        "{4, 8, 16, 32} ticks",
-        "{2, 4, 8, 16, 32} ticks",
-        "{1, 2, 4, 8} R-eq",
-        "formulaParameterSymbol",
-        "primaryControlValue",
-        "secondaryFormulaParameterSymbol",
-        "formulaParameterImpact",
-        "primaryControlName",
-        "case CONFIGURE -> configure(graphics);",
-    ),
     "EnhancedFieldDeviceScreen.java": (
         "virtualContentWidth",
         "virtualContentHeight",
@@ -241,7 +252,8 @@ print("RSE ENGINEERING UI ROLLOUT VERIFY: PASS")
 print(f" EngineeringScreen subclasses covered by shared responsive workspace: {len(engineering_screens)}")
 print(f" formula-first migrated families this batch: {len(formula_users)}")
 print(" responsive large workspace: PASS")
-print(" visible draggable vertical/horizontal deep-canvas scrolling: PASS")
+print(" visible draggable vertical/horizontal deep-canvas scrolling retained for legacy EngineeringScreen families: PASS")
+print(" LDLib2 migrated families own responsive layout through ModularUI rather than legacy deep-canvas primitives: PASS")
 print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
 print(" Universal formula parameter workbench is server-backed and value-visible: PASS")
