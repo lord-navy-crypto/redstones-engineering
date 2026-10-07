@@ -966,9 +966,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
                  UniversalFieldDeviceMenu.CONFIG_ALARM,
                  UniversalFieldDeviceMenu.CONFIG_PWM,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE,
                  UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
@@ -997,6 +999,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
                  UniversalFieldDeviceMenu.CONFIG_ALARM,
                  UniversalFieldDeviceMenu.CONFIG_PWM,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> 3;
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> 4;
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
@@ -1048,6 +1051,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) {
             return Integer.toString(menu.pioneerProcessQuinary());
         }
+        if (kind == UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR) {
+            return Integer.toString(CopperCapacitorBlock.tauTicks(menu.configPrimary()));
+        }
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
             return String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary() * 0.05);
         }
@@ -1079,6 +1085,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             double entered = Double.parseDouble(primaryDirectInput.getValue());
             if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) {
                 return entered == 6 ? 0 : entered == 9 ? 1 : entered == 12 ? 2 : entered == 16 ? 3 : null;
+            }
+            if (kind == UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR) {
+                return entered == 2 ? 0 : entered == 4 ? 1 : entered == 8 ? 2 : entered == 16 ? 3 : null;
             }
             if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
                 int raw = (int) Math.round(entered / 0.05);
@@ -1149,6 +1158,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private String directPrimaryRangeLabel(int kind) {
         if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) return "{6, 9, 12, 16} gain";
         if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) return "1..3 severity";
+        if (kind == UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR) return "{2, 4, 8, 16} ticks";
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return "0.00..1.00 Lapis • step 0.05";
         if (kind == UniversalFieldDeviceMenu.CONFIG_PWM) return "{4, 8, 16, 32} ticks";
         if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) return "{2, 4, 8, 16, 32} ticks";
@@ -1203,7 +1213,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> "V_set";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "R";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "R_s";
-            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "C_index";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "τ";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "I_rating";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "μ";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "T_nom";
@@ -1225,7 +1235,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_PWM -> menu.pioneerProcessSecondary() + " ticks";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> menu.configPrimary() + " V-eq";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD, UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> menu.configPrimary() + " R-eq";
-            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> (menu.configPrimary() + 1) + " • τ=" + menu.pioneerProcessTertiary() + " ticks";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> menu.pioneerProcessTertiary() + " ticks";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> menu.configPrimary() + " I-eq";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> String.format(java.util.Locale.ROOT, "%.2f Lapis", menu.configPrimary() * 0.05);
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> menu.pioneerProcessPrimary() + " ticks";
@@ -1262,7 +1272,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> "Equation link: V_set is the source term propagated into the Copper network.";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "Equation link: I=V/R and P=V²/R; changing R changes both derived quantities.";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "Equation link: R_s participates in the divider/load solution for V_out and I.";
-            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "Equation link: C_index selects the discrete τ response profile used by the RC storage model.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "Equation link: τ is the visible discrete response constant; the server maps {2,4,8,16} ticks onto its internal C profile.";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "Equation link: I_rating is the trip threshold evaluated against server-computed current.";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "Equation link: y[n]=μ+η[n], with η bounded by the secondary noise parameter.";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "Equation link: T_nom sets the nominal period; J bounds realized scheduling jitter.";
