@@ -14,7 +14,7 @@ def read(rel):
 
 doc = read("docs/PIONEER_SHOWCASE_STANDARD.md")
 lowpass = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
-scope = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
+scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
 pid = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
 digital = read("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java")
 pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
@@ -33,7 +33,7 @@ universal = read("src/main/java/dev/redstoneengineering/client/ui/UniversalField
 enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
 processor = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
 range_sensor = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
-conditioner = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
+conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
 quartz = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
 media_conversion = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
 client_registration = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
@@ -114,7 +114,7 @@ for token in (
         errors.append(f"Low-pass pioneer missing {token!r}")
 
 for token in (
-    'EXPERIMENT("Experiment")',
+    "SAMPLING EXPERIMENT",
     "SAMPLING MODEL",
     "FROZEN EVIDENCE COMPARISON",
     "PASS",
@@ -335,11 +335,12 @@ wave7 = {
         '"EVIDENCE", "scan"',
         "A complete CLEAR scan with d=0 is valid evidence",
     )),
-    "SignalConditionerScreen.java": (conditioner, (
-        "FORMULA-FIRST SERVER CONTROL",
+    "SignalConditionerLdUi.java": (conditioner, (
+        "SERIES SIGNAL CONDITIONER",
         "y = clamp₀..₁₅(g · x)",
         "y = (|x - y_prev| ≥ B) ? x : y_prev",
         '"EVIDENCE", "boundary"',
+        "RseLdUiComponents.authorityFooter()",
     )),
     "QuartzTimingScreen.java": (quartz, (
         "FORMULA-FIRST TIMING MODEL",
