@@ -15,6 +15,7 @@ def read(rel):
 block = read("src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/LapisLowPassMenu.java")
 screen = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
+ldui = read("src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java")
 ui_reg = read("src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java")
 client_reg = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 opener = read("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java")
@@ -42,46 +43,42 @@ for token in (
     "LapisLowPassFilterBlock.adjustAlpha",
     "DirectionalDomainBlock.rotateSeriesInput",
     "DirectionalDomainBlock.rotateSeriesOutput",
+    "LapisLowPassLdUi.create(this, inventory.player)",
+    "applyAlphaVisibleValue",
+    "restoreDefaultAlpha",
+    "cycleInputForward",
+    "cycleOutputForward",
 ):
     if token not in menu:
         errors.append(f"low-pass menu missing {token!r}")
 
 for token in (
-    "class LapisLowPassScreen",
-    'MODEL("Model")',
-    'LIVE("Live")',
-    'CONFIGURE("Configure")',
-    'ROUTE("Route")',
-    'EVIDENCE("Evidence")',
-    "mouseScrolled",
-    "mouseClicked",
-    "mouseDragged",
-    "mouseReleased",
-    "beginScrollbarDrag",
-    "dragScrollbarTo",
-    "hasShiftDown()",
-    "enableScissor",
-    "y[n] = y[n-1] + α",
-    "[MEASURED]  x[n]",
-    "[SOLVER]    y[n-1]",
-    "[ADJUSTABLE] α",
-    "[PROFILE]   Δt",
-    "[DERIVED]   τ",
-    "LIVE SUBSTITUTION",
-    "PROFILE RESPONSE TABLE",
-    "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
-    "FOOTER_HEIGHT = 92",
-    "LIVE STATE • HEALTH ",
-    "I/O • ",
-    "menu.portRouteLabel()",
-    "CONTROLS ",
-    "MODEL_WIDTH = 960",
-    "renderScrollIndicators",
-    'Component.literal("Restore default α")',
-    "case LIVE, EVIDENCE -> 900",
+    "extends LdlibEngineeringHostScreen<LapisLowPassMenu>",
 ):
     if token not in screen:
-        errors.append(f"low-pass screen missing {token!r}")
+        errors.append(f"low-pass LDLib2 host missing {token!r}")
+
+for token in (
+    "ModularUI",
+    "y[n] = y[n-1] + α",
+    '"MEASURED", "x[n]"',
+    '"SOLVER", "y[n-1]"',
+    '"ADJUSTABLE", "α"',
+    '"Δt"',
+    '"τ"',
+    "LIVE SUBSTITUTION",
+    "PROFILE RESPONSE TABLE",
+    "DataBindingBuilder.string",
+    "Restore default α",
+    "Cycle RX ▶",
+    "Cycle TX ▶",
+    "MECHANISM FLOW • RX → FILTER MODEL → SOLVER STATE → TX",
+    "MEASUREMENT / MODEL EVIDENCE",
+    "observer-neutral evidence",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in ldui:
+        errors.append(f"low-pass LDLib2 HMI missing {token!r}")
 
 if 'LAPIS_LOW_PASS = MENUS.register("lapis_low_pass"' not in ui_reg:
     errors.append("low-pass menu is not registered")
@@ -117,9 +114,9 @@ print(" dedicated server-authoritative menu: PASS")
 print(" formula-first Model page: PASS")
 print(" live RX -> filter -> solver -> TX mechanism flow: PASS")
 print(" live substitution + variable roles: PASS")
-print(" spacious two-axis deep canvas + draggable visible scrollbars: PASS")
-print(" formula/value columns use virtual width rather than viewport compression: PASS")
-print(" fixed alpha/route controls retain server authority without covering model text: PASS")
+print(" LDLib2 automatic engineering layout replaces manual deep-canvas scroll debt: PASS")
+print(" reusable formula/value rows retain model readability: PASS")
+print(" exact alpha/route controls retain server authority: PASS")
 print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" real alpha + route controls: PASS")
 print(" observer-neutral evidence boundary: PASS")
