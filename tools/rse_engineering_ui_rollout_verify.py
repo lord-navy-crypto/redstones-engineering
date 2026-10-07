@@ -21,8 +21,8 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text:
             engineering_screens.append((path.name, text))
 
-if len(engineering_screens) < 1:
-    errors.append(f"expected the one remaining legacy EngineeringScreen family before final LDLib2 closure, found only {len(engineering_screens)} subclasses")
+if engineering_screens:
+    errors.append(f"expected zero legacy block-facing EngineeringScreen subclasses after LDLib2 closure, found {[name for name, _ in engineering_screens]}")
 
 for token in (
     "MIN_WORKSPACE_WIDTH = 440",
@@ -293,9 +293,10 @@ ldlib_migrated_families = (
     "IndustrialBufferScreen",
     "WorkcellControllerScreen",
     "OperationsMonitorScreen",
+    "EnhancedFieldDeviceScreen",
 )
-if len(ldlib_migrated_families) != 22:
-    errors.append(f"expected 22 LDLib2 migrated block-facing families, found {len(ldlib_migrated_families)}")
+if len(ldlib_migrated_families) != 23:
+    errors.append(f"expected 23 LDLib2 migrated block-facing families, found {len(ldlib_migrated_families)}")
 
 lookup = dict(engineering_screens)
 for name, tokens in required.items():
@@ -307,26 +308,17 @@ for name, tokens in required.items():
         if token not in text:
             errors.append(f"{name} missing rollout token {token!r}")
 
-formula_users = [name for name, text in engineering_screens if "formulaCard(" in text]
-if len(formula_users) < 4:
-    errors.append(f"expected formula-first rollout across at least four EngineeringScreen families, found {formula_users}")
-
-# Legacy EngineeringScreen families still require deep-canvas ownership.
-# Universal has migrated to LDLib2 and is verified separately below.
-for name, required_tokens in {
-    "EnhancedFieldDeviceScreen.java": (
-        "virtualContentWidth",
-        "virtualContentHeight",
-        "case CONFIGURE -> configure(graphics);",
-    ),
-}.items():
-    text = lookup.get(name, "")
-    if not text:
-        errors.append(f"deep-canvas target screen missing: {name}")
-        continue
-    for token in required_tokens:
-        if token not in text:
-            errors.append(f"{name} missing deep-canvas token {token!r}")
+enhanced_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
+for token in (
+    "ModularUI", "DataBindingBuilder.string",
+    "PIONEER PATTERN • SHARED FIELD DEVICE",
+    "Exact engineering value", "directEntryKind(",
+    "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in enhanced_ld:
+        errors.append(f"LDLib2 Enhanced FieldDevice closure missing {token!r}")
+formula_users = list(ldlib_migrated_families)
 
 for name, text in engineering_screens:
     if "dev.redstoneengineering.physics" in text:
@@ -343,7 +335,7 @@ print(f" remaining legacy EngineeringScreen subclasses: {len(engineering_screens
 print(f" LDLib2 migrated block-facing families: {len(ldlib_migrated_families)}")
 print(f" formula-first migrated families this batch: {len(formula_users)}")
 print(" responsive large workspace: PASS")
-print(" visible draggable vertical/horizontal deep-canvas scrolling retained for legacy EngineeringScreen families: PASS")
+print(" legacy block-facing deep-canvas screens remaining: NONE")
 print(" LDLib2 migrated families own responsive layout through ModularUI rather than legacy deep-canvas primitives: PASS")
 print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
