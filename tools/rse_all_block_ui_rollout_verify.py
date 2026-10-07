@@ -162,6 +162,9 @@ ldlib_contracts = {
     "OscilloscopeScreen": (
         "extends LdlibEngineeringHostScreen<OscilloscopeMenu>",
     ),
+    "UniversalFieldDeviceScreen": (
+        "extends LdlibEngineeringHostScreen<UniversalFieldDeviceMenu>",
+    ),
 }
 
 engineering_families = []
@@ -188,6 +191,7 @@ for menu_name, screen_name in block_facing:
         ld_path = {
             "SignalConditionerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java",
             "OscilloscopeScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
+            "UniversalFieldDeviceScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "DataBindingBuilder.string", "RseLdUiComponents.authorityFooter()")
@@ -200,6 +204,18 @@ for menu_name, screen_name in block_facing:
             for token in ("Cycle Δt ▶", "TRIGGER", "SAMPLING EXPERIMENT", "waveform(menu, 0)"):
                 if token not in ld_ui:
                     errors.append(f"OscilloscopeScreen LDLib2 UI missing {token!r}")
+        if screen_name == "UniversalFieldDeviceScreen":
+            for token in (
+                "DECLARED ENGINEERING PORTS",
+                "FORMULA PARAMETER WORKBENCH",
+                "SYSTEM / OPERATOR STATE",
+                "PIONEER WAVE 13 • MEASUREMENT",
+                "Cycle direction ▶",
+                "Cycle RX ▶",
+                "Cycle TX ▶",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"UniversalFieldDeviceScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
