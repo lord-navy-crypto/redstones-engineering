@@ -150,6 +150,11 @@ standalone_contracts = {
     ),
 }
 
+components = read("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java")
+for token in ("authorityFooter()", "SERVER AUTHORITY", "validated operator intent"):
+    if token not in components:
+        errors.append(f"shared LDLib2 component library missing {token!r}")
+
 ldlib_contracts = {
     "SignalConditionerScreen": (
         "extends LdlibEngineeringHostScreen<SignalConditionerMenu>",
@@ -185,7 +190,7 @@ for menu_name, screen_name in block_facing:
             "OscilloscopeScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
-        common_tokens = ("ModularUI", "DataBindingBuilder.string", "SERVER AUTHORITY")
+        common_tokens = ("ModularUI", "DataBindingBuilder.string", "RseLdUiComponents.authorityFooter()")
         for token in common_tokens:
             if token not in ld_ui:
                 errors.append(f"{screen_name} LDLib2 UI missing {token!r}")
