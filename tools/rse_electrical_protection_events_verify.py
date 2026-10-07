@@ -48,7 +48,7 @@ if fuse:
     if tick_index < 0 or trip_index < tick_index or ready_index < tick_index:
         errors.append("Electrical trip/ready evidence is not emitted from the server protection tick path")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 for token in (
     'case ELECTRICAL_TRIP -> "E-TRP"',
     'case ELECTRICAL_READY -> "E-RDY"',
