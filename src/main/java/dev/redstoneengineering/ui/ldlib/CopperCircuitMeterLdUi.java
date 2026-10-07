@@ -25,7 +25,7 @@ public final class CopperCircuitMeterLdUi {
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
                 RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()),
                 RseLdUiComponents.fixedRow("authority",()->"SERVER-SYNCHRONIZED OBSERVER",
-                        "observer-only; server computes V, Req, I and P; meter never drives Copper state"),
+                        "OBSERVER ONLY • server computes V, Req, I and P; meter never drives Copper state"),
                 RseLdUiComponents.serverAction("Cycle measurement face ▶",m::cycleFaceForward),
                 RseLdUiComponents.authorityFooter()
         );
