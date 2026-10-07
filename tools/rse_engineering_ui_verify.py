@@ -267,10 +267,16 @@ require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.j
         "permitted flow = BACK → FRONT only ; reverse blocked")
 
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
-        "EditBox", "submitPrimary", "submitSecondary",
-        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE")
+        "extends LdlibEngineeringHostScreen<OpticalSystemMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
+        "ModularUI", "DataBindingBuilder.string",
+        "Cycle direction ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
-        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE")
+        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE",
+        "OpticalSystemLdUi.create(this, inventory.player)",
+        "applyPrimaryFromUi", "applySecondaryFromUi",
+        "cycleWholeRouteForward", "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
         "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
@@ -291,10 +297,9 @@ require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.jav
         "applyParameterFromUi", "runMaintenance",
         "cycleWholeRouteForward", "cycleInputForward", "cycleOutputForward")
 
-require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
-        "EditBox", "submitPrimary", "submitSecondary",
-        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE",
-        "CH_target", "I_set")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
+        "I_set", "CH_target", "exact server-backed value",
+        "0..8", "0..3")
 require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "BUTTON_PRIMARY_DIRECT_BASE = 9000", "BUTTON_SECONDARY_DIRECT_BASE = 9100",
         "OpticalEmitterBlock.INTENSITY", "OpticalChannelFilterBlock.TARGET",
@@ -496,10 +501,9 @@ require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, false)",
         "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, false)",
         "routeSplitter(id)")
-require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
         "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
-        '"CHANNEL " + menu.secondary()',
-        '"Direction and physical interface orientation are controlled only on Route."')
+        "secondaryControl", "Direction and physical interface orientation are controlled only on Route.")
 
 # Specialized Configure pages may not recreate a second direction/orientation authority.
 route_capable_screens = (
