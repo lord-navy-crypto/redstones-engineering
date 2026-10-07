@@ -164,8 +164,17 @@ standalone_contracts = {
     ),
 }
 
+ldlib_contracts = {
+    "SignalConditionerScreen": (
+        "AbstractContainerScreen<SignalConditionerMenu>",
+        "IModularUIHolderMenu",
+        "LDLib2 renders the complete engineering HMI",
+    ),
+}
+
 engineering_families = []
 standalone_families = []
+ldlib_families = []
 manual_configure_offsets = []
 for menu_name, screen_name in block_facing:
     source_path = UI / f"{screen_name}.java"
@@ -178,10 +187,22 @@ for menu_name, screen_name in block_facing:
         if "graphics.pose().translate(0.0F," in source and "case CONFIGURE" in source:
             manual_configure_offsets.append(screen_name)
         continue
+    ldlib_required = ldlib_contracts.get(screen_name)
+    if ldlib_required is not None:
+        ldlib_families.append(screen_name)
+        for token in ldlib_required:
+            if token not in source:
+                errors.append(f"{screen_name} missing LDLib2 host token {token!r}")
+        ld_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
+        for token in ("ModularUI", "DataBindingBuilder.string", "SERVER AUTHORITY", "Cycle mode ▶"):
+            if token not in ld_ui:
+                errors.append(f"{screen_name} LDLib2 UI missing {token!r}")
+        continue
+
     required = standalone_contracts.get(screen_name)
     if required is None:
         errors.append(
-            f"{screen_name} is block-facing but neither inherits EngineeringScreen nor declares an approved standalone deep-canvas contract"
+            f"{screen_name} is block-facing but neither inherits EngineeringScreen, declares an approved standalone deep-canvas contract, nor declares an approved LDLib2 HMI contract"
         )
         continue
     standalone_families.append(screen_name)
@@ -199,7 +220,7 @@ for token in (
     if token not in field_ui:
         errors.append(f"FieldDeviceUi missing all-block routing token {token!r}")
 
-if len(engineering_families) + len(standalone_families) != len(block_facing):
+if len(engineering_families) + len(standalone_families) + len(ldlib_families) != len(block_facing):
     errors.append(
         "not every block-facing UI family is covered by a deep-canvas presentation contract"
     )
@@ -221,6 +242,7 @@ print(f" registered blocks reconciled: {len(registered_blocks)} / 122")
 print(f" block-facing UI families: {len(block_facing)}")
 print(f" shared EngineeringScreen families: {len(engineering_families)}")
 print(f" standalone deep-canvas instrument families: {len(standalone_families)}")
+print(f" LDLib2 HMI families: {len(ldlib_families)}")
 print(" global X/Y wheel + draggable scrollbar contract: PASS")
 print(" global operator-control inventory / function surface: PASS")
 print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
@@ -229,6 +251,7 @@ print(" live mechanism-flow structure across all block-facing UI: PASS")
 print(" reserved shared appendix / no device-content overlap: PASS")
 print(" responsive 3x2 navigation rail + larger tab hit targets: PASS")
 print(" standalone instrument math/evidence equivalence: PASS")
+print(" LDLib2 HMI host + server-authority contract: PASS")
 print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")
