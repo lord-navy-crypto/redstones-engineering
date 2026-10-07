@@ -54,7 +54,8 @@ public final class OscilloscopeLdUi {
     }
 
     private static UIElement samplingControls(OscilloscopeMenu menu) {
-        var dt = new TextField().setNumbersOnlyInt(1, 8).layout(l -> l.width(90));
+        var dt = new TextField().setNumbersOnlyInt(1, 8);
+        dt.layout(l -> l.width(90));
         dt.bind(DataBindingBuilder.string(
                 () -> Integer.toString(menu.samplePeriodTicks()),
                 value -> parseAndApply(value, v -> menu.setSamplePeriodFromUi(v))
@@ -135,7 +136,8 @@ public final class OscilloscopeLdUi {
 
     private static TextField boundedField(int min, int max, java.util.function.IntSupplier getter,
                                           java.util.function.IntPredicate setter) {
-        var field = new TextField().setNumbersOnlyInt(min, max).layout(l -> l.width(90));
+        var field = new TextField().setNumbersOnlyInt(min, max);
+        field.layout(l -> l.width(90));
         field.bind(DataBindingBuilder.string(
                 () -> Integer.toString(getter.getAsInt()),
                 value -> parseAndApply(value, setter)
