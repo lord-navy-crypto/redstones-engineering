@@ -207,7 +207,8 @@ public final class UniversalFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         panel.addChildren(
                 new Label().setText("LIVE ONLY • NO RETAINED HISTORY"),
-                RseLdUiComponents.liveRow("Current evidence", "snapshot", () -> "SYNCHRONIZED SNAPSHOT • " + menu.evidenceStateLabel()),
+                new Label().setText("SYNCHRONIZED SNAPSHOT"),
+                RseLdUiComponents.liveRow("Current evidence", "snapshot", menu::evidenceStateLabel),
                 new Label().setText("Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.")
         );
         return panel;
