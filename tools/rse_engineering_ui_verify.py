@@ -135,7 +135,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.
         "AlarmProcessorBlock.SEVERITY")
 
 require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
-        '"g"', '"gain map is FIXED"',
+        '"g"', "gain map is FIXED",
         '"B_threshold"', '"scan radius"',
         '"T_floor"', "read-only decay law",
         "server-supported {6,9,12,16} set",
