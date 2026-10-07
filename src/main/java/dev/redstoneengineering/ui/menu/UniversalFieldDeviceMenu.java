@@ -13,6 +13,8 @@ import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.physics.SoulFluxNetwork;
 import dev.redstoneengineering.physics.ThermalPhysics;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.UniversalFieldDeviceLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -157,6 +159,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.UNIVERSAL_FIELD_DEVICE.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(UniversalFieldDeviceLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -1017,6 +1022,45 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
         if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
         return rotate(clockwise);
+    }
+
+    /** LDLib2 universal-HMI intent facade. Every operation reuses the established menu channel. */
+    public boolean cycleWholeRouteForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    public boolean cyclePrimaryForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_PRIMARY_NEXT);
+    }
+
+    public boolean cycleSecondaryForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_SECONDARY_NEXT);
+    }
+
+    public boolean runConfigAction() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_ACTION);
+    }
+
+    public boolean toggleConfiguration() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_TOGGLE);
+    }
+
+    public boolean applyPrimaryRawTargetFromUi(int target) {
+        if (target < 0 || target > BUTTON_CONFIG_PRIMARY_DIRECT_MAX - BUTTON_CONFIG_PRIMARY_DIRECT_BASE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_PRIMARY_DIRECT_BASE + target);
+    }
+
+    public boolean applySecondaryRawTargetFromUi(int target) {
+        if (target < 0 || target > BUTTON_CONFIG_SECONDARY_DIRECT_MAX - BUTTON_CONFIG_SECONDARY_DIRECT_BASE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_SECONDARY_DIRECT_BASE + target);
     }
 
     public int facingOrdinal() { return facing.get(); }
