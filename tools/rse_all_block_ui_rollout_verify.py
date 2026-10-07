@@ -186,6 +186,9 @@ ldlib_contracts = {
     "DigitalCommunicationScreen": (
         "extends LdlibEngineeringHostScreen<DigitalCommunicationMenu>",
     ),
+    "OpticalSystemScreen": (
+        "extends LdlibEngineeringHostScreen<OpticalSystemMenu>",
+    ),
 }
 
 engineering_families = []
@@ -220,6 +223,7 @@ for menu_name, screen_name in block_facing:
             "SignalAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
             "ReliabilitySystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
             "DigitalCommunicationScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java",
+            "OpticalSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -232,6 +236,21 @@ for menu_name, screen_name in block_facing:
             for token in ("Cycle Δt ▶", "TRIGGER", "SAMPLING EXPERIMENT", "waveform(menu, 0)"):
                 if token not in ld_ui:
                     errors.append(f"OscilloscopeScreen LDLib2 UI missing {token!r}")
+        if screen_name == "OpticalSystemScreen":
+            for token in (
+                "PIONEER PATTERN • OPTICAL MODEL",
+                "I_out = max(0, I_in - L)",
+                "I_A = floor(I_in/2)",
+                "L_obs = I_TX - I_RX",
+                "Cycle direction ▶",
+                "Cycle RX ▶",
+                "Cycle TX ▶",
+                "Observed segment loss",
+                "Receiver headroom",
+                "Observer-only commissioning evidence",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"OpticalSystemScreen LDLib2 UI missing {token!r}")
         if screen_name == "DigitalCommunicationScreen":
             for token in (
                 "PIONEER PATTERN • COMMUNICATION MODEL",
