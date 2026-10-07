@@ -151,11 +151,14 @@ public final class UniversalFieldDeviceLdUi {
         String[] roles = processRoles(kind);
         for (int i = 0; i < labels.length; i++) {
             final int slot = i;
-            if (labels[i].isBlank()) continue;
+            final String label = labels[i];
+            final String unit = units[i];
+            final String role = roles[i];
+            if (label.isBlank()) continue;
             panel.addChild(RseLdUiComponents.liveRow(
-                    roles[i],
-                    labels[i],
-                    () -> processValue(menu, kind, slot) + (units[i].isBlank() ? "" : " " + units[i])
+                    role,
+                    label,
+                    () -> processValue(menu, kind, slot) + (unit.isBlank() ? "" : " " + unit)
             ));
         }
         panel.addChildren(
@@ -178,11 +181,14 @@ public final class UniversalFieldDeviceLdUi {
         String[] roles = measurementRoles(kind);
         for (int i = 0; i < labels.length; i++) {
             final int slot = i;
-            if (labels[i].isBlank()) continue;
+            final String label = labels[i];
+            final String unit = units[i];
+            final String role = roles[i];
+            if (label.isBlank()) continue;
             panel.addChild(RseLdUiComponents.liveRow(
-                    roles[i],
-                    labels[i],
-                    () -> measurementValue(menu, kind, slot) + (units[i].isBlank() ? "" : " " + units[i])
+                    role,
+                    label,
+                    () -> measurementValue(menu, kind, slot) + (unit.isBlank() ? "" : " " + unit)
             ));
         }
         panel.addChildren(
