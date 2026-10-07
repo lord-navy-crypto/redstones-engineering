@@ -46,9 +46,9 @@ public final class PneumaticSystemLdUi {
         if(m.kind()==PneumaticSystemMenu.KIND_CYLINDER){
             p.addChildren(
                     RseLdUiComponents.liveRow("ACTUATOR","position/target",()->m.secondary()+" / "+m.tertiary()),
-                    RseLdUiComponents.liveRow("PATH","supply/loss",()->m.cylinderSupply()+" / "+m.cylinderObservedLoss()),
-                    RseLdUiComponents.liveRow("PATH","line/restriction",()->m.cylinderLineLoss()+" / "+m.cylinderRestrictionLoss()),
-                    RseLdUiComponents.liveRow("RESPONSE","period/remaining",()->m.cylinderResponsePeriod()+"t / "+m.cylinderRemainingTicks()+"t"),
+                    RseLdUiComponents.liveRow("PATH","Supply / cylinder P",()->m.cylinderSupply()+" / "+m.primary()),
+                    RseLdUiComponents.liveRow("PATH","Path loss",()->m.cylinderObservedLoss()+" = line "+m.cylinderLineLoss()+" + restriction "+m.cylinderRestrictionLoss()),
+                    RseLdUiComponents.liveRow("RESPONSE","Response / remaining",()->m.cylinderResponsePeriod()+"t / "+m.cylinderRemainingTicks()+"t"),
                     RseLdUiComponents.liveRow("RESPONSE","velocity/error",()->m.cylinderVelocity()+" / "+m.cylinderError()),
                     RseLdUiComponents.liveRow("HISTORY","stall/reversal/samples",()->m.cylinderStallTicks()+" / "+m.cylinderReversals()+" / "+m.cylinderSamples())
             );
@@ -96,6 +96,13 @@ public final class PneumaticSystemLdUi {
                 RseLdUiComponents.fixedRow("solver",()->"SERVER PNEUMATIC NETWORK",
                         "The HMI exposes the authoritative pneumatic solve and retained path evidence; it never reruns the network solver locally.")
         );
+        if(m.kind()==PneumaticSystemMenu.KIND_RESERVOIR){
+            p.addChild(RseLdUiComponents.fixedRow("storage law",()->"charge ≤5 / 10t • leak 1 / 10t",
+                    "finite-rate retained state; no continuous CFD or random leak history is fabricated"));
+        }
+        if(m.kind()==PneumaticSystemMenu.KIND_PROPORTIONAL){
+            p.addChild(RseLdUiComponents.liveRow("DERIVED","Local ΔP",()->Integer.toString(Math.max(0,m.primary()-m.secondary()))));
+        }
         if(m.kind()==PneumaticSystemMenu.KIND_FLOW_METER){
             p.addChild(RseLdUiComponents.liveRow("COMMISSIONING","evidence",()->switch(m.commissioningStatus()){
                 case NOT_READY->"NOT READY • collect valid inlet/outlet evidence and at least four samples.";
