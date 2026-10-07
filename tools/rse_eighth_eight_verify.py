@@ -143,7 +143,7 @@ if menu_body:
         errors.append("Shielded Instrument Cable shared HMI should not duplicate the authoritative instrument graph scan")
 
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "SHIELDED INSTRUMENT BUS",
     "HEARTBEAT WATCHDOG",
     "SERVO ACTUATOR",
