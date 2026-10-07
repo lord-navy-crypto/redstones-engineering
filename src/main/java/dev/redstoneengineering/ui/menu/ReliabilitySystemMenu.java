@@ -4,6 +4,8 @@ import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.ReliabilitySystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -55,6 +57,9 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.RELIABILITY_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(ReliabilitySystemLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -292,6 +297,40 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             case SOUTH -> Direction.WEST;
             case WEST -> Direction.NORTH;
             default -> Direction.EAST;
+        };
+    }
+
+    /** LDLib2 HMI intent facade; safety/reliability mutation remains server-authoritative. */
+    public boolean applyParameterFromUi(int value) {
+        if (!validVisibleParameter(kind(), value)) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_DIRECT_BASE + value);
+    }
+
+    public boolean runMaintenance() {
+        return clickMenuButton(playerInventory.player, BUTTON_ACTION);
+    }
+
+    public boolean cycleWholeRouteForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleInputForward() {
+        if (!hasInputEndpoint()) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        if (!hasOutputEndpoint()) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    private static boolean validVisibleParameter(int kind, int value) {
+        return switch (kind) {
+            case KIND_WATCHDOG -> value == 20 || value == 40 || value == 80 || value == 160;
+            case KIND_SERVO -> value >= 1 && value <= 3;
+            case KIND_VOTER -> value == 0 || value == 1 || value == 2 || value == 4;
+            case KIND_FAULT_LATCH -> value == 1 || value == 4 || value == 8 || value == 12;
+            default -> false;
         };
     }
 
