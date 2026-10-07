@@ -23,7 +23,7 @@ magnetic = read("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemS
 amethyst = read("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java")
 reliability = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java")
 radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
-analyzer = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
+analyzer = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
 buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
 logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
 copper = read("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
@@ -196,10 +196,10 @@ wave3 = {
         "availability = 100 · validSamples / samples",
         'variableRole(g,"EVIDENCE","path"',
     )),
-    "SignalAnalyzerScreen.java": (analyzer, (
+    "SignalAnalyzerLdUi.java": (analyzer, (
         "PIONEER PATTERN • METROLOGY / CALIBRATION",
         "x_cal = clamp(x_raw + b_cal, 0, 15)",
-        'variableRole(graphics,"ADJUSTABLE","b_cal"',
+        '"b_cal","-2..+2 • direct entry"',
         "Calibration changes only the displayed engineering reading",
         "client never samples the world",
     )),
