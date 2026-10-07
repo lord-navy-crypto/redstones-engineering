@@ -6,6 +6,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.OpticalCommissioningSupport;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.OpticalSystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -40,6 +42,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     public OpticalSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.OPTICAL_SYSTEM.get(), containerId, inventory, pos, inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(OpticalSystemLdUi.create(this, inventory.player));
+        }
     }
 
     @Override protected void refreshAuthoritativeSnapshot() {
@@ -229,6 +234,38 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         level.scheduleTick(blockPos, splitter, 1); if (level instanceof ServerLevel server) DomainNetwork.recomputeOpticalAround(server, blockPos); return true;
     }
     private static Direction rotateHorizontal(Direction d, boolean clockwise) { return clockwise ? d.getClockWise() : d.getCounterClockWise(); }
+
+    /** LDLib2 HMI intent facade; propagation/commissioning remain server-owned. */
+    public boolean applyPrimaryFromUi(int value) {
+        boolean valid = switch (kind()) {
+            case KIND_EMITTER, KIND_FILTER -> value >= 0 && value <= 15;
+            case KIND_ATTENUATOR -> value >= 0 && value <= 8;
+            default -> false;
+        };
+        return valid && clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DIRECT_BASE + value);
+    }
+
+    public boolean applySecondaryFromUi(int value) {
+        boolean valid = switch (kind()) {
+            case KIND_EMITTER -> value >= 0 && value <= 15;
+            case KIND_FREE_SPACE_TX, KIND_FREE_SPACE_RX -> value >= 0 && value <= 3;
+            default -> false;
+        };
+        return valid && clickMenuButton(playerInventory.player, BUTTON_SECONDARY_DIRECT_BASE + value);
+    }
+
+    public boolean cycleWholeRouteForward() {
+        if (!directional() && kind() != KIND_METER) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleInputForward() {
+        return hasInputEndpoint() && clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return hasOutputEndpoint() && clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
 
     public int kind() { return kind.get(); } public int primary() { return primary.get(); } public int secondary() { return secondary.get(); }
     public int tertiary() { return tertiary.get(); } public int auxiliary() { return auxiliary.get(); }
