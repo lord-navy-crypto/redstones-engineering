@@ -287,6 +287,9 @@ require("src/main/java/dev/redstoneengineering/block/PrecisionFilterBlock.java",
 require("src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java",
         "setWidth(Level level, BlockPos pos, int width)")
 
+# LDLib2 MIGRATION CONTRACT: shared host + shared components + per-device UI + server intent facade.
+require("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java",
+        "formulaCard(", "liveRow(", "serverAction(", "authorityFooter()")
 require("src/main/java/dev/redstoneengineering/client/ui/ldlib/LdlibEngineeringHostScreen.java",
         "IModularUIHolderMenu", "AbstractContainerScreen<M>",
         "getModularUI()", "LDLib2 owns the engineering HMI canvas")
