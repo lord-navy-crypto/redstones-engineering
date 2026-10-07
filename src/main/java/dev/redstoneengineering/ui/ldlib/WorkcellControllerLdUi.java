@@ -52,7 +52,7 @@ public final class WorkcellControllerLdUi {
                         m.validResourceCount() + "/" + m.boundResourceCount()),
                 RseLdUiComponents.liveRow("DERIVED", "queue pressure", () ->
                         m.queuePressure() < 0 ? "UNAVAILABLE" : m.queuePressure() + "/15"),
-                RseLdUiComponents.liveRow("ADMISSION", "state", () -> m.admissionPermitted() ? "PERMIT" : "HOLD"),
+                RseLdUiComponents.liveRow("ADMISSION", "admission", () -> m.admissionPermitted() ? "PERMIT" : "HOLD"),
                 RseLdUiComponents.liveRow("EVIDENCE", "reason", m::admissionReason),
                 RseLdUiComponents.liveRow("SAFETY", "fault resources", () -> Integer.toString(m.faultResourceCount())),
                 RseLdUiComponents.liveRow("EVIDENCE", "SETUP", () ->
