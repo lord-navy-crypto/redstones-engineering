@@ -56,7 +56,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
         "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
 require("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
         "Interference", "interferenceConfidence()", "shield exposed instrument segments")
-require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
         "Bus interference", "interferenceConfidence()", "shield exposed instrument segments")
 
 require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
