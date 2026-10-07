@@ -19,6 +19,7 @@ public final class QuartzTimingLdUi {
         root.layout(l -> l.width(560).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(menu)),
+                new Label().setText("FORMULA-FIRST TIMING MODEL"),
                 RseLdUiComponents.formulaCard(() -> equation(menu)),
                 overview(menu),
                 controls(menu),
