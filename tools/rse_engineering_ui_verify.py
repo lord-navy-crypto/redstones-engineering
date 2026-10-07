@@ -273,10 +273,17 @@ require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
         "BUTTON_PARAMETER_DIRECT_BASE", "QuartzClockDividerBlock.cycleDivision")
 
 require("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java",
-        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
-        "{20,40,80,160} ticks", "tol {0,1,2,4}", "T_fault {1,4,8,12}")
+        "extends LdlibEngineeringHostScreen<ReliabilitySystemMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
+        "ModularUI", "DataBindingBuilder.string",
+        "{20,40,80,160} ticks", "{0,1,2,4} spread", "{1,4,8,12} redstone",
+        "Maintenance action", "Cycle direction ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
-        "BUTTON_PARAMETER_DIRECT_BASE", "value == 160", "value == 12")
+        "BUTTON_PARAMETER_DIRECT_BASE", "value == 160", "value == 12",
+        "ReliabilitySystemLdUi.create(this, inventory.player)",
+        "applyParameterFromUi", "runMaintenance",
+        "cycleWholeRouteForward", "cycleInputForward", "cycleOutputForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
         "EditBox", "submitPrimary", "submitSecondary",
@@ -288,12 +295,13 @@ require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "OpticalAttenuatorBlock.LOSS", "FreeSpaceOpticalTransmitterBlock.CHANNEL",
         "FreeSpaceOpticalReceiverBlock.CHANNEL")
 
-require("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java",
-        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
-        "{20,40,80,160} ticks", "{0,1,2,4} spread", "{1,4,8,12} redstone")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
+        "{20,40,80,160} ticks", "{0,1,2,4} spread", "{1,4,8,12} redstone",
+        "direct entry")
 require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
         "BUTTON_PARAMETER_DIRECT_BASE = 10000", "value == 160 ? 3",
-        "RedundantVoterBlock.TOLERANCE", "FaultLatchBlock.THRESHOLD")
+        "RedundantVoterBlock.TOLERANCE", "FaultLatchBlock.THRESHOLD",
+        "validVisibleParameter")
 
 require("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
         "EditBox", "submitParameter", "T={2,4,8,16,32}", "N={2,4,8,16}",
