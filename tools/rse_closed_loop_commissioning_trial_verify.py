@@ -17,7 +17,7 @@ comparison = read("src/main/java/dev/redstoneengineering/diagnostics/Commissioni
 store = read("src/main/java/dev/redstoneengineering/diagnostics/CommissioningTrialStore.java")
 pid_block = read("src/main/java/dev/redstoneengineering/block/PidControllerBlock.java")
 pid_menu = read("src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java")
-pid_screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
+pid_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java")
 commissioning = read("src/main/java/dev/redstoneengineering/diagnostics/ClosedLoopCommissioning.java")
 
 for token in (
