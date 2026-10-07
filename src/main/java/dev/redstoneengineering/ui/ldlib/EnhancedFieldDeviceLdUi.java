@@ -244,7 +244,7 @@ public final class EnhancedFieldDeviceLdUi {
             case FieldDeviceMenu.KIND_FILTER -> "Δmax";
             case FieldDeviceMenu.KIND_REFERENCE -> "y_R";
             case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "y_L";
-            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "threshold";
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "minimumQuality / threshold";
             case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> "P_set";
             case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "P_relief";
             case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> "B_src";
