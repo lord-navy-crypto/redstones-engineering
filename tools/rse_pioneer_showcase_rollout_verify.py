@@ -19,14 +19,14 @@ pid = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.
 digital = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
 pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
 optical = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
-magnetic = read("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java")
+magnetic = read("src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java")
 amethyst = read("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java")
 reliability = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
-radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
+radio = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
 analyzer = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
 buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
 logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
-copper = read("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
+copper = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
 ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
 workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
 universal = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
@@ -34,7 +34,7 @@ enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDe
 processor = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
 range_sensor = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
 conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
-quartz = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
+quartz = read("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java")
 media_conversion = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
 client_registration = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
@@ -157,12 +157,11 @@ wave2 = {
         "I_A = floor(I_in/2)",
         "L_obs = I_TX - I_RX",
     )),
-    "MagneticSystemScreen.java": (magnetic, (
+    "MagneticSystemLdUi.java": (magnetic, (
         "PIONEER PATTERN • MAGNETIC MODEL",
-        "magneticEquation()",
         "V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)",
         "Σ S_i / max(1,r_i²)",
-        'variableRole(g,"EVIDENCE"',
+        'liveRow("EVIDENCE"',
     )),
 }
 
@@ -189,12 +188,11 @@ wave3 = {
         "spread ≤ tolerance",
         "fault ≥ threshold",
     )),
-    "RadioLinkScreen.java": (radio, (
+    "RadioLinkLdUi.java": (radio, (
         "PIONEER PATTERN • RADIO LINK BUDGET",
-        "radioEquation()",
         "M_decode = Q_link - Q_min",
         "availability = 100 · validSamples / samples",
-        'variableRole(g,"EVIDENCE","path"',
+        'liveRow("EVIDENCE","quality"',
     )),
     "SignalAnalyzerLdUi.java": (analyzer, (
         "PIONEER PATTERN • METROLOGY / CALIBRATION",
@@ -228,10 +226,10 @@ wave4 = {
         '"Δt_cursor"',
         "server-authoritative",
     )),
-    "CopperCircuitMeterScreen.java": (copper, (
+    "CopperCircuitMeterLdUi.java": (copper, (
         "PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL",
         "I = V / R_eq ; P = V · I",
-        '"commissioning"',
+        "COMMISSIONING",
         "observer-only",
         "server computes V, R_eq, I and P",
     )),
@@ -342,10 +340,10 @@ wave7 = {
         '"EVIDENCE", "boundary"',
         "RseLdUiComponents.authorityFooter()",
     )),
-    "QuartzTimingScreen.java": (quartz, (
+    "QuartzTimingLdUi.java": (quartz, (
         "FORMULA-FIRST TIMING MODEL",
         "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
-        "expectedDividerPeriod()",
+        "expectedDividerPeriod",
         "SATURATED @4096",
         "|e_T| = |T_meas - T_upstream|",
     )),
