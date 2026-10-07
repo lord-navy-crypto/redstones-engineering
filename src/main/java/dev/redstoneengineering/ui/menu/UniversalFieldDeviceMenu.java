@@ -1065,6 +1065,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     public int facingOrdinal() { return facing.get(); }
     public int routeKind() { return routeKind.get(); }
+    public String configPrimaryProfileName() {
+        return SensorModel.profileName(configPrimary.get());
+    }
+
     public int configKind() { return configKind.get(); }
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
