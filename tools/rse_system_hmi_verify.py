@@ -31,7 +31,7 @@ interlock = read("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlo
 topology = read("src/main/java/dev/redstoneengineering/block/TopologyDebuggerBlock.java")
 fault = read("src/main/java/dev/redstoneengineering/block/FaultInjectorBlock.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
 
 require(sequence, "SequenceControllerBlock.java",
         "boolean operatorReset(Level level, BlockPos pos)",
@@ -77,18 +77,18 @@ require(menu, "UniversalFieldDeviceMenu.java",
         "block instanceof TopologyDebuggerBlock",
         "return ROUTE_MULTI_PORT_LAYOUT")
 
-require(screen, "UniversalFieldDeviceScreen.java",
-        'Component.literal("Reset sequence to IDLE")',
-        'Component.literal("Reset diagnostic counters")',
-        'Component.literal("Reset scan counters")',
-        'Component.literal("Reset fault statistics")',
+require(screen, "UniversalFieldDeviceLdUi.java",
+        '"Reset sequence to IDLE"',
+        '"Reset diagnostic counters"',
+        '"Reset scan counters"',
+        '"Reset fault statistics"',
         "CONFIG_SEQUENCE_CONTROLLER",
         "CONFIG_SAFETY_INTERLOCK",
         "CONFIG_TOPOLOGY_DEBUGGER",
         "CONFIG_FAULT_INJECTOR",
         '"ALARM • ACTIVE / UNACK"',
         '"ALARM • ACTIVE / ACK"',
-        "action.active = kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2",
+        '"Acknowledge active alarm"',
         '"INTERLOCK • REACQUIRING"',
         '"NOT EVALUATED"',
         '"FAULT INJECTOR • ARMED"',
@@ -99,10 +99,12 @@ require(screen, "UniversalFieldDeviceScreen.java",
         '"Current evidence"',
         '"SYNCHRONIZED SNAPSHOT"',
         '"Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet."',
-        '"Missing permissives"',
-        '"Target mode"',
-        '"Completed cycles"')
-forbid(screen, "UniversalFieldDeviceScreen.history",
+        '"Missing permissives = "',
+        '"Target mode = "',
+        '"Completed cycles = "',
+        "RseLdUiComponents.serverAction",
+        "menu::runConfigAction")
+forbid(screen, "UniversalFieldDeviceLdUi.history",
        '"Universal HMI intentionally stores no client-local history."',
        '"This prevents opening a UI from creating measurement evidence or changing simulation state."')
 
