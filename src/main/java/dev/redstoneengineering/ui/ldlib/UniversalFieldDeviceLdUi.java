@@ -457,7 +457,6 @@ public final class UniversalFieldDeviceLdUi {
         return switch (kind) {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR -> "τ is the visible discrete response constant; it is an RSE proxy, not an SI capacitance claim. Visible τ selects the implemented discrete response profile.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> "Configuration and realized interval remain separate: the latter is retained server evidence.";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> "Passive cooling cannot refrigerate below the model ambient floor.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR -> "Soul Flux is explicitly Minecraft-fictional; packet = 4·u_R • read-only law. Quality and topology remain server evidence.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> "Soul Flux is explicitly Minecraft-fictional; y_R=floor(15·Q_s/100) • read-only. Invalid evidence forces safe zero.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT -> "Soul Flux is explicitly Minecraft-fictional; read-only decay law. Quality and topology remain server evidence.";
