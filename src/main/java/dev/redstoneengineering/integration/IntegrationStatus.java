@@ -13,6 +13,7 @@ import net.neoforged.fml.ModList;
 public final class IntegrationStatus {
     public static final String JADE_MOD_ID = "jade";
     public static final String GECKOLIB_MOD_ID = "geckolib";
+    public static final String LDLIB2_MOD_ID = "ldlib2";
 
     private IntegrationStatus() {}
 
@@ -28,9 +29,14 @@ public final class IntegrationStatus {
         return isLoaded(GECKOLIB_MOD_ID);
     }
 
+    public static boolean isLdLib2Loaded() {
+        return isLoaded(LDLIB2_MOD_ID);
+    }
+
     public static String summary() {
         return "requiredPlatform{jade=" + status(isJadeLoaded())
-                + ", geckolib=" + status(isGeckoLibLoaded()) + "}";
+                + ", geckolib=" + status(isGeckoLibLoaded())
+                + ", ldlib2=" + status(isLdLib2Loaded()) + "}";
     }
 
     private static String status(boolean loaded) {
