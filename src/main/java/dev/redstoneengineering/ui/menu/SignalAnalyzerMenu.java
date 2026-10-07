@@ -6,6 +6,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.SignalCalibrationTrialComparison;
 import dev.redstoneengineering.diagnostics.SignalCalibrationTrialStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.SignalAnalyzerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -82,6 +84,9 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         );
         for (int i = 0; i < samples.length; i++) samples[i] = trackedInt();
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(SignalAnalyzerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -164,6 +169,37 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    /** LDLib2 HMI intent facade; mutations reuse the validated server menu path. */
+    public boolean toggleMode() {
+        return clickMenuButton(playerInventory.player, BUTTON_MODE_TOGGLE);
+    }
+
+    public boolean resetStatistics() {
+        return clickMenuButton(playerInventory.player, BUTTON_RESET_HISTORY);
+    }
+
+    public boolean setCalibrationFromUi(int value) {
+        if (value < -2 || value > 2) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CALIBRATION_DIRECT_BASE + value + 2);
+    }
+
+    public boolean setReferenceFromUi(int value) {
+        if (value < 0 || value > 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_REFERENCE_DIRECT_BASE + value);
+    }
+
+    public boolean captureTrialBaseline() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIAL_BASELINE);
+    }
+
+    public boolean captureTrialCandidate() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIAL_CANDIDATE);
+    }
+
+    public boolean clearTrial() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIAL_CLEAR);
     }
 
     public int mode() { return mode.get(); }
