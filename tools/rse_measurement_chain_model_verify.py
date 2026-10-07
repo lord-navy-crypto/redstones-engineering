@@ -13,14 +13,14 @@ def read(rel):
         return ""
     return path.read_text(errors="ignore")
 
-range_screen = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
+range_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
 range_block = read("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java")
 conditioner_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
 conditioner_block = read("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java")
 quartz_screen = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
 quartz_divider = read("src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java")
 quartz_stability = read("src/main/java/dev/redstoneengineering/block/QuartzStabilityMonitorBlock.java")
-media_screen = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
+media_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
 media_diag = read("src/main/java/dev/redstoneengineering/core/diagnostic/CoreMediaDiagnostics.java")
 
 server_contracts = {
@@ -64,11 +64,11 @@ for name, (text, tokens) in server_contracts.items():
             errors.append(f"{name} server contract missing {token!r}")
 
 screen_contracts = {
-    "RangeSensorScreen.java": (range_screen, (
+    "RangeSensorLdUi.java": (range_screen, (
         "FORMULA-FIRST SENSOR RESPONSE",
         "y = (d ≤ 0) ? 0 : round(15 · (R - d + 1) / R)",
         "y = (d ≤ 0) ? 0 : round(15 · d / R)",
-        '"EVIDENCE", "scan"',
+        '"EVIDENCE","scan"',
         "A complete CLEAR scan with d=0 is valid evidence",
     )),
     "SignalConditionerLdUi.java": (conditioner_screen, (
@@ -88,7 +88,7 @@ screen_contracts = {
         "SATURATED @4096",
         "|e_T| = |T_meas - T_upstream|",
     )),
-    "MediaConversionScreen.java": (media_screen, (
+    "MediaConversionLdUi.java": (media_screen, (
         "FORMULA-FIRST MEDIA BOUNDARY",
         "y_L = round(100 · x_R / 15)",
         "y_R = round(15 · x_L / 100)",
