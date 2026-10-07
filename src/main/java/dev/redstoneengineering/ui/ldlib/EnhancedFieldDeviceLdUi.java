@@ -193,6 +193,8 @@ public final class EnhancedFieldDeviceLdUi {
             case FieldDeviceMenu.KIND_REDUNDANT_VOTER -> "2oo3 REDUNDANT VOTER";
             case FieldDeviceMenu.KIND_FAULT_LATCH -> "RESET input with priority over FAULT";
             case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "OPERATIONS MONITOR • OBSERVER • READ-ONLY CPS / RELIABILITY DEVICE";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> "HYDROACOUSTIC • BIDIRECTIONAL PRESSURE PATH";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "PHONON_THERMAL • BIDIRECTIONAL PULSE PATH";
             case FieldDeviceMenu.KIND_AIR_COMPRESSOR -> "PNEUMATIC COMPRESSED-AIR OUTPUT";
             case FieldDeviceMenu.KIND_PNEUMATIC_PIPE -> "PNEUMATIC • SIX-WAY BIDIRECTIONAL PIPE";
             case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "PNEUMATIC → REDSTONE";
