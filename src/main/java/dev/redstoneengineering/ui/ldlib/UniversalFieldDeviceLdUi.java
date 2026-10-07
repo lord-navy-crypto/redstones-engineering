@@ -13,7 +13,6 @@ import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -722,7 +721,7 @@ public final class UniversalFieldDeviceLdUi {
         int kind = menu.configKind();
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER
                 || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE)
-            return SensorModel.profileName(menu.configPrimary());
+            return menu.configPrimaryProfileName();
         if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) return Integer.toString(menu.pioneerProcessQuinary());
         if (kind == UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR) return Integer.toString(CopperCapacitorBlock.tauTicks(menu.configPrimary()));
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return String.format(Locale.ROOT, "%.2f", menu.configPrimary() * 0.05);
