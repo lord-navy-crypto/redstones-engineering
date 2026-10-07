@@ -17,7 +17,7 @@ range_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorL
 range_block = read("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java")
 conditioner_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
 conditioner_block = read("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java")
-quartz_screen = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
+quartz_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java")
 quartz_divider = read("src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java")
 quartz_stability = read("src/main/java/dev/redstoneengineering/block/QuartzStabilityMonitorBlock.java")
 media_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
@@ -80,10 +80,10 @@ screen_contracts = {
         "y = (|x - y_prev| ≥ B) ? x : y_prev",
         '"EVIDENCE", "boundary"',
     )),
-    "QuartzTimingScreen.java": (quartz_screen, (
+    "QuartzTimingLdUi.java": (quartz_screen, (
         "FORMULA-FIRST TIMING MODEL",
         "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
-        "expectedDividerPeriod()",
+        "expectedDividerPeriod(",
         '"EVIDENCE", "period limit"',
         "SATURATED @4096",
         "|e_T| = |T_meas - T_upstream|",
