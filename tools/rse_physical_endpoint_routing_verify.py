@@ -29,6 +29,7 @@ scaler = BLOCK / "RedstoneToLapisScalerBlock.java"
 quantizer = BLOCK / "LapisToRedstoneQuantizerBlock.java"
 conversion_menu = UI / "ui/menu/MediaConversionMenu.java"
 conversion_screen = UI / "client/ui/MediaConversionScreen.java"
+conversion_ld = UI / "ui/ldlib/MediaConversionLdUi.java"
 
 for path in (signal, domain):
     require(path, "physicalPortsDoNotOverlap", "full physical-port collision validation")
@@ -66,10 +67,12 @@ require(conversion_menu, "RedstoneToLapisScalerBlock.rotateInput", "scaler RX ro
 require(conversion_menu, "RedstoneToLapisScalerBlock.rotateOutput", "scaler TX routing")
 require(conversion_menu, "LapisToRedstoneQuantizerBlock.rotateInput", "quantizer RX routing")
 require(conversion_menu, "LapisToRedstoneQuantizerBlock.rotateOutput", "quantizer TX routing")
-require(conversion_screen, 'Component.literal("Cycle RX ▶")', "converter one-button RX UI")
-require(conversion_screen, 'Component.literal("Cycle TX ▶")', "converter one-button TX UI")
-require(conversion_screen, "menu.inputFace()", "converter live RX display")
-require(conversion_screen, "menu.outputFace()", "converter live TX display")
+require(conversion_screen, "extends LdlibEngineeringHostScreen<MediaConversionMenu>", "converter LDLib2 host")
+require(conversion_ld, '"Cycle RX ▶"', "converter one-button RX UI")
+require(conversion_ld, '"Cycle TX ▶"', "converter one-button TX UI")
+require(conversion_ld, "menu.inputFace().getName().toUpperCase()", "converter live RX display")
+require(conversion_ld, "menu.outputFace().getName().toUpperCase()", "converter live TX display")
+require(conversion_ld, "RseLdUiComponents.authorityFooter()", "converter server-authority footer")
 
 for path in BLOCK.glob("*.java"):
     body = text(path)
