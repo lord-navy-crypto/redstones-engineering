@@ -82,6 +82,7 @@ forbidden_imports = [
     "software.bernie.geckolib",
     "me.shedaniel.cloth",
     "com.supermartijn642.fusion",
+    "com.lowdragmc.lowdraglib2",
 ]
 for subtree in ["core", "physics", "signal"]:
     base = root / "src/main/java/dev/redstoneengineering" / subtree
@@ -92,7 +93,7 @@ for subtree in ["core", "physics", "signal"]:
                 failed.append(f"core boundary violation: {java.relative_to(root)} imports {token}")
 
 build = text("build.gradle")
-for token in ["nvQzSEkH", "geckolib-neoforge"]:
+for token in ["nvQzSEkH", "geckolib-neoforge", "ldlib2-neoforge"]:
     if token not in build:
         failed.append(f"current required dependency disappeared from build.gradle: {token}")
 
