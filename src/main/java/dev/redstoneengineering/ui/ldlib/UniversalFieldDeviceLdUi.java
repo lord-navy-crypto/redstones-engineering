@@ -82,47 +82,132 @@ public final class UniversalFieldDeviceLdUi {
     }
 
     private static UIElement parameterPanel(UniversalFieldDeviceMenu menu) {
-        var primary = new TextField();
-        primary.layout(l -> l.width(110));
-        primary.bind(DataBindingBuilder.string(
-                () -> primaryDirectKind(menu.configKind()) ? primaryDisplay(menu) : "",
-                value -> applyPrimary(menu, value)
-        ).build());
-
-        var secondary = new TextField();
-        secondary.layout(l -> l.width(110));
-        secondary.bind(DataBindingBuilder.string(
-                () -> secondaryDirectKind(menu.configKind()) ? secondaryDisplay(menu) : "",
-                value -> applySecondary(menu, value)
-        ).build());
-
+        int kind = menu.configKind();
         var panel = new UIElement().addClass("panel_bg");
         panel.layout(l -> l.paddingAll(5).gapAll(4));
         panel.addChildren(
                 new Label().setText("FORMULA PARAMETER WORKBENCH"),
-                RseLdUiComponents.liveRow("MODEL", "config", () -> configName(menu.configKind())),
-                RseLdUiComponents.liveRow("CONTROL", primarySymbol(menu.configKind()),
-                        () -> primaryDisplay(menu) + " • " + primaryRange(menu.configKind())),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                        new Label().setText("PRIMARY").layout(l -> l.width(72)),
-                        primary,
-                        RseLdUiComponents.serverAction("Cycle primary ▶", menu::cyclePrimaryForward)
-                ),
-                RseLdUiComponents.liveRow("CONTROL", secondarySymbol(menu.configKind()),
-                        () -> secondaryDisplay(menu) + " • " + secondaryRange(menu.configKind())),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                        new Label().setText("SECONDARY").layout(l -> l.width(72)),
-                        secondary,
-                        RseLdUiComponents.serverAction("Cycle secondary ▶", menu::cycleSecondaryForward)
-                ),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                        RseLdUiComponents.serverAction("Explicit action", menu::runConfigAction),
-                        RseLdUiComponents.serverAction("Toggle", menu::toggleConfiguration)
-                ),
-                RseLdUiComponents.liveRow("EVIDENCE", "process", () -> menu.pioneerProcessEvidenceQuality().name()),
-                new Label().setText("Universal HMI rule: controls express server intent only; Route owns physical interfaces; no hidden universal physics.")
+                RseLdUiComponents.liveRow("MODEL", "config", () -> configName(menu.configKind()))
         );
+
+        if (kind == UniversalFieldDeviceMenu.CONFIG_NONE) {
+            panel.addChildren(
+                    RseLdUiComponents.fixedRow("configuration", () -> "NONE",
+                            "this device exposes measurement/process evidence but no shared tunable"),
+                    new Label().setText("READ-ONLY HMI • no fake control is created for a server model with no configurable coefficient")
+            );
+        } else {
+            addPrimaryControl(panel, menu, kind);
+            addSecondaryControl(panel, menu, kind);
+
+            if (hasExplicitAction(kind)) {
+                panel.addChildren(
+                        RseLdUiComponents.liveRow("ACTION", "operator", () -> actionLabel(menu)),
+                        RseLdUiComponents.serverAction("Execute explicit action", menu::runConfigAction)
+                );
+            }
+
+            if (hasToggle(kind)) {
+                panel.addChildren(
+                        RseLdUiComponents.liveRow("TOGGLE", "invert",
+                                () -> menu.configSecondary() != 0 ? "INVERTED" : "NORMAL"),
+                        RseLdUiComponents.serverAction("Toggle invert", menu::toggleConfiguration)
+                );
+            }
+        }
+
+        if (menu.pioneerProcessKind() != UniversalFieldDeviceMenu.PIONEER_PROCESS_NONE) {
+            panel.addChild(RseLdUiComponents.liveRow(
+                    "EVIDENCE", "process", () -> menu.pioneerProcessEvidenceQuality().name()));
+        }
+
+        panel.addChild(new Label().setText(
+                "Universal HMI rule: numeric values use exact entry; discrete modes use one-button cycle; "
+                        + "actions/toggles appear only when the server model actually supports them."));
         return panel;
+    }
+
+    private static void addPrimaryControl(UIElement panel, UniversalFieldDeviceMenu menu, int kind) {
+        if (primaryDirectKind(kind)) {
+            var input = new TextField();
+            input.layout(l -> l.width(130));
+            input.bind(DataBindingBuilder.string(
+                    () -> primaryDisplay(menu),
+                    value -> applyPrimary(menu, value)
+            ).build());
+
+            panel.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE", primarySymbol(kind),
+                            () -> primaryDisplay(menu) + " • " + primaryRange(kind)),
+                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                            new Label().setText("DIRECT").layout(l -> l.width(72)),
+                            input,
+                            new Label().setText(primaryRange(kind)).layout(l -> l.flex(1))
+                    )
+            );
+            return;
+        }
+
+        if (primaryCycleKind(kind)) {
+            panel.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE", primarySymbol(kind),
+                            () -> primaryDisplay(menu) + " • " + primaryRange(kind)),
+                    RseLdUiComponents.serverAction(
+                            "Cycle " + primarySymbol(kind) + " ▶",
+                            menu::cyclePrimaryForward)
+            );
+        }
+    }
+
+    private static void addSecondaryControl(UIElement panel, UniversalFieldDeviceMenu menu, int kind) {
+        if (!secondaryDirectKind(kind)) return;
+
+        var input = new TextField();
+        input.layout(l -> l.width(130));
+        input.bind(DataBindingBuilder.string(
+                () -> secondaryDisplay(menu),
+                value -> applySecondary(menu, value)
+        ).build());
+
+        panel.addChildren(
+                RseLdUiComponents.liveRow("ADJUSTABLE", secondarySymbol(kind),
+                        () -> secondaryDisplay(menu) + " • " + secondaryRange(kind)),
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                        new Label().setText("DIRECT").layout(l -> l.width(72)),
+                        input,
+                        new Label().setText(secondaryRange(kind)).layout(l -> l.flex(1))
+                )
+        );
+    }
+
+    private static boolean primaryCycleKind(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE,
+                 UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD,
+                 UniversalFieldDeviceMenu.CONFIG_CALIBRATION,
+                 UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean hasExplicitAction(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_ALARM,
+                 UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD,
+                 UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR,
+                 UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER,
+                 UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK,
+                 UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE,
+                 UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean hasToggle(int kind) {
+        return kind == UniversalFieldDeviceMenu.CONFIG_PWM;
     }
 
     private static UIElement systemStatePanel(UniversalFieldDeviceMenu menu) {
@@ -667,7 +752,12 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD, UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "1..15 R-eq";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "1..15 I-eq";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS, UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "1..4";
-            default -> "profile / state";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE,
+                 UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD,
+                 UniversalFieldDeviceMenu.CONFIG_CALIBRATION,
+                 UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "discrete server mode";
+            default -> "state / read-only";
         };
     }
 
@@ -695,6 +785,11 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "R";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "k_cool";
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "g";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "profile";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "trigger edge";
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "profile";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "fault mode";
             default -> "primary";
         };
     }
