@@ -180,6 +180,9 @@ ldlib_contracts = {
     "SignalAnalyzerScreen": (
         "extends LdlibEngineeringHostScreen<SignalAnalyzerMenu>",
     ),
+    "ReliabilitySystemScreen": (
+        "extends LdlibEngineeringHostScreen<ReliabilitySystemMenu>",
+    ),
 }
 
 engineering_families = []
@@ -212,6 +215,7 @@ for menu_name, screen_name in block_facing:
             "SignalProcessorScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java",
             "LogicAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
             "SignalAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
+            "ReliabilitySystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -224,6 +228,17 @@ for menu_name, screen_name in block_facing:
             for token in ("Cycle Δt ▶", "TRIGGER", "SAMPLING EXPERIMENT", "waveform(menu, 0)"):
                 if token not in ld_ui:
                     errors.append(f"OscilloscopeScreen LDLib2 UI missing {token!r}")
+        if screen_name == "ReliabilitySystemScreen":
+            for token in (
+                "PIONEER PATTERN • RELIABILITY / SAFE STATE",
+                "Maintenance action",
+                "Cycle direction ▶",
+                "Cycle RX ▶",
+                "Cycle TX ▶",
+                "safe-state logic is never inferred from UI presentation alone",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"ReliabilitySystemScreen LDLib2 UI missing {token!r}")
         if screen_name == "SignalAnalyzerScreen":
             for token in (
                 "PIONEER PATTERN • METROLOGY / CALIBRATION",
