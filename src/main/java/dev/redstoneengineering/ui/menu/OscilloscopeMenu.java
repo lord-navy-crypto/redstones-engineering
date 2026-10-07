@@ -115,7 +115,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
-        if (this instanceof IModularUIHolderMenu holder) {
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(OscilloscopeLdUi.create(this, inventory.player));
         }
     }
