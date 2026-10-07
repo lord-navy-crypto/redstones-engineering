@@ -126,11 +126,15 @@ public final class OperationsMonitorLdUi {
     private static UIElement reliabilityPanel(OperationsMonitorMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("ELECTRICAL / COPPER RELIABILITY EVIDENCE"),
-                RseLdUiComponents.liveRow("PROTECTION", "trips / recovered", () ->
+                RseLdUiComponents.liveRow("PROTECTION", "Electrical trips / recovered", () ->
                         m.electricalTripCount() + " / " + m.electricalRecoveryCount()),
-                RseLdUiComponents.liveRow("PROTECTION", "active / repeat", () ->
-                        m.electricalActiveTripCount() + " / " + m.electricalRepeatTripCount()),
-                RseLdUiComponents.liveRow("PROTECTION", "downtime", () -> formatTicks(m.electricalDowntimeTicks())),
+                RseLdUiComponents.liveRow("PROTECTION", "Protection status", () ->
+                        m.electricalActiveTripCount() > 0
+                                ? "ACTIVE TRIP • repeat=" + m.electricalRepeatTripCount()
+                                : "READY • repeat=" + m.electricalRepeatTripCount()),
+                RseLdUiComponents.liveRow("PROTECTION", "Electrical downtime", () ->
+                        formatTicks(m.electricalDowntimeTicks())),
+                new Label().setText("MTBF/MTTR withheld • durable operating exposure / repair-cycle evidence not persisted"),
                 RseLdUiComponents.liveRow("COPPER", "active degraded / failed", () ->
                         m.copperEvidenceActiveDegradedCount() + " / " + m.copperEvidenceActiveFailedCount()),
                 RseLdUiComponents.liveRow("COPPER", "transitions D/F/R", () ->
