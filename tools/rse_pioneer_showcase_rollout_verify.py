@@ -24,11 +24,11 @@ amethyst = read("src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLd
 reliability = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
 radio = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
 analyzer = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
-buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
+buffer = read("src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java")
 logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
 copper = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
 ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
-workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
+workcell = read("src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java")
 universal = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
 enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
 processor = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
@@ -204,12 +204,12 @@ wave3 = {
         "Calibration changes only the displayed engineering reading",
         "client never samples the world",
     )),
-    "IndustrialBufferScreen.java": (buffer, (
+    "IndustrialBufferLdUi.java": (buffer, (
         "PIONEER PATTERN • OPERATIONS / WIP MODEL",
         "WIP% = 100·used/capacity",
         "clamp(round(15·used/capacity),1,15)",
-        'evidenceRow(graphics,"Workcell roles"',
-        "LOT identity",
+        "WORKCELL ROLES",
+        "LOT IDENTITY",
     )),
 }
 
@@ -243,7 +243,7 @@ wave4 = {
         '"state"',
         "KPIs stay WITHHELD",
     )),
-    "WorkcellControllerScreen.java": (workcell, (
+    "WorkcellControllerLdUi.java": (workcell, (
         "PIONEER PATTERN • WORKCELL ADMISSION GATE",
         "PERMIT ⇔ valid capacity evidence ∧ no fault ∧ output space ∧ resource capacity",
         '"admission"',
