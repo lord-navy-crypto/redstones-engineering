@@ -333,6 +333,9 @@ for menu_name, screen_name in block_facing:
                 "Cycle direction ▶",
                 "Cycle RX ▶",
                 "Cycle TX ▶",
+                "MECHANISM FLOW • SERVER-AUTHORITATIVE",
+                "READ-ONLY TOPOLOGY • no server-supported route mutation for this device",
+                "no fake action is exposed when the authoritative server model has no explicit action",
             ):
                 if token not in ld_ui:
                     errors.append(f"UniversalFieldDeviceScreen LDLib2 UI missing {token!r}")
