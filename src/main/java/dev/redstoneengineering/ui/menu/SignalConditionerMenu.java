@@ -91,20 +91,20 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
 
     /** LDLib2 server-event facade: preserve the existing validated menu mutation path. */
     public boolean cycleModeForward() {
-        return clickMenuButton(player, BUTTON_MODE_NEXT);
+        return clickMenuButton(playerInventory.player, BUTTON_MODE_NEXT);
     }
 
     public boolean cycleInputForward() {
-        return clickMenuButton(player, BUTTON_INPUT_RIGHT);
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
     }
 
     public boolean cycleOutputForward() {
-        return clickMenuButton(player, BUTTON_OUTPUT_RIGHT);
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
     }
 
     public boolean applyVisibleFormulaParameter(int value) {
         if (!validVisibleFormulaParameter(mode(), value)) return false;
-        return clickMenuButton(player, BUTTON_PARAM_DIRECT_BASE + value + 16);
+        return clickMenuButton(playerInventory.player, BUTTON_PARAM_DIRECT_BASE + value + 16);
     }
 
     private static boolean validVisibleFormulaParameter(int mode, int value) {
