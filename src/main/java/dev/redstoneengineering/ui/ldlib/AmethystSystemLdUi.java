@@ -1,0 +1,151 @@
+package dev.redstoneengineering.ui.ldlib;
+
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
+import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
+import net.minecraft.world.entity.player.Player;
+import org.appliedenergistics.yoga.YogaFlexDirection;
+
+public final class AmethystSystemLdUi {
+    private AmethystSystemLdUi() {}
+
+    public static ModularUI create(AmethystSystemMenu m, Player player){
+        var root=new UIElement().addClass("panel_bg");
+        root.layout(l->l.width(600).paddingAll(8).gapAll(6));
+        root.addChildren(
+                RseLdUiComponents.title(deviceName(m)),
+                RseLdUiComponents.title("PIONEER PATTERN • RESONANCE MODEL"),
+                RseLdUiComponents.formulaCard(()->equation(m)),
+                overview(m),
+                controls(m),
+                diagnostics(m),
+                RseLdUiComponents.authorityFooter()
+        );
+        return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
+    }
+
+    private static UIElement overview(AmethystSystemMenu m){
+        var p=new UIElement().addClass("panel_bg");p.layout(l->l.paddingAll(5).gapAll(3));
+        if(m.kind()==AmethystSystemMenu.KIND_SOURCE){
+            p.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE","f_idx",()->Integer.toString(m.primary())),
+                    RseLdUiComponents.liveRow("ADJUSTABLE","A",()->m.secondary()+" / 15"),
+                    RseLdUiComponents.liveRow("STATE","source",()->m.stateFlag()==1?"ACTIVE":"IDLE")
+            );
+        } else if(m.kind()==AmethystSystemMenu.KIND_FILTER){
+            p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED","f_in/A_in",()->m.primary()+" / "+m.secondary()),
+                    RseLdUiComponents.liveRow("ADJUSTABLE","f_target",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("DERIVED","A_out",()->Integer.toString(m.auxiliary()))
+            );
+        } else if(m.kind()==AmethystSystemMenu.KIND_TUNED){
+            p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED","f_in/A_in",()->m.primary()+" / "+m.secondary()),
+                    RseLdUiComponents.liveRow("ADJUSTABLE","f0",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("ADJUSTABLE","Q_idx",()->Integer.toString(m.auxiliary())),
+                    RseLdUiComponents.liveRow("DERIVED","BW",()->Integer.toString(m.extraA())),
+                    RseLdUiComponents.liveRow("DERIVED","A_out",()->Integer.toString(m.extraB()))
+            );
+        } else {
+            p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED","dominant/energy",()->m.primary()+" / "+m.secondary()),
+                    RseLdUiComponents.liveRow("MEASURED","active bands",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("EVIDENCE","samples/conflicts",()->m.auxiliary()+" / "+m.extraA()),
+                    RseLdUiComponents.liveRow("EVIDENCE","coverage",()->m.extraB()+" / "+m.stateFlag())
+            );
+        }
+        p.addChild(RseLdUiComponents.fixedRow("frequency units",()->"MODEL INDEX 1..15",
+                "Frequency values are deliberate model indices, not fabricated Hz"));
+        return p;
+    }
+
+    private static UIElement controls(AmethystSystemMenu m){
+        var p=new UIElement().addClass("panel_bg");p.layout(l->l.paddingAll(5).gapAll(4));
+        if(m.kind()!=AmethystSystemMenu.KIND_SPECTRUM){
+            var primary=new TextField().setNumbersOnlyInt(1,15); primary.layout(l->l.width(110));
+            primary.bind(DataBindingBuilder.string(
+                    ()->Integer.toString(m.kind()==AmethystSystemMenu.KIND_SOURCE?m.primary():m.tertiary()),
+                    v->{try{m.setPrimaryFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}
+            ).build());
+            p.addChild(primary);
+        }
+        if(m.kind()==AmethystSystemMenu.KIND_SOURCE || m.kind()==AmethystSystemMenu.KIND_TUNED){
+            int max=m.kind()==AmethystSystemMenu.KIND_SOURCE?15:4;
+            var secondary=new TextField().setNumbersOnlyInt(1,max);secondary.layout(l->l.width(110));
+            secondary.bind(DataBindingBuilder.string(
+                    ()->Integer.toString(m.kind()==AmethystSystemMenu.KIND_SOURCE?m.secondary():m.auxiliary()),
+                    v->{try{m.setSecondaryFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}
+            ).build());
+            p.addChild(secondary);
+        }
+        if(m.kind()==AmethystSystemMenu.KIND_SOURCE){
+            p.addChild(RseLdUiComponents.serverAction("Pulse",m::pulse));
+        }
+        if(m.directional()){
+            p.addChild(new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                    RseLdUiComponents.serverAction("Cycle direction ▶",m::cycleWholeRouteForward),
+                    RseLdUiComponents.serverAction("Cycle RX ▶",m::cycleInputForward),
+                    RseLdUiComponents.serverAction("Cycle TX ▶",m::cycleOutputForward)
+            ));
+        }
+        if(m.kind()==AmethystSystemMenu.KIND_SPECTRUM){
+            p.addChild(RseLdUiComponents.fixedRow("control",()->"READ ONLY","spectrum analyzer is observer-only"));
+        }
+        return p;
+    }
+
+    private static UIElement diagnostics(AmethystSystemMenu m){
+        return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
+                RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
+                RseLdUiComponents.liveRow("DIAGNOSIS","state",()->diagnosis(m)),
+                RseLdUiComponents.liveRow("NEXT","action",()->nextAction(m)),
+                RseLdUiComponents.fixedRow("history",()->"SERVER RESONANCE EVIDENCE","no client-side spectrum/history is invented")
+        );
+    }
+
+    private static String equation(AmethystSystemMenu m){
+        if(m.kind()==AmethystSystemMenu.KIND_FILTER)return "A_out = (f_in = f_target) ? max(0, A_in - 1) : 0";
+        if(m.kind()==AmethystSystemMenu.KIND_TUNED)return "BW = 5 - Q ; Δf = |f_in - f0| ; response depends on Δf within BW";
+        if(m.kind()==AmethystSystemMenu.KIND_SOURCE)return "carrier = (f_idx, A) on the Amethyst resonance domain";
+        return "spectrum = dominant index + energy + active-band evidence";
+    }
+
+    private static String diagnosis(AmethystSystemMenu m){
+        if(m.quality()==PortQuality.TOPOLOGY_ERROR)return "SOURCE CONFLICT / resonance topology ambiguous";
+        if(m.quality()==PortQuality.NO_SIGNAL)return "NO RESONANCE EVIDENCE";
+        if(m.quality()==PortQuality.STALE)return "STALE RESONANCE EVIDENCE";
+        if(m.kind()==AmethystSystemMenu.KIND_FILTER){
+            if(m.primary()!=m.tertiary())return "FREQUENCY REJECT • input does not match selected band";
+            return m.auxiliary()>0?"FREQUENCY PASS • selected band present":"MATCHED BAND • zero amplitude";
+        }
+        if(m.kind()==AmethystSystemMenu.KIND_TUNED){
+            int detune=Math.abs(m.primary()-m.tertiary());
+            if(m.stateFlag()==2)return "RESONANT RESPONSE SATURATED";
+            if(detune<=m.extraA())return "IN-BAND RESONANT RESPONSE";
+            return "OUT-OF-BAND / DETUNED";
+        }
+        if(m.kind()==AmethystSystemMenu.KIND_SPECTRUM){
+            if(m.extraA()>0)return "SPECTRUM CONFLICT • overlapping source evidence";
+            if(m.tertiary()==0)return "QUIET SPECTRUM";
+            if(m.tertiary()==1)return "SINGLE-BAND RESONANCE";
+            return "MULTI-BAND RESONANCE";
+        }
+        return m.secondary()==0?"SOURCE CONFIGURED • zero amplitude":"SOURCE ACTIVE";
+    }
+
+    private static String nextAction(AmethystSystemMenu m){
+        if(m.quality()==PortQuality.TOPOLOGY_ERROR)return "NEXT • isolate competing resonance sources before interpreting frequency.";
+        if(m.quality()==PortQuality.NO_SIGNAL||m.quality()==PortQuality.STALE)return "NEXT • restore current resonance evidence before tuning the device.";
+        if(m.kind()==AmethystSystemMenu.KIND_FILTER&&m.primary()!=m.tertiary())return "NEXT • align target index with the carrier or intentionally keep this rejection band.";
+        if(m.kind()==AmethystSystemMenu.KIND_TUNED&&Math.abs(m.primary()-m.tertiary())>m.extraA())return "NEXT • retune natural index or widen the modeled response band via Q.";
+        if(m.kind()==AmethystSystemMenu.KIND_SPECTRUM&&m.extraA()>0)return "NEXT • separate conflicting sources, then rescan the spectrum.";
+        return "NEXT • resonance evidence is coherent; compare amplitude/response before changing topology.";
+    }
+
+    private static String deviceName(AmethystSystemMenu m){return switch(m.kind()){case AmethystSystemMenu.KIND_SOURCE->"AMETHYST RESONATOR";case AmethystSystemMenu.KIND_FILTER->"AMETHYST FREQUENCY FILTER";case AmethystSystemMenu.KIND_TUNED->"TUNED AMETHYST RESONATOR";case AmethystSystemMenu.KIND_SPECTRUM->"AMETHYST SPECTRUM ANALYZER";default->"AMETHYST DEVICE";};}
+}
