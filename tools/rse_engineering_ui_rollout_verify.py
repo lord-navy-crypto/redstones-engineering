@@ -227,6 +227,9 @@ for token in (
     "{2, 4, 8, 16, 32} ticks",
     "{1, 2, 4, 8} R-eq",
     "RseLdUiComponents.authorityFooter()",
+    "primaryCycleKind",
+    "READ-ONLY HMI • no fake control",
+    "numeric values use exact entry",
 ):
     if token not in universal_ld:
         errors.append(f"LDLib2 Universal rollout missing {token!r}")
