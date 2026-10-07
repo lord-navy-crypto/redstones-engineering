@@ -31,7 +31,7 @@ for token in ["1.0.9-alpha", "JEI", "Jade", "GeckoLib", "Cloth Config", "Fusion"
         failed.append(f"historical Alpha 1.0.9 manifest missing {token}")
 
 if current > (1, 0, 9):
-    for token in ["jade_version=15.10.6", "geckolib_version=4.9.2"]:
+    for token in ["jade_version=15.10.6", "geckolib_version=4.9.2", "ldlib2_version=2.2.26"]:
         if token not in props:
             failed.append(f"current runtime dependency property missing: {token}")
 
@@ -44,6 +44,8 @@ if current > (1, 0, 9):
         'implementation "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"',
         'implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"',
         'url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"',
+        'implementation "com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all"',
+        'url = "https://maven.firstdark.dev/snapshots"',
     ]:
         if token not in build:
             failed.append(f"build.gradle missing current required platform token: {token}")
@@ -59,7 +61,7 @@ if current > (1, 0, 9):
             failed.append(f"unused dependency/repository still present in build.gradle: {obsolete}")
 
     metadata = text("src/main/templates/META-INF/neoforge.mods.toml")
-    required = {"jade": "BOTH", "geckolib": "BOTH"}
+    required = {"jade": "BOTH", "geckolib": "BOTH", "ldlib2": "BOTH"}
     for mod_id, side in required.items():
         pattern = rf'\[\[dependencies\.\$\{{mod_id\}}\]\][\s\S]*?modId="{re.escape(mod_id)}"[\s\S]*?type="required"[\s\S]*?side="{side}"'
         if not re.search(pattern, metadata):
@@ -69,7 +71,7 @@ if current > (1, 0, 9):
             failed.append(f"unused hard dependency still present in metadata: {obsolete}")
 
     integration = text("src/main/java/dev/redstoneengineering/integration/IntegrationStatus.java")
-    for token in ["JADE_MOD_ID", "GECKOLIB_MOD_ID", "requiredPlatform"]:
+    for token in ["JADE_MOD_ID", "GECKOLIB_MOD_ID", "LDLIB2_MOD_ID", "requiredPlatform"]:
         if token not in integration:
             failed.append(f"IntegrationStatus missing current dependency token: {token}")
     for obsolete in ["JEI_MOD_ID", "CLOTH_CONFIG_MOD_ID", "FUSION_MOD_ID"]:
@@ -77,7 +79,7 @@ if current > (1, 0, 9):
             failed.append(f"IntegrationStatus still reports unused platform member: {obsolete}")
 
     policy = text("docs/DEPENDENCY_POLICY.md")
-    for token in ["Jade", "GeckoLib", "JEI", "Cloth Config", "Fusion", "Not hard runtime dependencies"]:
+    for token in ["Jade", "GeckoLib", "LDLib2", "JEI", "Cloth Config", "Fusion", "Not hard runtime dependencies"]:
         if token not in policy:
             failed.append(f"dependency policy missing evidence-based dependency statement: {token}")
 
@@ -94,5 +96,5 @@ if failed:
 print("RSE Alpha 1.0.9 dependency history/current-policy verification: PASS")
 print(" historical five-library decision preserved as history: PASS")
 if current > (1, 0, 9):
-    print(" current hard runtime platform is evidence-based Jade + GeckoLib only: PASS")
+    print(" current hard runtime platform is evidence-based Jade + GeckoLib + LDLib2: PASS")
     print(" unused JEI / Cloth Config / Fusion prerequisites removed: PASS")
