@@ -143,7 +143,7 @@ require(
     "displayState",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
     "Capture",
     "coverage=",
     "transition=",
