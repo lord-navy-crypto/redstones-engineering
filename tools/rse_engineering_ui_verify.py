@@ -135,7 +135,12 @@ require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScr
         '"FIXED", "T_floor"', "read-only decay law",
         "server-supported {6,9,12,16} set",
         "packet = 4·u_R • read-only law",
-        "y_R=floor(15·Q_s/100) • read-only")
+        "y_R=floor(15·Q_s/100) • read-only",
+        '"FIXED", "trigger", "QUARTZ rising edge"',
+        '"FIXED", "Δt_history", "20"',
+        "read-only storage law",
+        '"FIXED", "aperture", "6 adjacent faces"',
+        "Visible τ selects the implemented discrete response profile")
 
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
         "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
