@@ -17,6 +17,8 @@ import dev.redstoneengineering.physics.DifferentialNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SerialNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.DigitalCommunicationLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -80,6 +82,9 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.DIGITAL_COMMUNICATION.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(DigitalCommunicationLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -271,6 +276,24 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    /** LDLib2 HMI intent facade; medium solvers remain server-owned and observer-only here. */
+    public boolean setRegeneratorThresholdFromUi(int percent) {
+        if (kind() != KIND_REGENERATOR || (percent != 20 && percent != 40 && percent != 60)) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_DIRECT_BASE + percent);
+    }
+
+    public boolean cycleWholeRouteForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleRxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_RX_RIGHT);
+    }
+
+    public boolean cycleTxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_TX_RIGHT);
     }
 
     public int kind() { return kind.get(); }
