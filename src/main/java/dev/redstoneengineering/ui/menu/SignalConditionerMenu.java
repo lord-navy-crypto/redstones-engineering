@@ -47,7 +47,7 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.SIGNAL_CONDITIONER.get(), containerId, inventory, pos,
                 RedstoneEngineering.SIGNAL_CONDITIONER.get());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
-        if (this instanceof IModularUIHolderMenu holder) {
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(SignalConditionerLdUi.create(this, inventory.player));
         }
     }
