@@ -125,10 +125,13 @@ public final class PidControllerLdUi {
     private static UIElement trialPanel(PidControllerMenu m){
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL"),
+                new Label().setText("START WITH BASELINE • BASELINE READY • settle, then candidate"),
+                new Label().setText("Captures require settled PASS / MARGINAL / FAIL evidence"),
                 RseLdUiComponents.liveRow("TRIAL","baseline/candidate",()->seq(m.trialBaselineSequence())+" / "+seq(m.trialCandidateSequence())),
                 RseLdUiComponents.liveRow("TRIAL","comparison",()->m.trialTrend()==null?"INCOMPLETE":m.trialTrend().name()+" • "+(m.trialRobust()?"ROBUST":"CHECK")),
-                RseLdUiComponents.liveRow("DELTA","score/settle",()->signed(m.trialScoreDelta())+" / "+signed(m.trialSettlingDelta())+"t"),
-                RseLdUiComponents.liveRow("DELTA","overshoot/saturation",()->signed(m.trialOvershootDelta())+" / "+signed(m.trialSaturationDelta())),
+                RseLdUiComponents.liveRow("DELTA","Δsettle",()->signed(m.trialSettlingDelta())+"t"),
+                RseLdUiComponents.liveRow("DELTA","Δovershoot",()->signed(m.trialOvershootDelta())),
+                RseLdUiComponents.liveRow("DELTA","Δsat",()->signed(m.trialSaturationDelta())),
                 RseLdUiComponents.liveRow("DELTA","topology issues",()->signed(m.trialTopologyIssueDelta()))
         );
     }
