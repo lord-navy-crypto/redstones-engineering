@@ -94,6 +94,11 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "byte-frame transport • fixed link timing",
         "1-bit balanced logic",
         "read-only transport contract",
+        "hop loss = 1; strongest-source resolution",
+        "0..100 lossless line • single-source topology",
+        "clock period evidence • single-source topology",
+        "frequency 1..15 + amplitude packet • conflict-aware",
+        "service-open = hard isolation",
         "y_byte = x_R ∈ [0,15]  (no rescale)",
         "y_R = valid ? min(15, x_byte) : 0",
         "serial_byte = bus_byte ; frame = 8 t/word",
@@ -140,7 +145,10 @@ require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScr
         '"FIXED", "Δt_history", "20"',
         "read-only storage law",
         '"FIXED", "aperture", "6 adjacent faces"',
-        "Visible τ selects the implemented discrete response profile")
+        "Visible τ selects the implemented discrete response profile",
+        '"FIXED", "network law"',
+        "explicit splice • >1 driver = TOPOLOGY_ERROR",
+        "read-only topology contract")
 
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
         "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
