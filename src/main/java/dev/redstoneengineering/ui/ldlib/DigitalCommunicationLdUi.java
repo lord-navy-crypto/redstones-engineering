@@ -1,0 +1,256 @@
+package dev.redstoneengineering.ui.ldlib;
+
+import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
+import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
+import net.minecraft.world.entity.player.Player;
+import org.appliedenergistics.yoga.YogaFlexDirection;
+
+public final class DigitalCommunicationLdUi {
+    private DigitalCommunicationLdUi() {}
+
+    public static ModularUI create(DigitalCommunicationMenu m, Player player) {
+        var root = new UIElement().addClass("panel_bg");
+        root.layout(l -> l.width(640).paddingAll(8).gapAll(6));
+        root.addChildren(
+                RseLdUiComponents.title("DIGITAL COMMUNICATION ENGINEERING HMI"),
+                RseLdUiComponents.formulaCard(() -> communicationEquation(m)),
+                overviewPanel(m),
+                mediumPanel(m),
+                parameterPanel(m),
+                routePanel(m),
+                diagnosticsPanel(m),
+                RseLdUiComponents.authorityFooter()
+        );
+        return ModularUI.of(
+                UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
+                player
+        );
+    }
+
+    private static UIElement overviewPanel(DigitalCommunicationMenu m) {
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(3));
+        p.addChildren(
+                new Label().setText("PIONEER PATTERN • COMMUNICATION MODEL"),
+                RseLdUiComponents.liveRow("DEVICE", "type", () -> deviceName(m.kind())),
+                RseLdUiComponents.liveRow("INPUT", m.inputDomain().label(), () -> valueText(m.inputValue(), m.inputDomain()) + " • " + m.inputQuality().name()),
+                RseLdUiComponents.liveRow("OUTPUT", m.outputDomain().label(), () -> valueText(m.outputValue(), m.outputDomain()) + " • " + m.outputQuality().name()),
+                RseLdUiComponents.liveRow("CONTRACT", "transform", () -> m.inputDomain().label() + " → " + m.outputDomain().label()),
+                new Label().setText("The screen presents server-synchronized link evidence only; it does not recalculate bus/serial/differential physics on the client.")
+        );
+        return p;
+    }
+
+    private static UIElement mediumPanel(DigitalCommunicationMenu m) {
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(3));
+        p.addChildren(
+                RseLdUiComponents.liveRow("MEDIUM", "identity", () -> mediumName(m.mediumDomain())),
+                RseLdUiComponents.liveRow("MEASURED", "Q_link", () -> mediumQualityText(m)),
+                RseLdUiComponents.liveRow("MEASURED", "age", () -> mediumAgeText(m)),
+                RseLdUiComponents.liveRow("MEASURED", "drivers", () -> Integer.toString(m.mediumDriverCount())),
+                RseLdUiComponents.liveRow("METRIC", mediumMetricLabel(m), () -> mediumMetricValue(m)),
+                RseLdUiComponents.liveRow("TRADE-OFF", "medium", () -> mediumTradeoff(m)),
+                new Label().setText("Quality and freshness remain independent synchronized evidence.")
+        );
+        return p;
+    }
+
+    private static UIElement parameterPanel(DigitalCommunicationMenu m) {
+        var q = new TextField().setNumbersOnlyInt(20, 60);
+        q.layout(l -> l.width(100));
+        q.bind(DataBindingBuilder.string(
+                () -> m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR ? Integer.toString(thresholdPercent(m)) : "",
+                value -> {
+                    if (m.kind() != DigitalCommunicationMenu.KIND_REGENERATOR) return;
+                    try { m.setRegeneratorThresholdFromUi(Integer.parseInt(value)); }
+                    catch (NumberFormatException ignored) {}
+                }
+        ).build());
+
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(4));
+        p.addChildren(
+                RseLdUiComponents.liveRow(
+                        m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR ? "ADJUSTABLE" : "FIXED",
+                        "Q_min",
+                        () -> m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR
+                                ? thresholdPercent(m) + "% • {20,40,60}% • direct entry"
+                                : "not applicable / fixed transform"
+                ),
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                        new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
+                        q
+                )
+        );
+        return p;
+    }
+
+    private static UIElement routePanel(DigitalCommunicationMenu m) {
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(4));
+        p.addChildren(
+                new Label().setText("PHYSICAL ROUTE • SERVER OWNED"),
+                RseLdUiComponents.liveRow("RX", "face", () -> m.inputDirection().getName().toUpperCase()),
+                RseLdUiComponents.liveRow("TX", "face", () -> m.outputDirection().getName().toUpperCase()),
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                        RseLdUiComponents.serverAction("Cycle direction ▶", m::cycleWholeRouteForward),
+                        RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleRxForward),
+                        RseLdUiComponents.serverAction("Cycle TX ▶", m::cycleTxForward)
+                ),
+                new Label().setText("Route owns physical RX/TX direction; Configure does not duplicate orientation authority.")
+        );
+        return p;
+    }
+
+    private static UIElement diagnosticsPanel(DigitalCommunicationMenu m) {
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(3));
+        p.addChildren(
+                RseLdUiComponents.liveRow("DIAGNOSIS", "link", () -> diagnosis(m)),
+                RseLdUiComponents.liveRow("NEXT", "action", () -> nextAction(m)),
+                RseLdUiComponents.liveRow("EVIDENCE", "current", () -> mediumHeadline(m)),
+                new Label().setText("This directional communication HMI exposes authoritative current evidence."),
+                new Label().setText("It does not synthesize packet history that the server does not retain.")
+        );
+        return p;
+    }
+
+    private static String communicationEquation(DigitalCommunicationMenu m) {
+        if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA)
+            return "U = min(100%, 100 · T_frame / Δt_arrival)";
+        if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
+            return "Q_bus = max(35, 100 - loadingPenalty - contentionPenalty)";
+        if (m.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA)
+            return "payload = 1 bit ; Q_link = server margin evidence";
+        return "transform: " + m.inputDomain().label() + " → " + m.outputDomain().label();
+    }
+
+    private static String diagnosis(DigitalCommunicationMenu m) {
+        if (m.inputQuality() == PortQuality.TOPOLOGY_ERROR || m.outputQuality() == PortQuality.TOPOLOGY_ERROR)
+            return "LINK TOPOLOGY / DRIVER CONFLICT";
+        if (m.inputQuality() == PortQuality.NO_SIGNAL) return "NO INPUT LINK EVIDENCE";
+        if (m.inputQuality() == PortQuality.STALE) return "STALE INPUT LINK EVIDENCE";
+        if (m.outputQuality() == PortQuality.NO_SIGNAL) return "NO VALID OUTPUT AFTER TRANSFORM";
+        if (m.outputQuality() == PortQuality.STALE) return "STALE OUTPUT LINK EVIDENCE";
+
+        if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8) {
+            if (m.mediumMetricC() > 0) return "8-BIT BUS DRIVER CONFLICT OBSERVED";
+            if (m.mediumMetricB() > 0) return "8-BIT BUS CONTENTION CONSUMING MARGIN";
+            if (m.mediumQualityPercent() < 70) return "8-BIT BUS LOADING MARGIN LOW";
+            return "8-BIT PARALLEL BUS HEALTHY";
+        }
+        if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA) {
+            if (m.mediumDriverCount() > 1) return "SERIAL MULTI-DRIVER CONFLICT";
+            if (m.mediumMetricB() >= 90) return "SERIAL LINK NEAR UTILIZATION LIMIT";
+            if (m.mediumQualityPercent() < 70) return "SERIAL LINK QUALITY MARGINAL";
+            if (m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR && m.auxiliary() < thresholdPercent(m))
+                return "SERIAL QUALITY BELOW REGENERATION THRESHOLD";
+            return "SERIAL FRAME TIMING PRESENT";
+        }
+        if (m.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) {
+            if (m.mediumDriverCount() > 1) return "DIFFERENTIAL MULTI-DRIVER CONFLICT";
+            if (m.mediumQualityPercent() < 70) return "DIFFERENTIAL LINK MARGIN EXHAUSTED";
+            return "DIFFERENTIAL HIGH-INTEGRITY LINK VALID";
+        }
+        return "DOMAIN CONVERSION VALID";
+    }
+
+    private static String nextAction(DigitalCommunicationMenu m) {
+        String d = diagnosis(m);
+        if (d.contains("CONFLICT")) return "isolate multiple drivers or invalid link topology before decoding data";
+        if (d.contains("CONTENTION")) return "reduce redundant bus driving; same-value multi-drive still consumes margin";
+        if (d.contains("LOADING")) return "shorten or segment the 8-bit bus";
+        if (d.contains("UTILIZATION")) return "reduce frame demand or move payload to a wider local bus";
+        if (d.contains("BELOW")) return "improve serial link quality or lower Q_min only with commissioning evidence";
+        if (d.contains("MARGIN")) return "shorten the differential link or remove topology faults";
+        return "link evidence coherent; choose medium by payload width, wiring, timing and integrity";
+    }
+
+    private static String mediumHeadline(DigitalCommunicationMenu m) {
+        if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
+            return "8-bit parallel • nodes=" + m.mediumMetricA() + " • drivers=" + m.mediumDriverCount();
+        if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA)
+            return "serial • period=" + Math.max(1, m.mediumMetricA()) + "t • util=" + m.mediumMetricB() + "%";
+        if (m.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA)
+            return "1-bit high-integrity • drivers=" + m.mediumDriverCount();
+        return "NO COMMUNICATION MEDIUM";
+    }
+
+    private static String mediumMetricLabel(DigitalCommunicationMenu m) {
+        if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8) return "Contention / conflicts";
+        if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA) return "Period / utilization / nodes";
+        if (m.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) return "Payload width";
+        return "Medium metric";
+    }
+
+    private static String mediumMetricValue(DigitalCommunicationMenu m) {
+        if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
+            return m.mediumMetricB() + " / " + m.mediumMetricC() + " frames";
+        if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA)
+            return Math.max(1, m.mediumMetricA()) + "t / " + m.mediumMetricB() + "% / " + m.mediumMetricC();
+        if (m.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA)
+            return m.mediumMetricA() + " bit";
+        return "N/A";
+    }
+
+    private static String mediumTradeoff(DigitalCommunicationMenu m) {
+        if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
+            return "highest local payload width; loading and driver coordination cost margin";
+        if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA)
+            return "fewer conductors; frame timing and utilization become the engineering limit";
+        if (m.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA)
+            return "one-bit payload density; stronger link margin suits discrete control and protection state";
+        return "no universal communication medium is implied";
+    }
+
+    private static String mediumName(EngineeringDomain d) {
+        return switch (d) {
+            case DATA_BUS_8 -> "8-BIT DATA BUS";
+            case SERIAL_DATA -> "SERIAL DATA";
+            case DIFFERENTIAL_DATA -> "DIFFERENTIAL DATA";
+            default -> "DIGITAL LINK";
+        };
+    }
+
+    private static String mediumQualityText(DigitalCommunicationMenu m) {
+        return m.mediumAgeTicks() < 0 ? "N/A" : m.mediumQualityPercent() + "%";
+    }
+
+    private static String mediumAgeText(DigitalCommunicationMenu m) {
+        return m.mediumAgeTicks() < 0 ? "NO SAMPLE" : m.mediumAgeTicks() + "t";
+    }
+
+    private static int thresholdPercent(DigitalCommunicationMenu m) {
+        return switch (m.parameter()) { case 0 -> 20; case 1 -> 40; default -> 60; };
+    }
+
+    private static String valueText(int value, EngineeringDomain domain) {
+        return switch (domain) {
+            case DATA_BUS_8, SERIAL_DATA -> String.format("0x%02X", value & 0xFF);
+            case DIFFERENTIAL_DATA -> Integer.toString(value & 1);
+            default -> Integer.toString(value);
+        };
+    }
+
+    private static String deviceName(int kind) {
+        return switch (kind) {
+            case DigitalCommunicationMenu.KIND_ENCODER -> "REDSTONE BYTE ENCODER";
+            case DigitalCommunicationMenu.KIND_DECODER -> "BYTE TO REDSTONE DECODER";
+            case DigitalCommunicationMenu.KIND_SERIALIZER -> "SERIALIZER";
+            case DigitalCommunicationMenu.KIND_DESERIALIZER -> "DESERIALIZER";
+            case DigitalCommunicationMenu.KIND_REGENERATOR -> "DIGITAL REGENERATOR";
+            case DigitalCommunicationMenu.KIND_DIFF_DRIVER -> "DIFFERENTIAL DRIVER";
+            case DigitalCommunicationMenu.KIND_DIFF_RECEIVER -> "DIFFERENTIAL RECEIVER";
+            default -> "DIGITAL COMMUNICATION";
+        };
+    }
+}
