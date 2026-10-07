@@ -23,6 +23,7 @@ signal = BLOCK / "DirectionalSignalBlock.java"
 domain = BLOCK / "DirectionalDomainBlock.java"
 pid_menu = UI / "ui/menu/PidControllerMenu.java"
 pid_screen = UI / "client/ui/PidControllerScreen.java"
+pid_ld = UI / "ui/ldlib/PidControllerLdUi.java"
 conditioner = BLOCK / "SignalConditionerBlock.java"
 servo_sensor = BLOCK / "ServoPositionSensorBlock.java"
 scaler = BLOCK / "RedstoneToLapisScalerBlock.java"
@@ -41,10 +42,12 @@ require(pid_menu, "BUTTON_INPUT_PREVIOUS", "PID RX controls")
 require(pid_menu, "BUTTON_OUTPUT_NEXT", "PID TX controls")
 require(pid_menu, "DirectionalSignalBlock.rotateSeriesInput", "PID server-authoritative RX routing")
 require(pid_menu, "DirectionalSignalBlock.rotateSeriesOutput", "PID server-authoritative TX routing")
-require(pid_screen, 'Component.literal("Cycle RX ▶")', "PID one-button RX cycle")
-require(pid_screen, 'Component.literal("Cycle TX ▶")', "PID one-button TX cycle")
-require(pid_screen, "menu.inputFacing()", "dynamic PID RX face display")
-require(pid_screen, "menu.outputFacing()", "dynamic PID TX face display")
+require(pid_screen, "extends LdlibEngineeringHostScreen<PidControllerMenu>", "PID LDLib2 host")
+require(pid_ld, '"Cycle RX ▶"', "PID one-button RX cycle")
+require(pid_ld, '"Cycle TX ▶"', "PID one-button TX cycle")
+require(pid_ld, "m.inputFacing()", "dynamic PID RX face display")
+require(pid_ld, "m.outputFacing()", "dynamic PID TX face display")
+require(pid_ld, "RseLdUiComponents.authorityFooter()", "PID server-authority footer")
 
 require(conditioner, "seriesInputSide", "Signal Conditioner configured RX backend")
 require(conditioner, "seriesOutputSide", "Signal Conditioner configured TX backend")
