@@ -122,32 +122,7 @@ for token in ("IModularUIHolderMenu", "AbstractContainerScreen<M>", "getModularU
         errors.append(f"shared LDLib2 host missing {token!r}")
 
 standalone_contracts = {
-    "LapisLowPassScreen": (
-        "mouseScrolled",
-        "mouseClicked",
-        "mouseDragged",
-        "mouseReleased",
-        "beginScrollbarDrag",
-        "dragScrollbarTo",
-        "scrollX",
-        "scrollY",
-        "renderScrollIndicators",
-        "MODEL_WIDTH = 960",
-        "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
-        "LIVE STATE • HEALTH ",
-        "I/O • ",
-        "menu.portRouteLabel()",
-        "GOVERNING EQUATION",
-        "MECHANISM FLOW • LIVE SERVER STRUCTURE",
-        "RX / INPUT",
-        "FILTER MODEL",
-        "SOLVER STATE",
-        "TX / OUTPUT",
-        "VARIABLE ROLES",
-        "MEASUREMENT / MODEL EVIDENCE",
-        "[ADJUSTABLE] α",
-        "[MEASURED]  x[n]",
-    ),
+
 }
 
 components = read("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java")
@@ -210,6 +185,9 @@ ldlib_contracts = {
     "PidControllerScreen": (
         "extends LdlibEngineeringHostScreen<PidControllerMenu>",
     ),
+    "LapisLowPassScreen": (
+        "extends LdlibEngineeringHostScreen<LapisLowPassMenu>",
+    ),
 }
 
 engineering_families = []
@@ -252,6 +230,7 @@ for menu_name, screen_name in block_facing:
             "PneumaticSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
             "AmethystSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java",
             "PidControllerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java",
+            "LapisLowPassScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -385,6 +364,18 @@ for menu_name, screen_name in block_facing:
             ):
                 if token not in ld_ui:
                     errors.append(f"PidControllerScreen LDLib2 UI missing {token!r}")
+        if screen_name == "LapisLowPassScreen":
+            for token in (
+                "y[n] = y[n-1] + α",
+                "DataBindingBuilder.string",
+                "Restore default α",
+                "Cycle RX ▶",
+                "Cycle TX ▶",
+                "LIVE SUBSTITUTION",
+                "RseLdUiComponents.authorityFooter()",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"LapisLowPassScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
