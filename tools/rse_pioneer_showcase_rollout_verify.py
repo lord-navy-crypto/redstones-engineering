@@ -253,7 +253,7 @@ wave4 = {
         "universalContract(kind)",
         "Universal HMI rule:",
         "reset statistics does not disarm",
-        "diagnostics reset never bypasses",
+        "PERMIT=15 iff A>0 ∧ B>0 ∧ C>0",
         "no hidden universal physics",
     )),
 }
