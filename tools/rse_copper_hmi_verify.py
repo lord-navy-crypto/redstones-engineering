@@ -22,7 +22,7 @@ def forbid(body: str, needle: str, label: str) -> None:
 
 block = text("src/main/java/dev/redstoneengineering/block/CopperCircuitMeterBlock.java")
 menu = text("src/main/java/dev/redstoneengineering/ui/menu/CopperCircuitMeterMenu.java")
-screen = text("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
+screen = text("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
 assessment = text("src/main/java/dev/redstoneengineering/core/diagnostic/CopperCommissioningAssessment.java")
 evidence_assessment = text("src/main/java/dev/redstoneengineering/diagnostics/CopperEvidenceAssessment.java")
 operations_menu = text("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
@@ -50,10 +50,10 @@ require(screen, "SERVER-SYNCHRONIZED OBSERVER", "observer authority")
 require(screen, "V, Req, I and P", "electrical telemetry explanation")
 require(screen, "commissioningStatus()", "commissioning presentation")
 # UI prose may name the authoritative server model. What is forbidden is importing or invoking it client-side.
-forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "client must not import circuit solver")
-forbid(screen, "CircuitPhysics.", "client must not invoke circuit solver")
-forbid(screen, "import dev.redstoneengineering.physics.DomainNetwork", "client must not import network solver")
-forbid(screen, "DomainNetwork.", "client must not sample network physics")
+forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "LDLib2 HMI must not import circuit solver")
+forbid(screen, "CircuitPhysics.", "LDLib2 HMI must not invoke circuit solver")
+forbid(screen, "import dev.redstoneengineering.physics.DomainNetwork", "LDLib2 HMI must not import network solver")
+forbid(screen, "DomainNetwork.", "LDLib2 HMI must not sample network physics")
 
 for token in (
     "COMMISSIONING_EVENT_INITIALIZED",
