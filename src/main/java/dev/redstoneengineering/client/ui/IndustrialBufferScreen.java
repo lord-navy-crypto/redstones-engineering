@@ -51,12 +51,13 @@ public final class IndustrialBufferScreen extends EngineeringScreen<IndustrialBu
         statusBadge(graphics, "PIONEER PATTERN • OPERATIONS / WIP MODEL", INFO, 16, 78);
         formulaCard(graphics,"WIP% = 100·used/capacity ; signal = (used=0)?0:clamp(round(15·used/capacity),1,15)",105);
         variableRole(graphics,"MEASURED","used",Integer.toString(menu.usedUnits()),"units",134);
-        variableRole(graphics,"PROFILE","capacity",Integer.toString(menu.capacityUnits()),"units",152);
+        variableRole(graphics,"FIXED","capacity",Integer.toString(menu.capacityUnits()),"units • server-owned buffer capacity",152);
         variableRole(graphics,"DERIVED","free",Integer.toString(menu.availableUnits()),"units",170);
         variableRole(graphics,"DERIVED","WIP",menu.wipPressurePercent()+"%","capacity pressure",188);
-        variableRole(graphics,"DERIVED","signal",menu.wipSignal()+"/15","vanilla boundary",206);
+        variableRole(graphics,"DERIVED","signal",menu.wipSignal()+"/15","UP • used=0⇒0 else clamp(round(15·used/capacity),1,15)",206);
         evidenceRow(graphics,"Workcell roles",menu.inputConsumerWorkcells()+" consume",menu.outputProducerWorkcells()+" produce","persisted bindings",230);
-        wrappedText(graphics,"OUTPUT/JOB/LOT identity remains server-owned Operations state and never enters analog Redstone. Use the Operations Binding Tool to change relationships; this HMI is read-only.",16,258,workspaceWidth()-24,MUTED);
+        safeText(graphics,"FIXED PORT LAW • SOUTH=15 iff free capacity>0 • NORTH=15 iff free capacity=0",16,246,INFO);
+        wrappedText(graphics,"OUTPUT/JOB/LOT identity remains server-owned Operations state and never enters analog Redstone. Capacity and port mappings are fixed by the server buffer model; use the Operations Binding Tool to change relationships.",16,266,workspaceWidth()-24,MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
