@@ -222,7 +222,7 @@ for token in ("PIONEER PATTERN • RADIO LINK BUDGET", "M_decode = Q_link - Q_mi
         errors.append(f"LDLib2 Radio rollout missing {token!r}")
 
 copper_meter_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
-for token in ("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL", "I = V / R_eq ; P = V · I", "observer-only", "COMMISSIONING"):
+for token in ("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL", "I = V / R_eq ; P = V · I", "OBSERVER ONLY", "COMMISSIONING"):
     if token not in copper_meter_ld:
         errors.append(f"LDLib2 Copper meter rollout missing {token!r}")
 
