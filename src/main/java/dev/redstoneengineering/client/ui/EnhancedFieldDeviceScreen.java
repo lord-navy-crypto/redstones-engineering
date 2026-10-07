@@ -333,6 +333,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         statusBadge(g, "PIONEER PATTERN • SHARED FIELD DEVICE", adjustable() ? INFO : MUTED, 16, 80);
         formulaCard(g, pioneerContract(), 105);
         variableRole(g, "ROLE", "device", deviceRole(), family(), 134);
+        boolean fixedConverter = isFixedProtocolConverter();
         if (adjustable()) {
             variableRole(g, "ADJUSTABLE", formulaSymbol(), controlValueText(), "server bounded", 152);
             if (directEntryKind()) {
@@ -340,12 +341,16 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             }
         } else {
             variableRole(g, "MEASURED", metricLabel(0), metricValue(0, menu.primary()), "server snapshot", 152);
+            if (fixedConverter) {
+                variableRole(g, "FIXED", "protocol", converterProtocolDetail(), "read-only conversion law", 170);
+            }
         }
-        variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), directEntryKind() ? 188 : 170);
+        boolean expanded = directEntryKind() || fixedConverter;
+        variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), expanded ? 188 : 170);
         variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
-                menu.topologyValid() ? "PASS" : "FAIL-CLOSED", directEntryKind() ? 206 : 188);
-        variableRole(g, "AUTHORITY", "policy", policy, "client presentation only", directEntryKind() ? 224 : 206);
-        wrappedText(g, sharedPioneerExplanation(), 16, directEntryKind() ? 250 : 232, workspaceWidth() - 24,
+                menu.topologyValid() ? "PASS" : "FAIL-CLOSED", expanded ? 206 : 188);
+        variableRole(g, "AUTHORITY", "policy", policy, "client presentation only", expanded ? 224 : 206);
+        wrappedText(g, sharedPioneerExplanation(), 16, expanded ? 250 : 232, workspaceWidth() - 24,
                 menu.topologyValid() ? MUTED : BAD);
     }
 
@@ -656,7 +661,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return "OBSERVE: physical/process state → synchronized evidence; network drive = NONE";
         }
         if (isDirectionalConverter()) {
-            return "BOUNDARY: " + converterInput() + " → " + converterOutput();
+            return "FIXED CONVERSION: " + converterEquation();
         }
         if (isDirectionalProcessor()) {
             return "PROCESS: " + processorInput() + " → [" + processorFunction() + "] → " + processorOutput();
@@ -693,7 +698,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return "The processing parameter is configuration; realized input/output and quality are evidence. Physical direction remains an explicit route, never an implied UI shortcut.";
         }
         if (isDirectionalConverter()) {
-            return "The conversion boundary is explicit: input and output domains stay distinct and the client only presents the server-authoritative result.";
+            return isFixedProtocolConverter()
+                    ? "The conversion law above is fixed server behavior. The HMI exposes synchronized input/output evidence but does not invent a configurable scaling coefficient."
+                    : "The conversion boundary is explicit: input and output domains stay distinct and the client only presents the server-authoritative result.";
         }
         return "Buttons express operator intent to the server. Runtime state, topology, quality and physical behavior remain authoritative outside the client screen.";
     }
@@ -774,7 +781,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_INDUCTION_COIL,
                  FieldDeviceMenu.KIND_OPTICAL_EMITTER,
                  FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
-                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> true;
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR,
+                 FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> true;
             default -> false;
         };
     }
@@ -1285,6 +1294,42 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> "WIRED INPUT → FREE-SPACE OPTICAL";
             case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> "FREE-SPACE OPTICAL → WIRED OUTPUT";
             default -> "DECLARED COMMUNICATION PATH";
+        };
+    }
+
+    private boolean isFixedProtocolConverter() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_ENCODER,
+                 FieldDeviceMenu.KIND_DECODER,
+                 FieldDeviceMenu.KIND_SERIALIZER,
+                 FieldDeviceMenu.KIND_DESERIALIZER,
+                 FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER,
+                 FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> true;
+            default -> false;
+        };
+    }
+
+    private String converterEquation() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_ENCODER -> "y_byte = x_R ∈ [0,15]  (no rescale)";
+            case FieldDeviceMenu.KIND_DECODER -> "y_R = valid ? min(15, x_byte) : 0";
+            case FieldDeviceMenu.KIND_SERIALIZER -> "serial_byte = bus_byte ; frame = 8 t/word";
+            case FieldDeviceMenu.KIND_DESERIALIZER -> "bus_byte = serial_byte ; watchdog = 16 t";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "b = (x_R > 0) ? 1 : 0";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "y_R = (valid ∧ b=1) ? 15 : 0";
+            default -> converterInput() + " → " + converterOutput();
+        };
+    }
+
+    private String converterProtocolDetail() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_ENCODER -> "0..15 scalar copied into 8-bit payload";
+            case FieldDeviceMenu.KIND_DECODER -> "0..255 byte saturates at Redstone 15";
+            case FieldDeviceMenu.KIND_SERIALIZER -> "8-bit byte • 8 t/word • 16 t watchdog";
+            case FieldDeviceMenu.KIND_DESERIALIZER -> "serial byte → 8-bit bus • 16 t watchdog";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "nonzero Redstone → logic 1; zero → logic 0";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "logic 1 → Redstone 15; logic 0 → Redstone 0";
+            default -> "";
         };
     }
 
