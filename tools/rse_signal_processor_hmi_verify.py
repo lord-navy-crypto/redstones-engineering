@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BLOCK = ROOT / "src/main/java/dev/redstoneengineering/block"
 MENU = ROOT / "src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java"
 SCREEN = ROOT / "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"
+LD_UI = ROOT / "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java"
 FIELD_UI = ROOT / "src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java"
 
 errors = []
@@ -26,6 +27,7 @@ pulse = read(BLOCK / "PulseShaperBlock.java")
 precision = read(BLOCK / "PrecisionFilterBlock.java")
 menu = read(MENU)
 screen = read(SCREEN)
+ld_ui = read(LD_UI)
 field_ui = read(FIELD_UI)
 
 for source, method, label in (
@@ -46,16 +48,30 @@ require(menu, "PulseShaperBlock.stepWidth(level, blockPos, forward)", "SignalPro
 require(menu, "BUTTON_PARAMETER_PREVIOUS", "SignalProcessorMenu.java")
 require(menu, "BUTTON_PARAMETER_NEXT", "SignalProcessorMenu.java")
 
-require(screen, 'Component.literal("◀ Parameter")', "SignalProcessorScreen.java")
-require(screen, 'Component.literal("Parameter ▶")', "SignalProcessorScreen.java")
-require(screen, 'case SignalProcessorMenu.KIND_EDGE -> "Edge mode";', "SignalProcessorScreen.java")
-require(screen, 'case SignalProcessorMenu.KIND_PULSE -> "Pulse width";', "SignalProcessorScreen.java")
-require(screen, 'default -> "Slew rate";', "SignalProcessorScreen.java")
-require(screen, "case OVERVIEW -> overview(graphics);", "SignalProcessorScreen.java")
-require(screen, "case PORTS -> ports(graphics);", "SignalProcessorScreen.java")
-require(screen, "case CONFIGURE -> configure(graphics);", "SignalProcessorScreen.java")
-require(screen, "case DIAGNOSTICS -> diagnostics(graphics);", "SignalProcessorScreen.java")
-require(screen, "case HISTORY -> history(graphics);", "SignalProcessorScreen.java")
+require(screen, "extends LdlibEngineeringHostScreen<SignalProcessorMenu>", "SignalProcessorScreen.java")
+for token in (
+    "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
+    "e[n] = edge_mode(x[n-1], x[n]); e[n] ⇒ y=15 for 2 ticks",
+    "rising edge(x) ⇒ y=15 for W ticks; otherwise y=0",
+    "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)",
+    "Cycle edge mode ▶",
+    "setParameterFromUi",
+    "Cycle RX ▶",
+    "Cycle TX ▶",
+    "Edge chronology is retained by server runtime",
+    "Observer readback never initializes or retriggers runtime state",
+    "RseLdUiComponents.authorityFooter()",
+):
+    require(ld_ui, token, "SignalProcessorLdUi.java")
+
+for token in (
+    "SignalProcessorLdUi.create(this, inventory.player)",
+    "cycleParameterForward",
+    "setParameterFromUi",
+    "cycleInputForward",
+    "cycleOutputForward",
+):
+    require(menu, token, "SignalProcessorMenu.java")
 
 require(field_ui, "block instanceof PrecisionFilterBlock || block instanceof EdgeDetectorBlock || block instanceof PulseShaperBlock", "FieldDeviceUi.java")
 require(field_ui, "new SignalProcessorMenu(id, inv, pos)", "FieldDeviceUi.java")
@@ -79,4 +95,4 @@ print("RSE SIGNAL PROCESSOR HMI VERIFY: PASS")
 print("  Edge Detector: HMI + Shift share stepMode")
 print("  Pulse Shaper: HMI + Shift share stepWidth")
 print("  Precision Filter: HMI + Shift share stepRate")
-print("  dedicated UI exposes Overview / Ports / Configure / Diagnostics / History")
+print("  LDLib2 HMI preserves model / parameter / runtime / route / evidence semantics")
