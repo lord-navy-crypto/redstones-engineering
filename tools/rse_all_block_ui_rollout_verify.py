@@ -201,6 +201,12 @@ ldlib_contracts = {
     "MagneticSystemScreen": (
         "extends LdlibEngineeringHostScreen<MagneticSystemMenu>",
     ),
+    "PneumaticSystemScreen": (
+        "extends LdlibEngineeringHostScreen<PneumaticSystemMenu>",
+    ),
+    "AmethystSystemScreen": (
+        "extends LdlibEngineeringHostScreen<AmethystSystemMenu>",
+    ),
 }
 
 engineering_families = []
@@ -240,6 +246,8 @@ for menu_name, screen_name in block_facing:
             "RadioLinkScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java",
             "CopperCircuitMeterScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java",
             "MagneticSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java",
+            "PneumaticSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
+            "AmethystSystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -353,6 +361,14 @@ for menu_name, screen_name in block_facing:
             for token in ("DataBindingBuilder.string", "V_ind = clamp", "bounded inverse-square-style accumulation", "Cycle N marker ▶"):
                 if token not in ld_ui:
                     errors.append(f"MagneticSystemScreen LDLib2 UI missing {token!r}")
+        if screen_name == "PneumaticSystemScreen":
+            for token in ("PIONEER PATTERN • PNEUMATIC MODEL", "P ∈ {25,50,75,100}", "Toggle valve", "Cycle RX ▶", "ΔP_path = ΔP_line + ΔP_restriction"):
+                if token not in ld_ui:
+                    errors.append(f"PneumaticSystemScreen LDLib2 UI missing {token!r}")
+        if screen_name == "AmethystSystemScreen":
+            for token in ("PIONEER PATTERN • RESONANCE MODEL", "Frequency values are deliberate model indices, not fabricated Hz", "Pulse", "Cycle RX ▶", "BW = 5 - Q"):
+                if token not in ld_ui:
+                    errors.append(f"AmethystSystemScreen LDLib2 UI missing {token!r}")
         continue
 
     required = standalone_contracts.get(screen_name)
