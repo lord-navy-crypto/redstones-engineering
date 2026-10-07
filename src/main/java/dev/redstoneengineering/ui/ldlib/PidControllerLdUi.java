@@ -85,28 +85,39 @@ public final class PidControllerLdUi {
 
     private static UIElement plantPanel(PidControllerMenu m){
         var p=new UIElement().addClass("panel_bg");p.layout(l->l.paddingAll(5).gapAll(3));
+        p.addChildren(
+                new Label().setText("PNEUMATIC GOLDEN SYSTEM • CAUSAL COMMISSIONING SPLIT"),
+                RseLdUiComponents.liveRow("Controller","status",()->m.controllerStatus().name()+" • score "+m.controllerScore()),
+                RseLdUiComponents.liveRow("Pneumatic plant","status",()->m.plantDetected()
+                        ? m.plantStatus().name()+" • ready="+m.plantReady()
+                        : "NOT DETECTED"),
+                RseLdUiComponents.liveRow("Likely cause","diagnosis",()->diagnosisText(m)),
+                RseLdUiComponents.liveRow("System verdict","combined",()->m.status().name())
+        );
         if(!m.plantDetected()){
-            p.addChild(RseLdUiComponents.fixedRow("plant witness",()->"NOT DETECTED","generic PID commissioning remains valid without a pneumatic witness"));
+            p.addChildren(
+                    RseLdUiComponents.fixedRow("plant witness",()->"NOT DETECTED","generic PID commissioning remains valid without a pneumatic witness"),
+                    new Label().setText("NONE • explicit cylinder feedback not detected")
+            );
             return p;
         }
         p.addChildren(
-                RseLdUiComponents.liveRow("PLANT","ready/status",()->m.plantReady()+" / "+m.plantStatus().name()),
-                RseLdUiComponents.liveRow("PLANT","position/target",()->m.plantPosition()+" / "+m.plantTarget()),
-                RseLdUiComponents.liveRow("PNEUMATIC","pressure/supply",()->m.plantPressure()+" / "+m.plantSupply()),
-                RseLdUiComponents.liveRow("PATH","loss",()->m.plantObservedLoss()+" = line "+m.plantLineLoss()+" + restriction "+m.plantRestrictionLoss()),
-                RseLdUiComponents.liveRow("PLANT","stall/samples/penalty",()->m.plantStallTicks()+" / "+m.plantSamples()+" / "+m.plantPenalty()),
-                RseLdUiComponents.liveRow("DIAGNOSIS","plant",()->m.plantDiagnosis().name())
+                RseLdUiComponents.liveRow("PLANT","Actuator / supply pressure",()->m.plantPressure()+" / "+m.plantSupply()),
+                RseLdUiComponents.liveRow("PATH","Loss obs / line / restrict",()->m.plantObservedLoss()+" / "+m.plantLineLoss()+" / "+m.plantRestrictionLoss()),
+                RseLdUiComponents.liveRow("PLANT","Position / target / stall",()->m.plantPosition()+" / "+m.plantTarget()+" / "+m.plantStallTicks()+"t"),
+                RseLdUiComponents.liveRow("PLANT","samples / penalty",()->m.plantSamples()+" / "+m.plantPenalty())
         );
         return p;
     }
 
     private static UIElement acceptancePanel(PidControllerMenu m){
-        String latest=m.historyCount()>0?("#"+m.latestSequence()+" • "+m.latestAcceptanceStatus().name()+" • score "+m.latestAcceptanceScore()):"NO CAPTURE";
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("ACCEPTANCE EVIDENCE"),
                 RseLdUiComponents.liveRow("HISTORY","count",()->Integer.toString(m.historyCount())),
                 RseLdUiComponents.liveRow("LATEST","record",()->m.historyCount()>0?("#"+m.latestSequence()+" • "+m.latestAcceptanceStatus().name()+" • score "+m.latestAcceptanceScore()):"NO CAPTURE"),
-                RseLdUiComponents.liveRow("COMPARE","trend",()->m.comparisonTrend()==null?"NOT COMPARABLE":m.comparisonTrend().name()),
+                RseLdUiComponents.liveRow("COMPARE","trend",()->m.comparisonTrend()==null
+                        ? "Baseline capture established; capture again after a change to compare."
+                        : "Compared with previous: "+m.comparisonTrend().name()),
                 RseLdUiComponents.liveRow("COMPARE","Δscore/Δissues",()->signed(m.scoreDelta())+" / "+signed(m.topologyIssueDelta()))
         );
     }
@@ -120,6 +131,17 @@ public final class PidControllerLdUi {
                 RseLdUiComponents.liveRow("DELTA","overshoot/saturation",()->signed(m.trialOvershootDelta())+" / "+signed(m.trialSaturationDelta())),
                 RseLdUiComponents.liveRow("DELTA","topology issues",()->signed(m.trialTopologyIssueDelta()))
         );
+    }
+
+    private static String diagnosisText(PidControllerMenu m){
+        if(!m.plantDetected()) return "NONE • explicit cylinder feedback not detected";
+        return switch(m.plantDiagnosis()){
+            case RESTRICTION -> "RESTRICTION • check valve / path command";
+            case NO_SUPPLY -> "NO SUPPLY • compressor / reservoir / feed";
+            case LOW_ACTUATOR_PRESSURE -> "LOW ACTUATOR PRESSURE • inspect path losses";
+            case STALLED -> "STALLED • cylinder motion not following target";
+            default -> m.plantDiagnosis().name();
+        };
     }
 
     private static String tuningName(int tuning){return switch(tuning){case 0->"P-GENTLE";case 1->"PI";case 2->"PID-BALANCED";case 3->"PID-AGGRESSIVE";default->"UNKNOWN";};}
