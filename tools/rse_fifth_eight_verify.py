@@ -140,7 +140,7 @@ require(
     "DomainNetwork.sampleQuartz",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "REDSTONE → DIFFERENTIAL",
     "DIFFERENTIAL → REDSTONE",
     "RADIO TRANSMITTER",
