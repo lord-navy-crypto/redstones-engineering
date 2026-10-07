@@ -366,8 +366,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> {
                 variableRole(g, "MEASURED", "x_L", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessPrimary()/100.0), "Lapis", 137);
                 variableRole(g, "MEASURED", "clock", menu.pioneerProcessSecondary()!=0 ? "HIGH" : "LOW", "", 153);
-                variableRole(g, "SOLVER", "y_hold", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessTertiary()/100.0), "Lapis", 169);
-                variableRole(g, "EVIDENCE", "held quality", evidence.name(), "", 185);
+                variableRole(g, "FIXED", "trigger", "QUARTZ rising edge", "read-only capture law", 169);
+                variableRole(g, "SOLVER", "y_hold", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessTertiary()/100.0), "Lapis", 185);
+                variableRole(g, "EVIDENCE", "held quality", evidence.name(), "", 201);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR -> {
                 variableRole(g, "MEASURED", "u_R", Integer.toString(menu.pioneerProcessPrimary()), "redstone", 137);
@@ -424,11 +425,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> {
                 variableRole(g, "MEASURED", "T", Integer.toString(menu.pioneerProcessPrimary()), "T-index", 137);
-                variableRole(g, "MEASURED", "ΔT_20t", String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessSecondary()), "T-index", 153);
-                variableRole(g, "MEASURED", "C_sum", Integer.toString(menu.pioneerProcessTertiary()), "capacity index", 169);
-                variableRole(g, "DERIVED", "C·ΔT", String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessQuaternary()), "relative heat", 185);
-                variableRole(g, "EVIDENCE", "bodies", Integer.toString(menu.pioneerProcessQuinary()), "count", 201);
-                variableRole(g, "EVIDENCE", "history", menu.pioneerProcessSenary()!=0 ? "INITIALIZED" : "NOT_READY", "", 217);
+                variableRole(g, "FIXED", "Δt_history", "20", "ticks • server-retained interval", 153);
+                variableRole(g, "MEASURED", "ΔT_20t", String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessSecondary()), "T-index", 169);
+                variableRole(g, "MEASURED", "C_sum", Integer.toString(menu.pioneerProcessTertiary()), "capacity index", 185);
+                variableRole(g, "DERIVED", "C·ΔT", String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessQuaternary()), "relative heat", 201);
+                variableRole(g, "EVIDENCE", "history", menu.pioneerProcessSenary()!=0 ? "INITIALIZED" : "NOT_READY", "bodies=" + menu.pioneerProcessQuinary(), 217);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT -> {
                 variableRole(g, "STATE", "J", Integer.toString(menu.pioneerProcessPrimary()), "flux", 137);
@@ -441,7 +442,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "STATE", "Q_s", Integer.toString(menu.pioneerProcessPrimary()), "flux", 137);
                 variableRole(g, "EVIDENCE", "age", menu.pioneerProcessSecondary()<0 ? "NONE" : Integer.toString(menu.pioneerProcessSecondary()), "ticks", 153);
                 variableRole(g, "EVIDENCE", "quality", Integer.toString(menu.pioneerProcessTertiary()), "%", 169);
-                variableRole(g, "PROFILE", "decay period", Integer.toString(menu.pioneerProcessQuaternary()), "ticks", 185);
+                variableRole(g, "FIXED", "decay period", Integer.toString(menu.pioneerProcessQuaternary()), "ticks • read-only storage law", 185);
                 variableRole(g, "TOPOLOGY", "ports", Integer.toString(menu.pioneerProcessQuinary()), "faces", 201);
             }
             default -> { }
@@ -572,7 +573,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR ->
                     "R_load and current shown here are retained from the last server tick that evaluated the divider. Opening the HMI never performs another load-network scan.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR ->
-                    "Charge is retained server state and can legitimately source a decaying output after input removal. C_index changes the implemented τ proxy; it does not invent SI capacitance.";
+                    "Charge is retained server state and can legitimately source a decaying output after input removal. Visible τ selects the implemented discrete response profile; it does not claim SI capacitance.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE ->
                     "Trip state is latched by the authoritative server protection pass. Reset clears the latch request only; safe output is trusted again only after a complete server re-evaluation.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION ->
@@ -653,7 +654,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "MEASURED", "T_target", Integer.toString(menu.pioneerSecondary()), "T-index", 137);
                 variableRole(g, "SOLVER", "T_cached", Integer.toString(menu.pioneerPrimary()), "T-index", 153);
                 variableRole(g, "MEASURED", "N_bodies", Integer.toString(menu.pioneerTertiary()), "thermal bodies", 169);
-                variableRole(g, "EVIDENCE", "coverage", menu.pioneerQuaternary() + "/6", "faces", 185);
+                variableRole(g, "FIXED", "aperture", "6 adjacent faces", "requires 6/6 loaded coverage", 185);
+                variableRole(g, "EVIDENCE", "coverage", menu.pioneerQuaternary() + "/6", "faces", 201);
             }
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT -> {
                 variableRole(g, "MEASURED", "B_local", Integer.toString(menu.pioneerPrimary()), "light", 137);
