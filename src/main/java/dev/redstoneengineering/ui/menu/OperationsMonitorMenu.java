@@ -14,6 +14,8 @@ import dev.redstoneengineering.diagnostics.OperationsIncidentSummary;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventRecord;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.OperationsMonitorLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
@@ -113,6 +115,9 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), containerId, inventory, pos,
                 RedstoneEngineering.OPERATIONS_MONITOR.get());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(OperationsMonitorLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
