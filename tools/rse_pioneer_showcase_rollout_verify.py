@@ -18,7 +18,7 @@ scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.ja
 pid = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
 digital = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
 pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
-optical = read("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java")
+optical = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
 magnetic = read("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java")
 amethyst = read("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java")
 reliability = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
@@ -150,9 +150,9 @@ wave2 = {
         "H_charge = max(0, P_line - P_stored)",
         "ΔP_local = max(0, P_in - P_out)",
     )),
-    "OpticalSystemScreen.java": (optical, (
+    "OpticalSystemLdUi.java": (optical, (
         "PIONEER PATTERN • OPTICAL MODEL",
-        "opticalEquation()",
+        "opticalEquation(m)",
         "I_out = max(0, I_in - L)",
         "I_A = floor(I_in/2)",
         "L_obs = I_TX - I_RX",
