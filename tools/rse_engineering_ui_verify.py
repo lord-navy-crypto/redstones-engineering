@@ -440,10 +440,14 @@ require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.
         "runConfigAction", "toggleConfiguration")
 
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
-        "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
-        "fitForWidth(label, 72)", "fitForWidth(value, 72)",
-        "Exact engineering value", "directEntryKind()", "directRangeLabel()",
-        "BUTTON_PRIMARY_DIRECT_BASE", '"Apply " + formulaSymbol()')
+        "extends LdlibEngineeringHostScreen<FieldDeviceMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
+        "ModularUI", "engineeringHint(", "diagnosticHint(",
+        "Exact engineering value", "directEntryKind(", "directRangeLabel(",
+        "DataBindingBuilder.string", "PIONEER PATTERN • SHARED FIELD DEVICE",
+        "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
+        "Cycle direction ▶", "Cycle RX ▶", "Cycle TX ▶",
+        "READ-ONLY HMI • no fake control", "RseLdUiComponents.authorityFooter()")
 
 # Legacy FieldDevice authority must include endpoint-aware RX/TX controls while preserving
 # standalone physical measurement/interface rotation.
@@ -458,7 +462,10 @@ require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
         "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise)",
         "DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise)",
         "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
-        "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)")
+        "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)",
+        "EnhancedFieldDeviceLdUi.create(this, inventory.player)",
+        "applyPrimaryEngineeringValueFromUi", "toggleFromUi", "presetFromUi",
+        "cycleDirectionForward", "cycleInputForward", "cycleOutputForward")
 require("src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
         "rotateMeasurementAxis(Level level, BlockPos pos, boolean clockwise)",
         "ROUTE_CYCLE", "state.setValue(FACING, next)")
