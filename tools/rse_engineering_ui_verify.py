@@ -185,12 +185,17 @@ require("src/main/java/dev/redstoneengineering/ui/menu/MediaConversionMenu.java"
         "cycleRxForward", "cycleTxForward")
 
 require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
-        "EditBox", "submitThreshold", "submitCursorA", "submitCursorB",
-        "BUTTON_THRESHOLD_DIRECT_BASE", "BUTTON_CURSOR_A_DIRECT_BASE", "BUTTON_CURSOR_B_DIRECT_BASE",
-        "1..15 • direct entry", "0..15 • direct entry")
+        "extends LdlibEngineeringHostScreen<LogicAnalyzerMenu>")
+require("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
+        "ModularUI", "DataBindingBuilder.string", "LogicAnalyzerPlotElement",
+        "PIONEER PATTERN • DIGITAL TIMING MODEL", "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW",
+        "Bus interference", "shield exposed instrument segments", "RseLdUiComponents.authorityFooter()")
 require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
         "BUTTON_THRESHOLD_DIRECT_BASE = 17000", "BUTTON_CURSOR_A_DIRECT_BASE = 17100",
-        "BUTTON_CURSOR_B_DIRECT_BASE = 17200", "setCursorA", "setCursorB")
+        "BUTTON_CURSOR_B_DIRECT_BASE = 17200", "setCursorA", "setCursorB",
+        "LogicAnalyzerLdUi.create(this, inventory.player)",
+        "setThresholdFromUi", "setCursorAFromUi", "setCursorBFromUi",
+        "cycleTriggerChannel", "cycleTriggerEdge")
 require("src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java",
         "setCursorA(int slot)", "setCursorB(int slot)")
 
