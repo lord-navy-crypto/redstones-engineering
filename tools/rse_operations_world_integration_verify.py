@@ -113,7 +113,7 @@ for body, label, required in (
         "inputWipPressurePercent", "outputWipPressurePercent",
     )),
     (workcell_screen, "WorkcellControllerLdUi", (
-        "class WorkcellControllerScreen", "BOUND RESOURCES", "ADMISSION", "SETUP", "MAINTENANCE",
+        "class WorkcellControllerLdUi", "BOUND RESOURCES", "ADMISSION", "SETUP", "MAINTENANCE",
         "INPUT", "WORKCELL", "OUTPUT", "Input WIP", "Output WIP", "PERMIT", "HOLD",
     )),
 ):
