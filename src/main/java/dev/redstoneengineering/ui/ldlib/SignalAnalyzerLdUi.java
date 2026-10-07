@@ -47,6 +47,8 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("OUTPUT","inline",()->m.output()+" / 15 • raw pass-through semantics"),
                 RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.measurementQuality().name()+" • coverage="+m.coveragePercent()+"%"),
                 new Label().setText("Calibration is DISPLAY ONLY • INLINE output remains RAW."),
+                new Label().setText("Calibration changes only the displayed engineering reading; INLINE output remains RAW."),
+                new Label().setText("Rolling statistics are synchronized server evidence; the client never samples the world."),
                 new Label().setText("μ=rounded mean • min/max guides bound the synchronized rolling window.")
         );
         return p;
