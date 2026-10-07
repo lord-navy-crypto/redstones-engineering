@@ -67,10 +67,11 @@ digital_menu = read("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommun
 for forbidden in ("DataBusNetwork.resolve(", "DataBusNetwork.drive(", "SerialNetwork.recompute(", "SerialNetwork.drive(", "DifferentialNetwork.recompute(", "DifferentialNetwork.drive("):
     if forbidden in digital_menu:
         errors.append(f"DigitalCommunicationMenu must remain observer-only; found solver mutation call {forbidden!r}")
-require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java",
         "8-bit parallel", "Contention / conflicts", "period=", "util=", "1-bit high-integrity",
         "8-BIT BUS CONTENTION CONSUMING MARGIN", "SERIAL LINK NEAR UTILIZATION LIMIT",
-        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width", "fewer conductors", "one-bit payload density")
+        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width", "fewer conductors", "one-bit payload density",
+        "does not recalculate bus/serial/differential physics on the client")
 
 # Guided optical link-budget evidence is an observer-only audit over passive fiber/junction arms.
 # Processor loss remains owned by splitter/filter/attenuator transfer functions and must not be
