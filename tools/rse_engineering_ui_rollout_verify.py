@@ -129,11 +129,16 @@ for token in (
     "DataBindingBuilder.string",
     "governingEquation",
     "setNumbersOnlyInt(-5, 15)",
-    "SERVER AUTHORITY",
+    "RseLdUiComponents.authorityFooter()",
     "Cycle mode ▶",
 ):
     if token not in ld_conditioner:
         errors.append(f"LDLib2 Signal Conditioner rollout missing {token!r}")
+
+ld_components = read("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java")
+for token in ("authorityFooter()", "SERVER AUTHORITY", "validated operator intent"):
+    if token not in ld_components:
+        errors.append(f"shared LDLib2 component library missing {token!r}")
 
 conditioner_host = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
 for token in ("extends LdlibEngineeringHostScreen<SignalConditionerMenu>",):
