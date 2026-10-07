@@ -69,15 +69,18 @@ logic_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdU
 if logic_ui and "new LogicAnalyzerPlotElement(menu)" not in logic_ui:
     errors.append("Logic Analyzer LDLib2 HMI does not embed the real digital plot element")
 
-signal = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
+signal = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerPlotElement.java")
 for token in (
     "EngineeringPlot.analogFrame",
     "EngineeringPlot.analogTrace",
     "EngineeringPlot.horizontalMarker",
-    "μ=rounded mean",
 ):
     if signal and token not in signal:
-        errors.append(f"Signal Analyzer visualization missing {token!r}")
+        errors.append(f"Signal Analyzer LDLib2 visualization missing {token!r}")
+signal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
+for token in ("new SignalAnalyzerPlotElement(m)", "μ=rounded mean"):
+    if signal_ui and token not in signal_ui:
+        errors.append(f"Signal Analyzer LDLib2 HMI missing {token!r}")
 
 if errors:
     print("RSE existing-content visualization verification: FAIL")
