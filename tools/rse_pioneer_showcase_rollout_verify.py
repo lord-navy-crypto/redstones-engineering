@@ -27,7 +27,7 @@ analyzer = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLd
 buffer = read("src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java")
 logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
 copper = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
-ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+ops = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 workcell = read("src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java")
 universal = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
 enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
@@ -236,7 +236,7 @@ wave4 = {
         "observer-only",
         "server computes V, R_eq, I and P",
     )),
-    "OperationsMonitorScreen.java": (ops, (
+    "OperationsMonitorLdUi.java": (ops, (
         "PIONEER PATTERN • PLANT STATE / KPI AUTHORITY",
         "QUEUE = max(valid horizontal QUEUE/WIP sources)",
         '"queue pressure"',
