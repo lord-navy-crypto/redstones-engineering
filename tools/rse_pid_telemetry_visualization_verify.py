@@ -58,26 +58,24 @@ for token in (
     if menu and token not in menu:
         errors.append(f"PidControllerMenu missing compact trend sync contract {token!r}")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
+plot = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidTrendPlotElement.java")
 for token in (
     "EngineeringPlot.analogFrame",
     "menu::trendSetpoint",
     "menu::trendProcessValue",
     "menu::trendControlOutput",
-    "authoritative samples",
-    "2t/sample",
 ):
+    if plot and token not in plot:
+        errors.append(f"PidTrendPlotElement missing trend visualization {token!r}")
+
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java")
+for token in ("authoritative samples", "2t/sample", "PidTrendPlotElement"):
     if screen and token not in screen:
-        errors.append(f"PidControllerScreen missing trend visualization {token!r}")
-for forbidden in (
-    "RuntimeIntStore",
-    "PidTelemetryStore",
-    "getBlockState(",
-    "scheduleTick(",
-    "setBlock(",
-):
-    if screen and forbidden in screen:
-        errors.append(f"PID client screen must stay synchronized/render-only; found {forbidden!r}")
+        errors.append(f"PidControllerLdUi missing synchronized trend contract {token!r}")
+for body_name, body in (("PidTrendPlotElement", plot), ("PidControllerLdUi", screen)):
+    for forbidden in ("RuntimeIntStore", "PidTelemetryStore", "getBlockState(", "scheduleTick(", "setBlock("):
+        if body and forbidden in body:
+            errors.append(f"{body_name} must stay synchronized/render-only; found {forbidden!r}")
 
 tests = read("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
 for token in (
