@@ -27,6 +27,7 @@ public final class CopperCircuitMeterLdUi {
                 RseLdUiComponents.fixedRow("authority",()->"SERVER-SYNCHRONIZED OBSERVER",
                         "observer-only • server computes V, R_eq, I and P; meter never drives Copper state"),
                 RseLdUiComponents.serverAction("Cycle measurement face ▶",m::cycleFaceForward),
+                new Label().setText("OBSERVER ONLY • measurements are server-synchronized; this meter never drives the circuit"),
                 RseLdUiComponents.authorityFooter()
         );
         return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
