@@ -300,9 +300,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE,
                  UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> {
                 variableRole(g, "MEASURED", "V_node", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
-                variableRole(g, "EVIDENCE", "drivers", Integer.toString(menu.pioneerProcessSecondary()), "sources", 153);
-                variableRole(g, "TOPOLOGY", "ports", Integer.toString(menu.pioneerProcessTertiary()), "faces", 169);
-                variableRole(g, "EVIDENCE", "quality", evidence.name(), "", 185);
+                variableRole(g, "FIXED", "network law",
+                        kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE
+                                ? "resolved Copper node • planar physical links"
+                                : "explicit splice • >1 driver = TOPOLOGY_ERROR",
+                        "read-only topology contract", 153);
+                variableRole(g, "EVIDENCE", "drivers", Integer.toString(menu.pioneerProcessSecondary()), "sources", 169);
+                variableRole(g, "TOPOLOGY", "ports", Integer.toString(menu.pioneerProcessTertiary()), "faces", 185);
+                variableRole(g, "EVIDENCE", "quality", evidence.name(), "", 201);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE -> {
                 variableRole(g, "ADJUSTABLE", "V_set", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
