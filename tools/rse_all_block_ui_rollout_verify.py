@@ -183,6 +183,9 @@ ldlib_contracts = {
     "ReliabilitySystemScreen": (
         "extends LdlibEngineeringHostScreen<ReliabilitySystemMenu>",
     ),
+    "DigitalCommunicationScreen": (
+        "extends LdlibEngineeringHostScreen<DigitalCommunicationMenu>",
+    ),
 }
 
 engineering_families = []
@@ -216,6 +219,7 @@ for menu_name, screen_name in block_facing:
             "LogicAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
             "SignalAnalyzerScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
             "ReliabilitySystemScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
+            "DigitalCommunicationScreen": "src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java",
         }[screen_name]
         ld_ui = read(ld_path)
         common_tokens = ("ModularUI", "RseLdUiComponents.authorityFooter()")
@@ -228,6 +232,19 @@ for menu_name, screen_name in block_facing:
             for token in ("Cycle Δt ▶", "TRIGGER", "SAMPLING EXPERIMENT", "waveform(menu, 0)"):
                 if token not in ld_ui:
                     errors.append(f"OscilloscopeScreen LDLib2 UI missing {token!r}")
+        if screen_name == "DigitalCommunicationScreen":
+            for token in (
+                "PIONEER PATTERN • COMMUNICATION MODEL",
+                "{20,40,60}% • direct entry",
+                "Cycle direction ▶",
+                "Cycle RX ▶",
+                "Cycle TX ▶",
+                "8-BIT BUS CONTENTION CONSUMING MARGIN",
+                "SERIAL LINK NEAR UTILIZATION LIMIT",
+                "DIFFERENTIAL HIGH-INTEGRITY LINK VALID",
+            ):
+                if token not in ld_ui:
+                    errors.append(f"DigitalCommunicationScreen LDLib2 UI missing {token!r}")
         if screen_name == "ReliabilitySystemScreen":
             for token in (
                 "PIONEER PATTERN • RELIABILITY / SAFE STATE",
