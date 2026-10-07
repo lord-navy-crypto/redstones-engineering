@@ -47,10 +47,10 @@ for token in (
     "First-out source",
     "Incident span",
     "Follow-up evidence",
-    "firstOutLocation()",
-    "menu.downstreamObservations()",
-    "menu.abnormalDownstreamObservations()",
-    "menu.evidenceTraceEntries()",
+    "firstOutLocation(m)",
+    "m.downstreamObservations()",
+    "m.abnormalDownstreamObservations()",
+    "m.evidenceTraceEntries()",
 ):
     if screen and token not in screen:
         errors.append(f"OperationsMonitorLdUi missing incident visualization {token!r}")
