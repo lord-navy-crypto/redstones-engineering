@@ -44,7 +44,8 @@ public final class QuartzTimingLdUi {
                     RseLdUiComponents.liveRow("MEASURED","T_in",()->m.primary()+" ticks"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","N",()->Integer.toString(m.tertiary())),
                     RseLdUiComponents.liveRow("DERIVED","T_out",()->m.secondary()+" ticks"),
-                    RseLdUiComponents.liveRow("EVIDENCE","expected",()->Math.min(4096,Math.max(1,m.primary())*Math.max(1,m.tertiary()))+" ticks")
+                    RseLdUiComponents.liveRow("EVIDENCE","expected",()->expectedDividerPeriod(m)+" ticks"),
+                    RseLdUiComponents.liveRow("EVIDENCE","period limit",()->dividerSaturated(m)?"SATURATED @4096":"IN RANGE")
             );
         } else {
             p.addChildren(
@@ -96,5 +97,12 @@ public final class QuartzTimingLdUi {
     }
 
     private static String deviceName(QuartzTimingMenu m){return switch(m.kind()){case QuartzTimingMenu.KIND_DIVIDER->"QUARTZ CLOCK DIVIDER";case QuartzTimingMenu.KIND_STABILITY->"QUARTZ STABILITY MONITOR";default->"QUARTZ OSCILLATOR";};}
-    private static String equation(QuartzTimingMenu m){return switch(m.kind()){case QuartzTimingMenu.KIND_DIVIDER->"T_out = min(4096, N · max(1,T_in))";case QuartzTimingMenu.KIND_STABILITY->"|e_T| = |T_meas - T_upstream|";default->"f_nom = 20 / T Hz";};}
+    private static int expectedDividerPeriod(QuartzTimingMenu m){
+        if(m.primary()<=0) return 0;
+        return Math.min(4096,Math.max(1,m.primary())*Math.max(1,m.tertiary()));
+    }
+    private static boolean dividerSaturated(QuartzTimingMenu m){
+        return m.primary()>0 && (long)Math.max(1,m.primary())*Math.max(1,m.tertiary())>4096L;
+    }
+    private static String equation(QuartzTimingMenu m){return switch(m.kind()){case QuartzTimingMenu.KIND_DIVIDER->"valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks";case QuartzTimingMenu.KIND_STABILITY->"|e_T| = |T_meas - T_upstream|";default->"f_nom = 20 / T Hz";};}
 }
