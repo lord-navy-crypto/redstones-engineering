@@ -9,6 +9,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.block.CalibrationModuleBlock;
 import dev.redstoneengineering.block.CopperCapacitorBlock;
+import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.port.PortQuality;
@@ -307,7 +308,7 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC -> a("B_norm","y_L","Δt_sample","resolution","noise","latency");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL -> a("I_norm","y_L","Δt_sample","resolution","noise","latency");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE -> a("V_norm","y_L","Δt_sample","resolution","noise","latency");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE, UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> a("V_node","drivers","ports","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE, UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> a("V_node","network law","drivers","ports","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE -> a("V_set","output faces","V_out","","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD -> a("V","R","I","P","feeds","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR -> a("V_in","R_s","R_load","V_out","I","evaluated");
@@ -316,7 +317,7 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE -> a("μ","|η|max","y[n]","Δt_sample","initialized","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> a("T_nom","J","Δt_half,last","jitter offset","clock","interval");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> a("T_in","D","pending","pulse_out","edge history","");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> a("x_L","clock","y_hold","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> a("x_L","clock","trigger","y_hold","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR -> a("u_R","packet","attached nodes","output faces","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> a("Q_s","y_R","","","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> a("c_raw","c_filt","peak","","g","y_R");
@@ -324,7 +325,7 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> a("T","T_env","T_neighbor","T_target","C_index","ΔT_max");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> a("V","R","I","P","T","T_target");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> a("k_cool","N_mass","T_avg","T_hot","T_floor","Δt");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("T","ΔT_20t","C_sum","C·ΔT","bodies","history");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("T","Δt_history","ΔT_20t","C_sum","C·ΔT","history");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT -> a("J","age","quality","decay period","ports","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR -> a("Q_s","age","quality","decay period","ports","");
             default -> a("p1","p2","p3","p4","p5","p6");
@@ -406,7 +407,7 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> "MODEL: T_target=floor((2·T_env+T_neighbor)/3); bounded approach; Δt=5C";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> "MODEL: P=V²/R; thermal target is server-derived";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> "MODEL: passive cooling only above ambient floor";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> "MODEL: ΔT_20t and relative heat=C_sum·ΔT";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> "MODEL: Δt_history = 20 ticks • read-only retained interval; relative heat=C_sum·ΔT";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> "MODEL (fictional): y_R=floor(15·Q_s/100) when Soul evidence is VALID";
             default -> "MODEL: server-authoritative process transformation and retained evidence";
         };
@@ -414,13 +415,19 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String processInterpretation(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR -> "τ is an RSE discrete response proxy, not an SI capacitance claim.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR -> "τ is the visible discrete response constant; it is an RSE proxy, not an SI capacitance claim. Visible τ selects the implemented discrete response profile.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> "Configuration and realized interval remain separate: the latter is retained server evidence.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> "Passive cooling cannot refrigerate below the model ambient floor.";
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR,
-                 UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER,
-                 UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT,
-                 UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR -> "Soul Flux is explicitly Minecraft-fictional; quality and topology remain server evidence.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR -> "Soul Flux is explicitly Minecraft-fictional; packet = 4·u_R • read-only law. Quality and topology remain server evidence.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> "Soul Flux is explicitly Minecraft-fictional; y_R=floor(15·Q_s/100) • read-only. Invalid evidence forces safe zero.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT -> "Soul Flux is explicitly Minecraft-fictional; read-only decay law. Quality and topology remain server evidence.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR -> "Soul Flux is explicitly Minecraft-fictional; read-only storage law. Initialized empty storage remains distinct from absent transient flux.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> "g is ADJUSTABLE; gain map is FIXED: server-supported {6,9,12,16} set.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE -> "B_threshold and scan radius are FIXED implemented limits; remanence is server state.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE -> "network law is FIXED / read-only topology contract.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> "network law is FIXED: explicit splice • >1 driver = TOPOLOGY_ERROR; read-only topology contract.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> "trigger is FIXED: QUARTZ rising edge; opening the HMI never captures a sample.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> "T_floor is FIXED at the model ambient floor; passive cooling cannot refrigerate below it.";
             default -> "Values above are synchronized server state; opening the HMI never performs a second physics/network solve.";
         };
     }
@@ -489,7 +496,7 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String measurementInterpretation(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE -> "Incomplete six-face coverage retains the last trustworthy cached temperature instead of manufacturing ambient data.";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE -> "aperture is FIXED: 6 adjacent faces. Incomplete six-face coverage retains the last trustworthy cached temperature instead of manufacturing ambient data.";
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_METER -> "Observer-only: a real zero Lapis sample remains VALID evidence; conflict/stale quality is separate.";
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE -> "R is a real server-bound range control; changing range/profile invalidates stale sampled output before reacquisition.";
             default -> "Measurement values and quality are synchronized from the server; the client does not re-sample the world.";
@@ -588,6 +595,7 @@ public final class UniversalFieldDeviceLdUi {
         if (kind == UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER) return Integer.toString(menu.pioneerProcessSecondary());
         if (kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD) return SampleHoldBlock.modeName(menu.configPrimary());
         if (kind == UniversalFieldDeviceMenu.CONFIG_CALIBRATION) return CalibrationModuleBlock.profileName(menu.configPrimary());
+        if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR) return FaultInjectorBlock.modeLabelFor(menu.configPrimary());
         return Integer.toString(menu.configPrimary());
     }
 
@@ -600,13 +608,13 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String primaryRange(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "{6,9,12,16} gain";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "{6, 9, 12, 16} gain";
             case UniversalFieldDeviceMenu.CONFIG_ALARM -> "1..3 severity";
-            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "{2,4,8,16} ticks";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "{2, 4, 8, 16} ticks";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "0.00..1.00 Lapis • step 0.05";
-            case UniversalFieldDeviceMenu.CONFIG_PWM -> "{4,8,16,32} ticks";
-            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "{2,4,8,16,32} ticks";
-            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "{1,2,4,8} R-eq";
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "{4, 8, 16, 32} ticks";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "{2, 4, 8, 16, 32} ticks";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "{1, 2, 4, 8} R-eq";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "1..16 ticks";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> "0..15 V-eq";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD, UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "1..15 R-eq";
@@ -618,7 +626,7 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String secondaryRange(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "{8,16,32,64} blocks";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "{8, 16, 32, 64} blocks";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "0.00..0.20 Lapis • step 0.02";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "0..3 ticks";
             default -> "N/A";
@@ -692,7 +700,11 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "MODEL: T_nom + bounded scheduling jitter J";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "MODEL: rising edge → wait D ticks → output pulse";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "MODEL: I=V/R ; P=V²/R feeds thermal target";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "STATE: condition↑ latches severity; ACK changes attention state, not the process condition";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "STATE: ARM ? fault_mode(x) : x; reset statistics does not disarm";
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> "FSM: RESET∨¬RUN⇒step=0; ADVANCE moves through bounded sequence states";
             case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> "SAFETY: PERMIT=15 iff A>0 ∧ B>0 ∧ C>0";
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> "OBSERVER: alarm=15 iff topology report hasIssue(); scan evidence is read-only";
             default -> "CONTRACT: expose real server ports, parameters and evidence only; no client-side physics";
         };
     }
