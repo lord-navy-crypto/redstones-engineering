@@ -88,5 +88,5 @@ public final class MagneticSystemLdUi {
     }
 
     private static String deviceName(MagneticSystemMenu m){return switch(m.kind()){case MagneticSystemMenu.KIND_ELECTROMAGNET->"ELECTROMAGNET";case MagneticSystemMenu.KIND_PERMANENT->"PERMANENT MAGNET";case MagneticSystemMenu.KIND_COIL->"INDUCTION COIL";case MagneticSystemMenu.KIND_FIELD_SENSOR->"MAGNETIC FIELD SENSOR";default->"MAGNETIC GRADIENT METER";};}
-    private static String equation(MagneticSystemMenu m){return switch(m.kind()){case MagneticSystemMenu.KIND_ELECTROMAGNET->"S_field = valid(Copper) ? V_coil : 0";case MagneticSystemMenu.KIND_COIL->"V_ind = clamp(N · |B[n]-B[n-1]|, 0, 15)";case MagneticSystemMenu.KIND_GRADIENT->"G = spatial ΔB from bounded field samples";default->"B = clamp(round(Σ S_i / max(1,r_i²)),0,15)";};}
+    private static String equation(MagneticSystemMenu m){return switch(m.kind()){case MagneticSystemMenu.KIND_ELECTROMAGNET->"S_field = valid(Copper) ? V_coil : 0";case MagneticSystemMenu.KIND_COIL->"V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)";case MagneticSystemMenu.KIND_GRADIENT->"G = spatial ΔB from bounded field samples";default->"B = clamp(round(Σ S_i / max(1,r_i²)),0,15)";};}
 }
