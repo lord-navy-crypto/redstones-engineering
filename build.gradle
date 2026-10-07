@@ -39,6 +39,11 @@ repositories {
         filter { includeGroupAndSubgroups "software.bernie.geckolib" }
     }
 
+    maven {
+        name = "FirstDark"
+        url = "https://maven.firstdark.dev/snapshots"
+        content { includeGroup "com.lowdragmc.ldlib2" }
+    }
 }
 
 base {
@@ -94,6 +99,7 @@ dependencies {
     // Runtime platform dependencies actually used by RSE code/resources.
     implementation "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"
     implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+    implementation "com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all"
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
@@ -108,6 +114,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_version            : mod_version,
             jade_version           : jade_version,
             geckolib_version       : geckolib_version,
+            ldlib2_version         : ldlib2_version,
     ]
     inputs.properties replaceProperties
     expand replaceProperties
