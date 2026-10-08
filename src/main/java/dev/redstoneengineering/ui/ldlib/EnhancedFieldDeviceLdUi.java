@@ -60,7 +60,7 @@ public final class EnhancedFieldDeviceLdUi {
     private static UIElement modelPanel(FieldDeviceMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("MODEL / CONTRACT"),
-                RseLdUiComponents.formulaCard(() -> modelContract(m.kind())),
+                RseLdUiComponents.formulaCard(modelContract(m.kind())),
                 RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 0), () -> Integer.toString(m.primary())),
                 RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 1), () -> Integer.toString(m.secondary())),
                 RseLdUiComponents.liveRow("STATE", metricLabel(m.kind(), 2), () -> Integer.toString(m.tertiary())),
