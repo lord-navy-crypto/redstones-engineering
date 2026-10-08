@@ -583,7 +583,7 @@ for token in ("modelPreviewPanel(menu)", "PIONEER • ACTUAL IMPLEMENTED MODEL",
 # different slots by device kind; a fallback based on != 0 silently displays
 # the wrong physical variable (e.g. optical channel zero -> incoming intensity).
 field_hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
-control_section = field_hmi.split("private static int controlValue(FieldDeviceMenu m) {", 1)[-1].split("\\n    }", 1)[0]
+control_section = field_hmi.split("private static int controlValue(FieldDeviceMenu m) {", 1)[-1].split("\n    }", 1)[0]
 expected_control_slots = {
     "KIND_PROBE": "secondary",
     "KIND_FILTER": "tertiary",
@@ -602,9 +602,9 @@ expected_control_slots = {
 }
 actual_control_slots = {}
 for case_labels, field in re.findall(
-        r"case\\s+([\\s\\S]*?)\\s*->\\s*m\\.(primary|secondary|tertiary)\\(\\);",
+        r"case\s+([\s\S]*?)\s*->\s*m\.(primary|secondary|tertiary)\(\);",
         control_section):
-    for kind in re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", case_labels):
+    for kind in re.findall(r"FieldDeviceMenu\.(KIND_[A-Z0-9_]+)", case_labels):
         actual_control_slots[kind] = field
 for kind, slot in expected_control_slots.items():
     if actual_control_slots.get(kind) != slot:
