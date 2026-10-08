@@ -49,7 +49,7 @@ public final class SignalProcessorLdUi {
                         }
                 )
         );
-        return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
+        return RseLdUiComponents.responsiveUi(root, player, 650, 440);
     }
 
     private static UIElement control(SignalProcessorMenu menu){
