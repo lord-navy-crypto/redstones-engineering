@@ -14,6 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import dev.vfyjxf.taffy.style.FlexWrap;
 import org.appliedenergistics.yoga.YogaFlexDirection;
 
 /**
@@ -60,7 +61,7 @@ public final class SignalConditionerLdUi {
         workspace.addScrollViewChildren(overview, configure, authority);
 
         var tabs = new UIElement().addClass("panel_bg")
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6).paddingAll(5))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6).paddingAll(5))
                 .addChildren(
                         tabButton("Overview", workspace, overview, overview, configure, authority),
                         tabButton("Configure", workspace, configure, overview, configure, authority),
@@ -70,7 +71,7 @@ public final class SignalConditionerLdUi {
         root.addChildren(
                 RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
                 tabs,
-                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal"),
+                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
 
