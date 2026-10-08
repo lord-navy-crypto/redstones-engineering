@@ -141,8 +141,10 @@ public final class PneumaticSystemLdUi {
 
     private static String diagnosis(PneumaticSystemMenu m){
         if(m.kind()==PneumaticSystemMenu.KIND_CYLINDER){
-            if(hard(m.inputQuality()))return "ACTUATOR INPUT EVIDENCE FAULT";
-            if(m.secondary()==m.tertiary())return "AT TARGET • NO RESPONSE DELAY";
+            if(hard(m.inputQuality())||hard(m.outputQuality()))return "ACTUATOR INPUT / OUTPUT EVIDENCE FAULT";
+            if(!trustworthy(m.inputQuality()))return "ACTUATOR INPUT NOT VERIFIED • "+m.inputQuality().name();
+            if(m.cylinderSamples()<=0)return "NO RETAINED ACTUATOR RESPONSE • NOT READY";
+            if(m.secondary()==m.tertiary())return "AT TARGET • OBSERVED POSITION";
             if(m.cylinderSupply()<=0)return "NO PRESSURIZED SUPPLY PATH";
             if(m.cylinderSupply()<25)return "LOW SUPPLY PRESSURE • SLOW RESPONSE BAND";
             if(m.cylinderRestrictionLoss()>=Math.max(3,m.cylinderLineLoss()))return "RESTRICTION / REGULATION LOSS DOMINANT";
@@ -152,6 +154,7 @@ public final class PneumaticSystemLdUi {
         }
         if(m.kind()==PneumaticSystemMenu.KIND_RESERVOIR){
             if(hard(m.inputQuality()))return "RESERVOIR EVIDENCE FAULT";
+            if(!trustworthy(m.inputQuality()))return "STORAGE PRESSURE UNVERIFIED • "+m.inputQuality().name();
             if(m.primary()<=0&&m.secondary()<=0)return "EMPTY / DEPRESSURIZED";
             if(m.secondary()>m.primary())return "CHARGING TOWARD LINE PRESSURE";
             if(m.primary()>m.secondary())return "DISCHARGING / SUPPORTING LOWER-PRESSURE LINE";
@@ -159,6 +162,7 @@ public final class PneumaticSystemLdUi {
         }
         if(m.kind()==PneumaticSystemMenu.KIND_PROPORTIONAL){
             if(hard(m.inputQuality())||hard(m.outputQuality()))return "VALVE EVIDENCE FAULT";
+            if(!trustworthy(m.inputQuality()))return "VALVE INPUT UNVERIFIED • "+m.inputQuality().name();
             if(m.primary()<=0)return "NO UPSTREAM PRESSURE";
             if(m.tertiary()<=0)return "COMMANDED CLOSED • FULL ISOLATION";
             int drop=Math.max(0,m.primary()-m.secondary());
@@ -180,12 +184,14 @@ public final class PneumaticSystemLdUi {
         if(d.contains("RESTRICTION"))return "NEXT • inspect regulator setpoint and proportional/closed valve restrictions on the winning pressure path.";
         if(d.contains("PATH LOSS"))return "NEXT • shorten/segment the pipe run or move storage closer to the actuator.";
         if(d.contains("STARVATION"))return "NEXT • compare supply pressure with retained path loss before changing the cylinder.";
+        if(d.contains("UNVERIFIED")||d.contains("NOT VERIFIED")||d.contains("NOT READY"))return "NEXT • collect valid pressure / retained response evidence before accepting a safe operating state.";
         if(d.contains("FAULT"))return "NEXT • repair topology/evidence quality before interpreting actuator response.";
         if(d.startsWith("CHARGING"))return "NEXT • allow finite-rate recovery; storage rises by at most 5 pressure units every 10 ticks.";
         if(d.contains("NO UPSTREAM"))return "NEXT • restore supply pressure; opening changes cannot create upstream pressure.";
         return "NEXT • retained evidence is coherent; preserve this state as the commissioning reference.";
     }
 
+    private static boolean trustworthy(PortQuality q){return q==PortQuality.VALID;}
     private static boolean hard(PortQuality q){return q==PortQuality.FAULT||q==PortQuality.DOMAIN_MISMATCH||q==PortQuality.TOPOLOGY_ERROR;}
     private static String deviceName(PneumaticSystemMenu m){return switch(m.kind()){case 0->"AIR COMPRESSOR";case 1->"PNEUMATIC PIPE";case 2->"AIR RESERVOIR";case 3->"PRESSURE REGULATOR";case 4->"PNEUMATIC RECEIVER";case 5->"PNEUMATIC VALVE";case 6->"CHECK VALVE";case 7->"FLOW METER";case 8->"PROPORTIONAL VALVE";case 9->"RELIEF VALVE";case 10->"PNEUMATIC CYLINDER";default->"PNEUMATIC DEVICE";};}
 }
