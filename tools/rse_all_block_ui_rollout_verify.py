@@ -624,6 +624,59 @@ for token in ("PIONEER / MODEL / VARIABLES", "formulaCard(modelContract(m.kind()
     if token not in field_overview:
         errors.append(f"FieldDevice Pioneer overview missing formula-linked control readback {token!r}")
 
+# The Pioneer screen is a semantic view over six server-owned snapshot slots.
+# Keep labels, units, and special formatting aligned with those assignments,
+# not just the mere presence of a formula string.
+pioneer_source = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+pioneer_server = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
+pioneer_labels = pioneer_source.split("private static String[] processLabels(int kind)", 1)[-1].split(
+    "private static String[] processUnits", 1)[0]
+pioneer_units = pioneer_source.split("private static String[] processUnits(int kind)", 1)[-1].split(
+    "private static String[] processRoles", 1)[0]
+pioneer_values = pioneer_source.split("private static String processValue(", 1)[-1].split(
+    "private static String processEquation", 1)[0]
+for kind, labels in (
+    ("PIONEER_PROCESS_COPPER_WIRE", '"V_node","drivers","ports","","",""'),
+    ("PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE", '"V_set","output faces","","","",""'),
+    ("PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER", '"x_L","clock","y_hold","hold quality","",""'),
+    ("PIONEER_PROCESS_SOUL_METER", '"Q_s","y_R","y_R(model)","","",""'),
+    ("PIONEER_PROCESS_MOLECULAR_RECEIVER", '"c_raw","c_filt","peak","sensitivity index","g","y_R"'),
+    ("PIONEER_PROCESS_THERMAL_CALORIMETER", '"T","ΔT_20t","C_mean","C·ΔT","N_mass","history ready"'),
+):
+    if kind == "PIONEER_PROCESS_COPPER_WIRE":
+        # Shared with COPPER_JUNCTION in the same switch case.
+        if labels not in pioneer_labels or "PIONEER_PROCESS_COPPER_JUNCTION" not in pioneer_labels:
+            errors.append("Pioneer Copper wire/junction drivers and port count are not labeled by server slot")
+    elif f"{kind} -> a({labels})" not in pioneer_labels:
+        errors.append(f"{kind}: labels do not match the server-owned snapshot order")
+for piece in (
+    'a("T-index","T-index","capacity units","relative heat","bodies","")',
+    'case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> a("Lapis","pulse","Lapis","","","")',
+):
+    if piece not in pioneer_units:
+        errors.append(f"Pioneer units do not align with actual snapshot: {piece}")
+for piece in (
+    "if (slot == 0 || slot == 2) return String.format(Locale.ROOT, \"%.2f\", raw / 100.0);",
+    'if (slot == 3) {',
+    'qualities[raw].name()',
+):
+    if piece not in pioneer_values:
+        errors.append(f"Quartz held Lapis quantity/quality not decoded: {piece}")
+for piece in (
+    "pioneerProcessSecondary.set(CopperWireBlock.driverCount(level, blockPos))",
+    "pioneerProcessTertiary.set(wire.engineeringPorts(state).size())",
+    "pioneerProcessTertiary.set(QuartzTriggeredLapisSamplerBlock.heldValue(level, blockPos))",
+    "pioneerProcessQuaternary.set(QuartzTriggeredLapisSamplerBlock.heldQuality(level, blockPos).ordinal())",
+    "pioneerProcessTertiary.set(Math.min(15, (observation.value() * 15) / 100))",
+    "pioneerProcessSecondary.set(history.deltaTemperature())",
+    "pioneerProcessTertiary.set(sample.heatCapacity())",
+    "pioneerProcessQuaternary.set(history.deltaTemperature() * sample.heatCapacity())",
+    "pioneerProcessQuinary.set(sample.bodyCount())",
+    "pioneerProcessSenary.set(history.initialized() ? 1 : 0)",
+):
+    if piece not in pioneer_server:
+        errors.append(f"Pioneer server snapshot slot contract changed: {piece}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -662,3 +715,4 @@ print(f" pre-sync client HMI shape primers: {len(client_primers)} / {len(client_
 print(" Universal Pioneer formula preview / real tuning readouts: PASS")
 print(" FieldDevice zero-safe parameter readback / server slot parity: PASS")
 print(" FieldDevice Pioneer Overview formula + adjustable variable visibility: PASS")
+print(" Pioneer Copper / Quartz / Soul / Calorimeter snapshot slot alignment: PASS")
