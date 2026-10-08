@@ -82,6 +82,7 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.DIGITAL_COMMUNICATION.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else kind.set(kindOf(level.getBlockState(blockPos).getBlock()));
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(DigitalCommunicationLdUi.create(this, inventory.player));
         }
