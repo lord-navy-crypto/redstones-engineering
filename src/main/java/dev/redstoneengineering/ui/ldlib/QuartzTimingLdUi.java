@@ -16,15 +16,21 @@ public final class QuartzTimingLdUi {
 
     public static ModularUI create(QuartzTimingMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(560).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(600).height(390).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(menu)),
-                new Label().setText("FORMULA-FIRST TIMING MODEL"),
-                RseLdUiComponents.formulaCard(() -> equation(menu)),
-                overview(menu),
-                controls(menu),
-                evidence(menu),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        580, 350, 750,
+                        new String[]{"Timing", "Configure", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        new Label().setText("FORMULA-FIRST TIMING MODEL"),
+                                        RseLdUiComponents.formulaCard(() -> equation(menu)),
+                                        overview(menu)),
+                                RseLdUiComponents.workspacePage(controls(menu)),
+                                RseLdUiComponents.workspacePage(evidence(menu), RseLdUiComponents.authorityFooter())
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
     }
