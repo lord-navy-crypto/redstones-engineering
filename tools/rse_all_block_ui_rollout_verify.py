@@ -492,6 +492,9 @@ if len(ldlib_hmis) != 23:
     errors.append(f"expected exactly 23 LDLib2 HMI families, found {len(ldlib_hmis)}")
 for hmi in ldlib_hmis:
     source = hmi.read_text(errors="ignore")
+    if "RseLdUiComponents.responsiveUi(root, player," not in source:
+        errors.append(f"{hmi.name}: UI does not use dynamic GUI-scaled viewport")
+
     has_shared_workspace = "RseLdUiComponents.tabbedWorkspace(" in source
     has_native_workspace = "new ScrollerView()" in source and "ScrollerMode.BOTH" in source
     if not (has_shared_workspace or has_native_workspace):
@@ -509,9 +512,22 @@ for token in (
     "horizontalScroller.setNormalizedValue(0)",
     "verticalScroller.setNormalizedValue(0)",
     ".paddingAll(12)",
+    "screen.getWidth() - 24",
+    "screen.getHeight() - 30",
+    "TextWrap.WRAP",
+    ".adaptiveWidth(false)",
+    ".adaptiveHeight(true)",
+    ".flexWrap(FlexWrap.WRAP)",
 ):
     if token not in components:
-        errors.append(f"shared LDLib2 tabbed workspace missing {token!r}")
+        errors.append(f"shared LDLib2 viewport / text contract missing {token!r}")
+
+# The standalone five instrument UIs do not use the shared tab strip.
+# Their navigation must wrap when GUI Scale reduces the available width.
+for name in ("UniversalFieldDevice", "SignalConditioner", "Oscilloscope", "PidController", "LogicAnalyzer"):
+    source = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{name}LdUi.java")
+    if ".flexWrap(FlexWrap.WRAP)" not in source:
+        errors.append(f"{name}LdUi.java: tab strip cannot wrap under narrow GUI scales")
 
 if errors:
     print("RSE ALL-BLOCK UI ROLLOUT VERIFY: FAIL")
@@ -538,3 +554,4 @@ print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")
 print(f" tabbed bidirectional LDLib2 HMI coverage: {len(ldlib_hmis)} / 23")
+print(" scaled-screen outer bounds + wrapping tabs and long labels: PASS")
