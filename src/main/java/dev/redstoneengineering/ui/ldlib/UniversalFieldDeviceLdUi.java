@@ -88,10 +88,7 @@ public final class UniversalFieldDeviceLdUi {
                 new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • drag scrollbars for precise navigation"),
                 workspace
         );
-        return ModularUI.of(
-                UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
-                player
-        );
+        return RseLdUiComponents.responsiveUi(root, player, 620, 430);
     }
 
     private static UIElement page(UIElement... children) {
