@@ -21,11 +21,6 @@ public final class ReliabilitySystemLdUi {
         root.addChildren(
                 RseLdUiComponents.title("RELIABILITY / SAFE-STATE ENGINEERING HMI"),
                 RseLdUiComponents.tabbedWorkspace(
-                        600, 400, 850,
-                        new String[]{"Evidence"},
-                        new UIElement[]{
-                                RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics"},
                         new UIElement[]{
@@ -40,9 +35,6 @@ public final class ReliabilitySystemLdUi {
                                 RseLdUiComponents.workspacePage(
                                         evidencePanel(m),
                                         RseLdUiComponents.authorityFooter()
-                                )
-                        }
-                )
                                 )
                         }
                 )
