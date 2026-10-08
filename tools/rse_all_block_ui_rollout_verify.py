@@ -771,6 +771,25 @@ for token in ("hardFault(in)", "hardFault(out)", "hardFault(upstream)", "hardFau
 if flow_verdict.find("hardFault(in)") > flow_verdict.find("samples < 4"):
     errors.append("Flow-meter hard faults must outrank incomplete sample windows")
 
+# Radio collision remains a confirmed topology fault even with incomplete
+# chunk/obstacle coverage. Missing frames and degraded quality cannot be healthy.
+radio_menu = read("src/main/java/dev/redstoneengineering/ui/menu/RadioLinkMenu.java")
+radio_quality = radio_menu.split("private static PortQuality receptionQuality(", 1)[-1].split(
+    "public boolean clickMenuButton", 1)[0]
+if "reception.collision()" not in radio_quality or "reception.coverageComplete()" not in radio_quality:
+    errors.append("Radio quality adapter is missing collision/coverage evidence")
+elif radio_quality.find("reception.collision()") > radio_quality.find("reception.coverageComplete()"):
+    errors.append("Known radio collision must outrank incomplete scan coverage")
+radio_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
+radio_diagnosis = radio_ui.split("private static String diagnosis(", 1)[-1].split(
+    "private static String nextAction(", 1)[0]
+for token in ('"NO RADIO FRAME / SOURCE"', '"UNVERIFIED RADIO INPUT • "',
+              'm.quality()!=dev.redstoneengineering.core.port.PortQuality.VALID'):
+    if token not in radio_diagnosis:
+        errors.append(f"Radio diagnosis may incorrectly report HEALTHY on invalid quality: {token}")
+if radio_diagnosis.find("m.quality()!=dev.redstoneengineering.core.port.PortQuality.VALID") > radio_diagnosis.find('"HEALTHY LINK"'):
+    errors.append("Radio HEALTHY needs a VALID quality witness")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -813,3 +832,4 @@ print(" Pioneer Copper / Quartz / Soul / Calorimeter snapshot slot alignment: PA
 print(" Pioneer solver / measurement role semantics and status evidence: PASS")
 print(" Pioneer named sensor profile decoding: PASS")
 print(" Reliability/Pneumatic/Optical fail-closed high-risk commissioning: PASS")
+print(" Radio collision precedence and no-frame diagnosis: PASS")
