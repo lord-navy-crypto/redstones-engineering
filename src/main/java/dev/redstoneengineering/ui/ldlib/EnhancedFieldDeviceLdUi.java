@@ -365,16 +365,32 @@ public final class EnhancedFieldDeviceLdUi {
         };
     }
 
+    /**
+     * Operator setpoints occupy *different* synchronized slots for different
+     * FieldDevice families. Zero is a legitimate optical channel, loss and
+     * intensity value, not evidence that a slot is missing. Never fall back
+     * from a zero-valued configuration slot to an unrelated process reading.
+     *
+     * Keep these slots aligned with FieldDeviceMenu.refreshAuthoritativeSnapshot()
+     * and applyDirectPrimaryEngineeringValue() (the server owns mutation).
+     */
     private static int controlValue(FieldDeviceMenu m) {
         return switch (m.kind()) {
-            case FieldDeviceMenu.KIND_PROBE -> m.secondary();
-            case FieldDeviceMenu.KIND_FILTER -> m.tertiary();
-            case FieldDeviceMenu.KIND_REFERENCE -> m.primary();
-            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> m.tertiary();
-            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> m.secondary();
-            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
-                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> m.secondary();
-            default -> m.tertiary() != 0 ? m.tertiary() : m.primary();
+            case FieldDeviceMenu.KIND_PROBE,
+                 FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> m.secondary();
+            case FieldDeviceMenu.KIND_FILTER,
+                 FieldDeviceMenu.KIND_DIGITAL_REGENERATOR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE,
+                 FieldDeviceMenu.KIND_INDUCTION_COIL,
+                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> m.tertiary();
+            case FieldDeviceMenu.KIND_REFERENCE,
+                 FieldDeviceMenu.KIND_LAPIS_SOURCE,
+                 FieldDeviceMenu.KIND_PERMANENT_MAGNET,
+                 FieldDeviceMenu.KIND_OPTICAL_EMITTER -> m.primary();
+            default -> m.primary(); // Read-only families do not offer numeric entry.
         };
     }
 
