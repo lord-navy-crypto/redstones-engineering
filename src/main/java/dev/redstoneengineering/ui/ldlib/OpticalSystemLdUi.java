@@ -16,15 +16,27 @@ public final class OpticalSystemLdUi {
 
     public static ModularUI create(OpticalSystemMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(650).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(680).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("OPTICAL ENGINEERING HMI"),
-                RseLdUiComponents.formulaCard(() -> opticalEquation(m)),
-                statePanel(m),
-                parameterPanel(m),
-                routePanel(m),
-                commissioningPanel(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        660, 400, 910,
+                        new String[]{"Overview", "Details", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.formulaCard(() -> opticalEquation(m)),
+                                        statePanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        parameterPanel(m),
+                                        routePanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        commissioningPanel(m),
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
     }
