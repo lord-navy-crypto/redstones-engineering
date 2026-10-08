@@ -790,6 +790,36 @@ for token in ('"NO RADIO FRAME / SOURCE"', '"UNVERIFIED RADIO INPUT • "',
 if radio_diagnosis.find("m.quality()!=dev.redstoneengineering.core.port.PortQuality.VALID") > radio_diagnosis.find('"HEALTHY LINK"'):
     errors.append("Radio HEALTHY needs a VALID quality witness")
 
+# High-risk operations and industrial link status must not bury hard faults
+# beneath missing optional telemetry or claim a VALID link on a fault witness.
+ops_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
+ops_diagnosis = ops_ui.split("private static String systemDiagnosis(OperationsMonitorMenu m)", 1)[-1].split(
+    "private static String nextActionText(", 1)[0]
+ops_action = ops_ui.split("private static String nextActionText(OperationsMonitorMenu m)", 1)[-1].split(
+    "private static String ", 1)[0]
+for method, fragment in (("diagnosis", ops_diagnosis), ("nextAction", ops_action)):
+    fault = fragment.find("m.electricalActiveTripCount() > 0")
+    missing_run = fragment.find("!m.runEvidenceValid()")
+    if fault < 0 or missing_run < 0 or fault > missing_run:
+        errors.append(f"Operations Monitor {method}: protection trips are hidden by missing RUN evidence")
+    fail = fragment.find("m.copperEvidenceActiveFailedCount() > 0")
+    missing_queue = fragment.find("m.queueEvidenceSources() == 0")
+    if fail < 0 or missing_queue < 0 or fail > missing_queue:
+        errors.append(f"Operations Monitor {method}: Copper failures are hidden by missing QUEUE evidence")
+
+digital_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
+digital_diag = digital_ui.split("private static String diagnosis(DigitalCommunicationMenu m)", 1)[-1].split(
+    "private static String nextAction(", 1)[0]
+for token in (
+    "PortQuality.TOPOLOGY_ERROR", "PortQuality.DOMAIN_MISMATCH",
+    "PortQuality.FAULT", "PortQuality.NOT_READY", "PortQuality.SATURATED",
+    '"LINK INPUT / OUTPUT FAULT"', '"LINK NOT READY • EVIDENCE INCOMPLETE"',
+):
+    if token not in digital_diag:
+        errors.append(f"Digital link may falsely report healthy on invalid quality: {token}")
+if digital_diag.find("PortQuality.FAULT") > digital_diag.find('"8-BIT PARALLEL BUS HEALTHY"'):
+    errors.append("Digital link HEALTHY must follow authoritative input/output fault checks")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -833,3 +863,4 @@ print(" Pioneer solver / measurement role semantics and status evidence: PASS")
 print(" Pioneer named sensor profile decoding: PASS")
 print(" Reliability/Pneumatic/Optical fail-closed high-risk commissioning: PASS")
 print(" Radio collision precedence and no-frame diagnosis: PASS")
+print(" Operations protection priority / digital link fail-closed evidence: PASS")
