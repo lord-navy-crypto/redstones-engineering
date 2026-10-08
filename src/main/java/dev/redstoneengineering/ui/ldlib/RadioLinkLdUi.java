@@ -87,6 +87,10 @@ public final class RadioLinkLdUi {
         if(m.kind()==RadioLinkMenu.KIND_TRANSMITTER) return m.quality().name();
         if(m.collision()) return "SAME-CHANNEL COLLISION";
         if(!m.coverageComplete()) return "STALE / INCOMPLETE COVERAGE";
+        if(m.quality()==dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL)
+            return "NO RADIO FRAME / SOURCE";
+        if(m.quality()!=dev.redstoneengineering.core.port.PortQuality.VALID)
+            return "UNVERIFIED RADIO INPUT • "+m.quality().name();
         if(m.decodeMargin()<0) return "BELOW DECODE MARGIN";
         if(m.decodeMargin()<10) return "MARGINAL LINK";
         if(m.adjacentAggressors()>0) return "VALID • ADJACENT INTERFERENCE";
@@ -98,7 +102,10 @@ public final class RadioLinkLdUi {
         String d=diagnosis(m);
         if(d.contains("COLLISION")) return "NEXT • move one same-channel transmitter or change one channel.";
         if(d.contains("ADJACENT")) return "NEXT • separate adjacent channels first; then re-check margin.";
-        if(d.contains("OBSTRUCTED") || d.contains("MARGIN") || d.contains("STALE"))
+        if(d.contains("NO RADIO FRAME")) return "NEXT • check transmitter activation, matching channel and loaded radio coverage.";
+        if(d.contains("UNVERIFIED") || d.contains("STALE"))
+            return "NEXT • resolve input quality/coverage before accepting any link as healthy.";
+        if(d.contains("OBSTRUCTED") || d.contains("MARGIN"))
             return "NEXT • improve line-of-sight or shorten the path before accepting the link.";
         return "NEXT • retain this healthy link as commissioning evidence.";
     }
