@@ -55,7 +55,19 @@ public final class RseLdUiComponents {
 
     private static Label liveText(Supplier<String> source) {
         var label = new Label();
-        label.bind(DataBindingBuilder.componentS2C(() -> Component.literal(source.get())).build());
+        // Most engineering snapshots are unchanged between ticks. Reuse the
+        // Component when its rendered value is unchanged instead of allocating
+        // a fresh one on every LDLib2 CHANGED_PERIODIC sync check.
+        final String[] lastText = {null};
+        final Component[] lastComponent = {Component.empty()};
+        label.bind(DataBindingBuilder.componentS2C(() -> {
+            String current = source.get();
+            if (!java.util.Objects.equals(lastText[0], current)) {
+                lastText[0] = current;
+                lastComponent[0] = Component.literal(current == null ? "" : current);
+            }
+            return lastComponent[0];
+        }).build());
         return wrap(label);
     }
 
@@ -70,6 +82,16 @@ public final class RseLdUiComponents {
                 .addClass("panel_bg")
                 .layout(l -> l.paddingAll(8))
                 .addChild(liveText(equation).layout(l -> l.widthPercent(100)));
+    }
+
+    /** Immutable formula: no per-tick server-to-client binding is needed. */
+    public static UIElement formulaCard(String equation) {
+        var label = wrappedLabel(equation);
+        label.layout(l -> l.widthPercent(100));
+        return new UIElement()
+                .addClass("panel_bg")
+                .layout(l -> l.paddingAll(8))
+                .addChild(label);
     }
 
     public static UIElement liveRow(String role, String symbol, Supplier<String> value) {
