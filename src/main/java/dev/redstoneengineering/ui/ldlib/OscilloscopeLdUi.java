@@ -78,10 +78,7 @@ public final class OscilloscopeLdUi {
                 workspace
         );
 
-        return ModularUI.of(
-                UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
-                player
-        );
+        return RseLdUiComponents.responsiveUi(root, player, 640, 450);
     }
 
     private static UIElement page(UIElement... children) {
