@@ -125,13 +125,11 @@ public final class UniversalFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(8).gapAll(7));
         panel.addChild(new Label().setText("PIONEER • ACTUAL IMPLEMENTED MODEL"));
         if (menu.pioneerProcessKind() != UniversalFieldDeviceMenu.PIONEER_PROCESS_NONE) {
-            panel.addChild(RseLdUiComponents.formulaCard(
-                    () -> processEquation(menu.pioneerProcessKind())));
+            panel.addChild(RseLdUiComponents.formulaCard(processEquation(menu.pioneerProcessKind())));
         } else if (menu.pioneerMeasurementKind() != UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_NONE) {
-            panel.addChild(RseLdUiComponents.formulaCard(
-                    () -> measurementEquation(menu.pioneerMeasurementKind())));
+            panel.addChild(RseLdUiComponents.formulaCard(measurementEquation(menu.pioneerMeasurementKind())));
         } else {
-            panel.addChild(RseLdUiComponents.formulaCard(() -> universalContract(menu.configKind())));
+            panel.addChild(RseLdUiComponents.formulaCard(universalContract(menu.configKind())));
         }
         if (primaryDirectKind(kind) || primaryCycleKind(kind)) {
             panel.addChild(RseLdUiComponents.liveRow(
@@ -470,7 +468,7 @@ public final class UniversalFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         panel.addChildren(
                 new Label().setText(processWaveTitle(kind)),
-                RseLdUiComponents.formulaCard(() -> processEquation(kind))
+                RseLdUiComponents.formulaCard(processEquation(kind))
         );
         String[] labels = processLabels(kind);
         String[] units = processUnits(kind);
@@ -500,7 +498,7 @@ public final class UniversalFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         panel.addChildren(
                 new Label().setText("PIONEER WAVE 13 • MEASUREMENT"),
-                RseLdUiComponents.formulaCard(() -> measurementEquation(kind))
+                RseLdUiComponents.formulaCard(measurementEquation(kind))
         );
         String[] labels = measurementLabels(kind);
         String[] units = measurementUnits(kind);
