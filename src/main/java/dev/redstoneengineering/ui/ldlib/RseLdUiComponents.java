@@ -2,6 +2,9 @@ package dev.redstoneengineering.ui.ldlib;
 
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import net.minecraft.network.chat.Component;
@@ -56,6 +59,53 @@ public final class RseLdUiComponents {
         return new Button()
                 .setText(label)
                 .setOnServerClick(event -> action.run());
+    }
+
+    /**
+     * Shared viewport for all RSE block-facing HMI families. Pages remain in one
+     * UI tree, but only the selected page participates in layout.
+     * Content dimensions deliberately exceed the visible frame: this avoids
+     * compressing long equations, trace data, or server-backed controls.
+     */
+    public static UIElement tabbedWorkspace(int width, int height, int contentWidth,
+                                             String[] labels, UIElement[] pages) {
+        if (labels.length != pages.length || pages.length == 0) {
+            throw new IllegalArgumentException("One label required per workspace page");
+        }
+        var root = new UIElement().addClass("panel_bg");
+        root.layout(l -> l.width(width).height(height).paddingAll(10).gapAll(8));
+        var tabs = new UIElement().addClass("panel_bg");
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5).paddingAll(5));
+
+        var scroller = new ScrollerView().scrollerStyle(style -> style
+                .mode(ScrollerMode.BOTH)
+                .verticalScrollDisplay(ScrollDisplay.AUTO)
+                .horizontalScrollDisplay(ScrollDisplay.AUTO)
+                .minScrollPixel(8).maxScrollPixel(72));
+        scroller.layout(l -> l.flex(1));
+        scroller.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        scroller.viewContainer(view -> view.layout(l -> l.width(contentWidth).paddingAll(8).gapAll(8)));
+
+        for (int i = 0; i < pages.length; i++) {
+            var page = pages[i];
+            page.layout(l -> l.width(contentWidth - 30).paddingAll(12).gapAll(10));
+            page.setDisplay(i == 0);
+            scroller.addScrollViewChild(page);
+            tabs.addChild(new Button().setText(labels[i]).setOnClick(event -> {
+                for (UIElement candidate : pages) candidate.setDisplay(candidate == page);
+                scroller.horizontalScroller.setNormalizedValue(0);
+                scroller.verticalScroller.setNormalizedValue(0);
+            }));
+        }
+
+        root.addChildren(tabs,
+                new Label().setText("SCROLL • wheel: vertical • Shift + wheel: horizontal • drag either scrollbar"),
+                scroller);
+        return root;
+    }
+
+    public static UIElement workspacePage(UIElement... contents) {
+        return new UIElement().addChildren(contents);
     }
 
     public static Label authorityFooter() {
