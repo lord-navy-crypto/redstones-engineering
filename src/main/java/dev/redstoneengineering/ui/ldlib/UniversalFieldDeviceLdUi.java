@@ -21,6 +21,7 @@ import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import dev.vfyjxf.taffy.style.FlexWrap;
 import org.appliedenergistics.yoga.YogaFlexDirection;
 
 import java.util.Locale;
@@ -74,7 +75,7 @@ public final class UniversalFieldDeviceLdUi {
         workspace.addScrollViewChildren(overview, configure, pioneer, evidence);
 
         var tabs = new UIElement().addClass("panel_bg");
-        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6).paddingAll(5));
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6).paddingAll(5));
         tabs.addChildren(
                 tabButton("Overview", workspace, overview, overview, configure, pioneer, evidence),
                 tabButton("Configure", workspace, configure, overview, configure, pioneer, evidence),
@@ -85,7 +86,7 @@ public final class UniversalFieldDeviceLdUi {
         root.addChildren(
                 RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
                 tabs,
-                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • drag scrollbars for precise navigation"),
+                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
         return RseLdUiComponents.responsiveUi(root, player, 620, 430);
