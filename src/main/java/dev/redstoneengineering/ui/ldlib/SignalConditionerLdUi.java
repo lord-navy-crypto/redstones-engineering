@@ -4,8 +4,11 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
@@ -26,25 +29,74 @@ public final class SignalConditionerLdUi {
     public static ModularUI create(SignalConditionerMenu menu, Player player) {
         var root = new UIElement()
                 .addClass("panel_bg")
-                .layout(l -> l.width(360).paddingAll(8).gapAll(6));
+                .layout(l -> l.width(500).height(340).paddingAll(10).gapAll(8));
 
-        root.addChildren(
-                RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
+        var overview = page(
                 new Label().setText("FORMULA-FIRST SERVER CONTROL"),
                 RseLdUiComponents.formulaCard(() -> governingEquation(menu.mode())),
                 RseLdUiComponents.liveRow("MEASURED", "x", () -> menu.input() + " / 15"),
                 RseLdUiComponents.liveRow("STATE", "mode", () -> modeName(menu.mode())),
-                parameterControl(menu),
                 RseLdUiComponents.liveRow("DERIVED", "y", () -> menu.output() + " / 15"),
-                RseLdUiComponents.liveRow("EVIDENCE", "boundary", () -> menu.limiting() ? "SATURATED" : "IN RANGE"),
-                routeRow(menu),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.liveRow("EVIDENCE", "boundary", () -> menu.limiting() ? "SATURATED" : "IN RANGE")
+        );
+        var configure = page(
+                parameterControl(menu),
+                routeRow(menu)
+        );
+        var authority = page(RseLdUiComponents.authorityFooter());
+        configure.setDisplay(false);
+        authority.setDisplay(false);
+
+        var workspace = new ScrollerView()
+                .scrollerStyle(style -> style
+                        .mode(ScrollerMode.BOTH)
+                        .verticalScrollDisplay(ScrollDisplay.AUTO)
+                        .horizontalScrollDisplay(ScrollDisplay.AUTO)
+                        .minScrollPixel(8)
+                        .maxScrollPixel(64));
+        workspace.layout(l -> l.flex(1));
+        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.width(640).paddingAll(8).gapAll(8)));
+        workspace.addScrollViewChildren(overview, configure, authority);
+
+        var tabs = new UIElement().addClass("panel_bg")
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6).paddingAll(5))
+                .addChildren(
+                        tabButton("Overview", workspace, overview, overview, configure, authority),
+                        tabButton("Configure", workspace, configure, overview, configure, authority),
+                        tabButton("Authority", workspace, authority, overview, configure, authority)
+                );
+
+        root.addChildren(
+                RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
+                tabs,
+                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal"),
+                workspace
         );
 
         return ModularUI.of(
                 UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
                 player
         );
+    }
+
+    private static UIElement page(UIElement... children) {
+        return new UIElement()
+                .layout(l -> l.width(610).paddingAll(12).gapAll(10))
+                .addChildren(children);
+    }
+
+    private static Button tabButton(
+            String label,
+            ScrollerView workspace,
+            UIElement selected,
+            UIElement... pages
+    ) {
+        return new Button().setText(label).setOnClick(event -> {
+            for (UIElement page : pages) page.setDisplay(page == selected);
+            workspace.horizontalScroller.setNormalizedValue(0);
+            workspace.verticalScroller.setNormalizedValue(0);
+        });
     }
 
     private static UIElement parameterControl(SignalConditionerMenu menu) {
