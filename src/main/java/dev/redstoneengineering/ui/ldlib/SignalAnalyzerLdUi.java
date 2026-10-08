@@ -20,16 +20,30 @@ public final class SignalAnalyzerLdUi {
 
     public static ModularUI create(SignalAnalyzerMenu m, Player player){
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(640).paddingAll(8).gapAll(6));
+        root.layout(l->l.width(650).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("SIGNAL ANALYZER • METROLOGY / CALIBRATION"),
-                RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref"),
-                new SignalAnalyzerPlotElement(m),
-                measurementPanel(m),
-                controlPanel(m),
-                statisticsPanel(m),
-                trialPanel(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        630, 400, 850,
+                        new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref"),
+                                        new SignalAnalyzerPlotElement(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        measurementPanel(m),
+                                        controlPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        statisticsPanel(m),
+                                        trialPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
     }
