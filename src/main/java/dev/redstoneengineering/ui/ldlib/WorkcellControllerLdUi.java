@@ -18,11 +18,6 @@ public final class WorkcellControllerLdUi {
         root.addChildren(
                 RseLdUiComponents.title("WORKCELL CONTROLLER"),
                 RseLdUiComponents.tabbedWorkspace(
-                        660, 400, 910,
-                        new String[]{"Evidence"},
-                        new UIElement[]{
-                                RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics"},
                         new UIElement[]{
@@ -36,9 +31,6 @@ public final class WorkcellControllerLdUi {
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
-                                )
-                        }
-                )
                                 )
                         }
                 )
