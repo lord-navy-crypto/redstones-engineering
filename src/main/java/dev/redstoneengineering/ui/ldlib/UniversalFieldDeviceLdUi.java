@@ -583,6 +583,11 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String[] processRoles(int kind) {
         return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION ->
+                    a("MEASURED","EVIDENCE","TOPOLOGY","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE ->
+                    a("ADJUSTABLE","TOPOLOGY","","","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_PWM -> a("MEASURED","ADJUSTABLE","DERIVED","DERIVED","EVIDENCE","SOLVER");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD -> a("MEASURED","ADJUSTABLE","DERIVED","DERIVED","EVIDENCE","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR -> a("MEASURED","ADJUSTABLE","SOLVER","DERIVED","DERIVED","EVIDENCE");
@@ -596,6 +601,8 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("MEASURED","MEASURED","SOLVER","DERIVED","MEASURED","EVIDENCE");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> a("STATE","MEASURED","MEASURED","SOLVER","ADJUSTABLE","DERIVED");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> a("MEASURED","ADJUSTABLE","DERIVED","DERIVED","STATE","SOLVER");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR ->
+                    a("ADJUSTABLE","MEASURED","MEASURED","MEASURED","FIXED","FIXED");
             default -> a("STATE","STATE","STATE","STATE","STATE","STATE");
         };
     }
@@ -744,6 +751,14 @@ public final class UniversalFieldDeviceLdUi {
     private static String[] measurementRoles(int kind) {
         return switch (kind) {
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE -> a("SOLVER","MEASURED","MEASURED","EVIDENCE");
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT ->
+                    a("MEASURED","DERIVED","PROFILE","FIXED");
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TANK ->
+                    a("MEASURED","EVIDENCE","EVIDENCE","DERIVED");
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ENTITY_DENSITY ->
+                    a("MEASURED","EVIDENCE","DERIVED","FIXED");
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ANALOG_INDICATOR ->
+                    a("MEASURED","DERIVED","","");
             case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE -> a("MEASURED","ADJUSTABLE","DERIVED","PROFILE");
             default -> a("MEASURED","DERIVED","PROFILE","EVIDENCE");
         };
