@@ -16,22 +16,38 @@ public final class SignalProcessorLdUi {
 
     public static ModularUI create(SignalProcessorMenu menu, Player player){
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(540).paddingAll(8).gapAll(6));
+        root.layout(l->l.width(650).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("PIONEER PATTERN • SIGNAL PROCESSOR MODEL"),
-                RseLdUiComponents.formulaCard(()->processorEquation(menu.kind())),
-                RseLdUiComponents.liveRow("MEASURED","x[n]",()->menu.input()+" / 15"),
-                RseLdUiComponents.liveRow("DERIVED","y[n]",()->menu.output()+" / 15"),
-                RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu)),
-                control(menu),
-                runtime(menu),
-                RseLdUiComponents.liveRow("I/O","route",()->menu.inputDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                RseLdUiComponents.tabbedWorkspace(
+                        630, 400, 850,
+                        new String[]{"Overview", "Configure", "Diagnostics", "Evidence", "More"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.formulaCard(()->processorEquation(menu.kind())),
+                                        RseLdUiComponents.liveRow("MEASURED","x[n]",()->menu.input()+" / 15")
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("DERIVED","y[n]",()->menu.output()+" / 15"),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu))
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        control(menu),
+                                        runtime(menu)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("I/O","route",()->menu.inputDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()),
+                                        new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle RX ▶",menu::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",menu::cycleOutputForward)
-                ),
-                new Label().setText(evidenceContract(menu.kind())),
-                RseLdUiComponents.authorityFooter()
+                )
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        new Label().setText(evidenceContract(menu.kind())),
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
     }
