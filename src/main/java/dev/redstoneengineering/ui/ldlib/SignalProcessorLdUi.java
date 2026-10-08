@@ -20,11 +20,6 @@ public final class SignalProcessorLdUi {
         root.addChildren(
                 RseLdUiComponents.title("PIONEER PATTERN • SIGNAL PROCESSOR MODEL"),
                 RseLdUiComponents.tabbedWorkspace(
-                        600, 400, 850,
-                        new String[]{"Evidence"},
-                        new UIElement[]{
-                                RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence", "More"},
                         new UIElement[]{
@@ -50,9 +45,6 @@ public final class SignalProcessorLdUi {
                                 RseLdUiComponents.workspacePage(
                                         new Label().setText(evidenceContract(menu.kind())),
                                         RseLdUiComponents.authorityFooter()
-                                )
-                        }
-                )
                                 )
                         }
                 )
