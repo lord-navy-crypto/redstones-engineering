@@ -484,6 +484,35 @@ if manual_configure_offsets:
         + ", ".join(sorted(manual_configure_offsets))
     )
 
+# Tabbed LDLib2 UX gate: every registered block HMI family must keep its
+# two-axis viewport, and the shared implementation must preserve navigation.
+ldlib_dir = ROOT / "src/main/java/dev/redstoneengineering/ui/ldlib"
+ldlib_hmis = sorted(ldlib_dir.glob("*LdUi.java"))
+if len(ldlib_hmis) != 23:
+    errors.append(f"expected exactly 23 LDLib2 HMI families, found {len(ldlib_hmis)}")
+for hmi in ldlib_hmis:
+    source = hmi.read_text(errors="ignore")
+    has_shared_workspace = "RseLdUiComponents.tabbedWorkspace(" in source
+    has_native_workspace = "new ScrollerView()" in source and "ScrollerMode.BOTH" in source
+    if not (has_shared_workspace or has_native_workspace):
+        errors.append(f"{hmi.name}: no dual-axis tabbed workspace")
+    if has_shared_workspace and source.count("RseLdUiComponents.tabbedWorkspace(") != 1:
+        errors.append(f"{hmi.name}: repeated/nested tabbed workspace")
+    if has_native_workspace and not ("horizontalScroller" in source and "verticalScroller" in source):
+        errors.append(f"{hmi.name}: native workspace does not reset both axes on page changes")
+
+for token in (
+    "new ScrollerView()",
+    "ScrollerMode.BOTH",
+    "ScrollDisplay.AUTO",
+    "setDisplay(candidate == page)",
+    "horizontalScroller.setNormalizedValue(0)",
+    "verticalScroller.setNormalizedValue(0)",
+    ".paddingAll(12)",
+):
+    if token not in components:
+        errors.append(f"shared LDLib2 tabbed workspace missing {token!r}")
+
 if errors:
     print("RSE ALL-BLOCK UI ROLLOUT VERIFY: FAIL")
     for error in errors:
@@ -508,3 +537,4 @@ print(" LDLib2 HMI host + server-authority contract: PASS")
 print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")
+print(f" tabbed bidirectional LDLib2 HMI coverage: {len(ldlib_hmis)} / 23")
