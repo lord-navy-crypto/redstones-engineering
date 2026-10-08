@@ -19,8 +19,15 @@ public final class PidTrendPlotElement extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext g) {
-        int x=Math.round(getPositionX()), y=Math.round(getPositionY());
-        int w=Math.max(60,Math.round(getSizeWidth())), h=Math.max(60,Math.round(getSizeHeight()));
+        // Respect the allocated layout box; never overflow when GUI Scale is high.
+        int allocatedWidth = Math.round(getSizeWidth());
+        int allocatedHeight = Math.round(getSizeHeight());
+        if (allocatedWidth < 40 || allocatedHeight < 40) return;
+        final int inset = 4;
+        int x = Math.round(getPositionX()) + inset;
+        int y = Math.round(getPositionY()) + inset;
+        int w = allocatedWidth - 2 * inset;
+        int h = allocatedHeight - 2 * inset;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendSetpoint,0,15,x,y,w,h,SP);
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendProcessValue,0,15,x,y,w,h,PV);
