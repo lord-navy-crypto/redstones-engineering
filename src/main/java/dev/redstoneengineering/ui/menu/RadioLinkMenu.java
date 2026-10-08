@@ -153,8 +153,11 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     }
 
     private static PortQuality receptionQuality(RadioKernel.Reception reception) {
-        if (!reception.coverageComplete()) return PortQuality.STALE;
+        // A known collision is a real topology conflict even when other
+        // candidates are not loaded. Keep it visible instead of overwriting
+        // it with the weaker incomplete-coverage classification.
         if (reception.collision()) return PortQuality.TOPOLOGY_ERROR;
+        if (!reception.coverageComplete()) return PortQuality.STALE;
         return reception.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
