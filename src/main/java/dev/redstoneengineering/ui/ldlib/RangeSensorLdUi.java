@@ -16,20 +16,34 @@ public final class RangeSensorLdUi {
 
     public static ModularUI create(RangeSensorMenu menu, Player player) {
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(520).paddingAll(8).gapAll(6));
+        root.layout(l->l.width(650).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RANGE SENSOR • FORMULA-FIRST SENSOR RESPONSE"),
-                RseLdUiComponents.formulaCard(() -> equation(menu.responseMode())),
-                RseLdUiComponents.liveRow("MEASURED","d",()->menu.distance()+" blocks"),
-                RseLdUiComponents.liveRow("ADJUSTABLE","R",()->menu.configuredRange()+" blocks • {4,8,15}"),
-                RseLdUiComponents.liveRow("ADJUSTABLE","detect",()->detect(menu.detectMode())),
-                RseLdUiComponents.liveRow("ADJUSTABLE","response",()->response(menu.responseMode())),
-                RseLdUiComponents.liveRow("DERIVED","y",()->menu.output()+" / 15"),
-                RseLdUiComponents.liveRow("EVIDENCE","scan",()->scan(menu.scanStatusOrdinal())+" • "+menu.scannedCells()+"/"+menu.configuredRange()),
-                controls(menu),
-                RseLdUiComponents.liveRow("I/O","route",()->menu.sensingDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()),
-                new Label().setText("A complete CLEAR scan with d=0 is valid evidence. The client never infers validity from d>0."),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        630, 400, 850,
+                        new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.formulaCard(() -> equation(menu.responseMode())),
+                                        RseLdUiComponents.liveRow("MEASURED","d",()->menu.distance()+" blocks"),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE","R",()->menu.configuredRange()+" blocks • {4,8,15}")
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("ADJUSTABLE","detect",()->detect(menu.detectMode())),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE","response",()->response(menu.responseMode())),
+                                        RseLdUiComponents.liveRow("DERIVED","y",()->menu.output()+" / 15")
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("EVIDENCE","scan",()->scan(menu.scanStatusOrdinal())+" • "+menu.scannedCells()+"/"+menu.configuredRange()),
+                                        controls(menu),
+                                        RseLdUiComponents.liveRow("I/O","route",()->menu.sensingDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase())
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        new Label().setText("A complete CLEAR scan with d=0 is valid evidence. The client never infers validity from d>0."),
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
     }
