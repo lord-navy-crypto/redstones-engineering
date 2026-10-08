@@ -157,7 +157,7 @@ require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi
         "packet = 4·u_R • read-only law",
         "y_R=floor(15·Q_s/100) • read-only",
         '"trigger"', "QUARTZ rising edge",
-        '"Δt_history"', "20 ticks • read-only retained interval",
+        '"ΔT_20t"', "20 ticks • read-only retained interval",
         "read-only storage law",
         "aperture is FIXED: 6 adjacent faces",
         "Visible τ selects the implemented discrete response profile",
@@ -166,7 +166,7 @@ require("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi
         "RESET∨¬RUN⇒step=0",
         "PERMIT=15 iff A>0 ∧ B>0 ∧ C>0",
         "alarm=15 iff topology report hasIssue()",
-        '"network law"',
+        '"V_node","drivers","ports"',
         "explicit splice • >1 driver = TOPOLOGY_ERROR",
         "read-only topology contract")
 
