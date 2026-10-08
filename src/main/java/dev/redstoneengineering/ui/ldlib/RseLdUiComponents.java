@@ -114,11 +114,13 @@ public final class RseLdUiComponents {
             page.layout(l -> l.width(contentWidth - 30).paddingAll(12).gapAll(10));
             page.setDisplay(i == 0);
             scroller.addScrollViewChild(page);
-            tabs.addChild(new Button().setText(labels[i]).layout(l -> l.height(20).minWidth(82).paddingAll(4)).setOnClick(event -> {
+            var button = new Button().setText(labels[i]).setOnClick(event -> {
                 for (UIElement candidate : pages) candidate.setDisplay(candidate == page);
                 scroller.horizontalScroller.setNormalizedValue(0);
                 scroller.verticalScroller.setNormalizedValue(0);
-            }));
+            });
+            button.layout(l -> l.height(20).minWidth(82).paddingAll(4));
+            tabs.addChild(button);
         }
 
         root.addChildren(tabs,
