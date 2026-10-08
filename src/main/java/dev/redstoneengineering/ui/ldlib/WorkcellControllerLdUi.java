@@ -14,14 +14,26 @@ public final class WorkcellControllerLdUi {
 
     public static ModularUI create(WorkcellControllerMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(650).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(650).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("WORKCELL CONTROLLER"),
-                flowPanel(m),
-                admissionPanel(m),
-                portsPanel(m),
-                authorityPanel(),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        630, 400, 850,
+                        new String[]{"Overview", "Configure", "Diagnostics"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        flowPanel(m),
+                                        admissionPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        portsPanel(m),
+                                        authorityPanel()
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
     }
