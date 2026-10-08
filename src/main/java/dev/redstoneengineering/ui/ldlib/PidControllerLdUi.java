@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.world.entity.player.Player;
+import dev.vfyjxf.taffy.style.FlexWrap;
 import org.appliedenergistics.yoga.YogaFlexDirection;
 
 public final class PidControllerLdUi {
@@ -40,7 +41,7 @@ public final class PidControllerLdUi {
         workspace.viewContainer(view -> view.layout(l -> l.width(950).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(page0, page1, page2, page3, page4, page5);
         var tabs = new UIElement().addClass("panel_bg");
-        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5).paddingAll(5));
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
         tabs.addChildren(
                 tabButton("Model", workspace, page0, page0, page1, page2, page3, page4, page5),
                 tabButton("Configure", workspace, page1, page0, page1, page2, page3, page4, page5),
@@ -52,7 +53,7 @@ public final class PidControllerLdUi {
         root.addChildren(
                 RseLdUiComponents.title("PID CLOSED-LOOP ENGINEERING WORKBENCH"),
                 tabs,
-                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • draggable scrollbars"),
+                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
         return RseLdUiComponents.responsiveUi(root, player, 690, 450);
