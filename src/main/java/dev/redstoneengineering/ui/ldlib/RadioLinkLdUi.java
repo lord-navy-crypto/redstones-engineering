@@ -19,11 +19,6 @@ public final class RadioLinkLdUi {
         root.addChildren(
                 RseLdUiComponents.title(m.kind()==RadioLinkMenu.KIND_TRANSMITTER?"RADIO TRANSMITTER":"RADIO RECEIVER"),
                 RseLdUiComponents.tabbedWorkspace(
-                        600, 400, 850,
-                        new String[]{"Evidence"},
-                        new UIElement[]{
-                                RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
                         new UIElement[]{
@@ -41,9 +36,6 @@ public final class RadioLinkLdUi {
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
-                                )
-                        }
-                )
                                 )
                         }
                 )
