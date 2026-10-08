@@ -56,31 +56,51 @@ public final class OpticalSystemLdUi {
     }
 
     private static UIElement parameterPanel(OpticalSystemMenu m) {
-        var primary = new TextField().setNumbersOnlyInt(0,15); primary.layout(l->l.width(100));
-        primary.bind(DataBindingBuilder.string(
-                () -> primaryAdjustable(m.kind()) ? Integer.toString(primaryValue(m)) : "",
-                v -> { try { m.applyPrimaryFromUi(Integer.parseInt(v)); } catch (NumberFormatException ignored) {} }
-        ).build());
-
-        var secondary = new TextField().setNumbersOnlyInt(0,15); secondary.layout(l->l.width(100));
-        secondary.bind(DataBindingBuilder.string(
-                () -> secondaryAdjustable(m.kind()) ? Integer.toString(m.secondary()) : "",
-                v -> { try { m.applySecondaryFromUi(Integer.parseInt(v)); } catch (NumberFormatException ignored) {} }
-        ).build());
-
-        var p = new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(4));
-        p.addChildren(
-                RseLdUiComponents.liveRow(primaryAdjustable(m.kind())?"ADJUSTABLE":"FIXED",primarySymbol(m.kind()),()->primaryControl(m)),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                        new Label().setText("PRIMARY").layout(l->l.width(82)), primary,
-                        new Label().setText(primaryRange(m.kind())).layout(l->l.flex(1))
-                ),
-                RseLdUiComponents.liveRow(secondaryAdjustable(m.kind())?"ADJUSTABLE":"FIXED","channel",()->secondaryControl(m)),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                        new Label().setText("SECONDARY").layout(l->l.width(82)), secondary,
-                        new Label().setText(secondaryRange(m.kind())).layout(l->l.flex(1))
-                )
-        );
+        int kind = m.kind();
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l->l.paddingAll(5).gapAll(4));
+        if (primaryAdjustable(kind)) {
+            // The optical attenuator supports only 0..8, not the full 0..15.
+            int limit = kind == OpticalSystemMenu.KIND_ATTENUATOR ? 8 : 15;
+            var primary = new TextField().setNumbersOnlyInt(0,limit);
+            primary.layout(l->l.width(100));
+            primary.bind(DataBindingBuilder.string(
+                    () -> Integer.toString(primaryValue(m)),
+                    v -> { try { m.applyPrimaryFromUi(Integer.parseInt(v)); }
+                           catch (NumberFormatException ignored) {} }
+            ).build());
+            p.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE",primarySymbol(kind),()->primaryControl(m)),
+                    new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                            new Label().setText("PRIMARY").layout(l->l.width(82)), primary,
+                            new Label().setText(primaryRange(kind)).layout(l->l.flex(1)))
+            );
+        } else {
+            p.addChild(RseLdUiComponents.fixedRow("PRIMARY",
+                    () -> "READ ONLY", "No editable intensity, target-channel or attenuation control"));
+        }
+        if (secondaryAdjustable(kind)) {
+            // Free-space channel modes are 0..3; invalid UI intents must not
+            // be presented as if the server could accept them.
+            int limit = (kind==OpticalSystemMenu.KIND_FREE_SPACE_TX
+                    || kind==OpticalSystemMenu.KIND_FREE_SPACE_RX) ? 3 : 15;
+            var secondary = new TextField().setNumbersOnlyInt(0,limit);
+            secondary.layout(l->l.width(100));
+            secondary.bind(DataBindingBuilder.string(
+                    () -> Integer.toString(m.secondary()),
+                    v -> { try { m.applySecondaryFromUi(Integer.parseInt(v)); }
+                           catch (NumberFormatException ignored) {} }
+            ).build());
+            p.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE","channel",()->secondaryControl(m)),
+                    new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                            new Label().setText("SECONDARY").layout(l->l.width(82)), secondary,
+                            new Label().setText(secondaryRange(kind)).layout(l->l.flex(1)))
+            );
+        } else {
+            p.addChild(RseLdUiComponents.fixedRow("SECONDARY",
+                    () -> "READ ONLY", "Observed channel, branch intensity or loss is not an extra knob"));
+        }
         return p;
     }
 
