@@ -56,9 +56,20 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.MAGNETIC_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(MagneticSystemLdUi.create(this, inventory.player));
         }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof ElectromagnetBlock) kind.set(KIND_ELECTROMAGNET);
+        else if (block instanceof PermanentMagnetBlock) kind.set(KIND_PERMANENT);
+        else if (block instanceof InductionCoilBlock) kind.set(KIND_COIL);
+        else if (block instanceof MagneticFieldSensorBlock) kind.set(KIND_FIELD_SENSOR);
+        else if (block instanceof MagneticGradientMeterBlock) kind.set(KIND_GRADIENT);
+        else kind.set(-1);
     }
 
     @Override
