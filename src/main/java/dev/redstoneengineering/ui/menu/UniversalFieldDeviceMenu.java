@@ -1173,8 +1173,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     public int facingOrdinal() { return facing.get(); }
     public int routeKind() { return routeKind.get(); }
+    /** Safe presentation adapter; only the menu layer consults SensorModel's profile table. */
+    public static String profileNameForUi(int profile) {
+        return SensorModel.profileName(profile);
+    }
+
     public String configPrimaryProfileName() {
-        return SensorModel.profileName(configPrimary.get());
+        return profileNameForUi(configPrimary.get());
     }
 
     public int configKind() { return configKind.get(); }
