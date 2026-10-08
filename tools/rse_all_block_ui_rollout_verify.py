@@ -713,6 +713,64 @@ for role_text in (
     if role_text not in measurement_roles:
         errors.append(f"Pioneer measurement roles inconsistent with solver: {role_text}")
 
+# High-consequence commissioning and safety presentation: fail closed.
+# These guards target real regressions found across the 122-block Pioneer HMI:
+# absent evidence must never be rendered as HEALTHY / NOMINAL / AT TARGET.
+reliability_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
+reliability_status = reliability_ui.split("private static String stateName(ReliabilitySystemMenu m)", 1)[-1].split(
+    "private static String maintenanceName", 1)[0]
+for token in ("PortQuality.FAULT", "PortQuality.DOMAIN_MISMATCH", "PortQuality.TOPOLOGY_ERROR",
+              "PortQuality.STALE", "PortQuality.NO_SIGNAL", "PortQuality.NOT_READY",
+              '"UNVERIFIED • "', '"EVIDENCE FAULT • "', '"SATURATED • CHECK INPUT"'):
+    if token not in reliability_status:
+        errors.append(f"Reliability safe-state display lost fail-closed witness check: {token}")
+if reliability_status.find("PortQuality.NO_SIGNAL") > reliability_status.find('case ReliabilitySystemMenu.KIND_WATCHDOG'):
+    errors.append("Reliability UI says HEALTHY / NOMINAL before checking evidence quality")
+
+pneumatic_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java")
+pneumatic_diag = pneumatic_ui.split("private static String diagnosis(PneumaticSystemMenu m)", 1)[-1].split(
+    "private static String nextAction(", 1)[0]
+if "m.cylinderSamples()<=0" not in pneumatic_diag or "ACTUATOR INPUT NOT VERIFIED" not in pneumatic_diag:
+    errors.append("Pneumatic cylinder AT TARGET is not gated by real pressure and retained response evidence")
+if pneumatic_diag.find("m.cylinderSamples()<=0") > pneumatic_diag.find('"AT TARGET'):
+    errors.append("Pneumatic cylinder announces arrival before observing a response sample")
+if "STORAGE PRESSURE UNVERIFIED" not in pneumatic_diag:
+    errors.append("Reservoir must not report empty/charging on missing pressure evidence")
+
+optical_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
+for token in (
+    'case OpticalSystemMenu.KIND_ATTENUATOR -> "loss L"',
+    'case OpticalSystemMenu.KIND_SPLITTER -> "I_branch_A"',
+    'kind == OpticalSystemMenu.KIND_ATTENUATOR ? 8 : 15',
+    'OpticalSystemMenu.KIND_FREE_SPACE_RX) ? 3 : 15',
+    '"NOT APPLICABLE"',
+    'm.kind()!=OpticalSystemMenu.KIND_RECEIVER && m.kind()!=OpticalSystemMenu.KIND_METER',
+):
+    if token not in optical_ui:
+        errors.append(f"Optical tuning / evidence presentation mismatch: {token}")
+
+optical_menu = read("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java")
+for method, terminal in (
+    ("receiverCommissioning(PortQuality q,", "private static CommissioningStatus opticalCommissioning("),
+    ("opticalCommissioning(PortQuality q,", "private static boolean hardCommissioningFault("),
+):
+    fragment = optical_menu.split(method, 1)[-1].split(terminal, 1)[0]
+    if "hardCommissioningFault(q)" not in fragment:
+        errors.append(f"{method}: missing hard-fault witness")
+    if fragment.find("hardCommissioningFault(q)") > fragment.find("CommissioningStatus.NOT_READY"):
+        errors.append(f"{method}: hard faults must outrank insufficient coverage")
+    if "q != PortQuality.VALID" not in fragment:
+        errors.append(f"{method}: PASS must require a VALID input witness")
+
+pneumatic_menu = read("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java")
+flow_verdict = pneumatic_menu.split("flowCommissioning(long samples,", 1)[-1].split(
+    "private static boolean hardFault(", 1)[0]
+for token in ("hardFault(in)", "hardFault(out)", "hardFault(upstream)", "hardFault(downstream)"):
+    if token not in flow_verdict:
+        errors.append(f"Pneumatic flow commissioning ignores hard-fault witness: {token}")
+if flow_verdict.find("hardFault(in)") > flow_verdict.find("samples < 4"):
+    errors.append("Flow-meter hard faults must outrank incomplete sample windows")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -754,3 +812,4 @@ print(" FieldDevice Pioneer Overview formula + adjustable variable visibility: P
 print(" Pioneer Copper / Quartz / Soul / Calorimeter snapshot slot alignment: PASS")
 print(" Pioneer solver / measurement role semantics and status evidence: PASS")
 print(" Pioneer named sensor profile decoding: PASS")
+print(" Reliability/Pneumatic/Optical fail-closed high-risk commissioning: PASS")
