@@ -16,8 +16,15 @@ public final class LogicAnalyzerPlotElement extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext g) {
-        int x=Math.round(getPositionX()), y=Math.round(getPositionY());
-        int w=Math.max(80,Math.round(getSizeWidth())), h=Math.max(80,Math.round(getSizeHeight()));
+        // Never paint a fabricated minimum-size plot outside our actual LDLib2 element.
+        int allocatedWidth = Math.round(getSizeWidth());
+        int allocatedHeight = Math.round(getSizeHeight());
+        if (allocatedWidth < 40 || allocatedHeight < 60) return;
+        final int inset = 4;
+        int x = Math.round(getPositionX()) + inset;
+        int y = Math.round(getPositionY()) + inset;
+        int w = allocatedWidth - 2 * inset;
+        int h = allocatedHeight - 2 * inset;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
         int laneH=Math.max(12,(h-16)/4);
         for(int ch=0;ch<4;ch++){
