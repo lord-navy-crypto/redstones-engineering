@@ -93,9 +93,13 @@ public final class RseLdUiComponents {
     }
 
     public static Button serverAction(String label, Runnable action) {
-        return new Button()
+        var button = new Button()
                 .setText(label)
                 .setOnServerClick(event -> action.run());
+        // The default 14px LDLib2 button is too short for dense engineering HMIs.
+        // More generous hit targets are scrollable within the workspace.
+        button.layout(layout -> layout.height(20).paddingAll(4));
+        return button;
     }
 
     /**
