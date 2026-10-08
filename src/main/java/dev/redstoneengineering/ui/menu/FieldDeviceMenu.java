@@ -153,8 +153,35 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.FIELD_DEVICE.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiShape(level.getBlockState(blockPos));
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(EnhancedFieldDeviceLdUi.create(this, inventory.player));
+        }
+    }
+
+    /**
+     * UI tree construction happens before vanilla DataSlot synchronization.
+     * Prime only immutable/declared presentation shape on the client, never runtime
+     * physics or evidence; the server remains the sole source of measurements.
+     * Without this, initial KIND_UNKNOWN hides real controls for most devices.
+     */
+    private void primeClientUiShape(BlockState state) {
+        Block block = state.getBlock();
+        kind.set(kindOf(block));
+        seriesConfigurable.set(block instanceof DirectionalSignalBlock
+                || block instanceof DirectionalDomainBlock
+                || block instanceof DirectionalRedstoneEndpointBlock
+                || block instanceof SignalProbeBlock
+                || block instanceof RedstoneCableTerminalBlock ? 1 : 0);
+        inputEndpoint.set(0);
+        outputEndpoint.set(0);
+        if (endpointRoutable(block) && block instanceof EngineeringPortProvider provider) {
+            for (var port : provider.engineeringPorts(state)) {
+                if (port.direction() == PortDirection.INPUT || port.direction() == PortDirection.BIDIRECTIONAL)
+                    inputEndpoint.set(1);
+                if (port.direction() == PortDirection.OUTPUT || port.direction() == PortDirection.BIDIRECTIONAL)
+                    outputEndpoint.set(1);
+            }
         }
     }
 
