@@ -132,7 +132,7 @@ public final class OpticalSystemLdUi {
             p.addChild(RseLdUiComponents.liveRow("EVIDENCE","physical port",()->m.quality().name()));
             return p;
         }
-        p.addChild(new Label().setText("SERVER-AUTHORITATIVE OPTICAL COMMISSIONING"));
+        p.addChild(new Label().setText("Segment TX / RX • SERVER-AUTHORITATIVE OPTICAL COMMISSIONING"));
         p.addChild(RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()));
         if (m.kind()==OpticalSystemMenu.KIND_RECEIVER) {
             p.addChildren(
@@ -150,7 +150,7 @@ public final class OpticalSystemLdUi {
                     RseLdUiComponents.liveRow("METER","strongest / weakest neighbor",()->m.meterStrongestNeighbor()+" / "+m.meterWeakestNeighbor())
             );
         }
-        p.addChild(new Label().setText("Observer-only commissioning evidence never mutates or re-solves the optical network."));
+        p.addChild(new Label().setText("Observer-only commissioning evidence does not mutate or re-solve the optical network."));
         return p;
     }
 
