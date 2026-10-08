@@ -44,7 +44,7 @@ public final class UniversalFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
                 RseLdUiComponents.liveRow("I/O", "route", menu::portRouteLabel),
-                RseLdUiComponents.formulaCard(() -> universalContract(menu.configKind())),
+                modelPreviewPanel(menu),
                 mechanismPanel(menu),
                 portsPanel(menu)
         );
@@ -112,6 +112,48 @@ public final class UniversalFieldDeviceLdUi {
             workspace.horizontalScroller.setNormalizedValue(0);
             workspace.verticalScroller.setNormalizedValue(0);
         });
+    }
+
+    /**
+     * Put the block's actual Pioneer law above the fold. The full six-value
+     * measurements and interpretation remain available on the Pioneer tab.
+     * Never turn observed/derived/solver variables into fake tuning controls.
+     */
+    private static UIElement modelPreviewPanel(UniversalFieldDeviceMenu menu) {
+        int kind = menu.configKind();
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.paddingAll(8).gapAll(7));
+        panel.addChild(new Label().setText("PIONEER • ACTUAL IMPLEMENTED MODEL"));
+        if (menu.pioneerProcessKind() != UniversalFieldDeviceMenu.PIONEER_PROCESS_NONE) {
+            panel.addChild(RseLdUiComponents.formulaCard(
+                    () -> processEquation(menu.pioneerProcessKind())));
+        } else if (menu.pioneerMeasurementKind() != UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_NONE) {
+            panel.addChild(RseLdUiComponents.formulaCard(
+                    () -> measurementEquation(menu.pioneerMeasurementKind())));
+        } else {
+            panel.addChild(RseLdUiComponents.formulaCard(() -> universalContract(menu.configKind())));
+        }
+        if (primaryDirectKind(kind) || primaryCycleKind(kind)) {
+            panel.addChild(RseLdUiComponents.liveRow(
+                    "ADJUSTABLE", primarySymbol(kind),
+                    () -> primaryDisplay(menu) + " • " + primaryRange(kind)));
+        }
+        if (secondaryDirectKind(kind)) {
+            panel.addChild(RseLdUiComponents.liveRow(
+                    "ADJUSTABLE", secondarySymbol(kind),
+                    () -> secondaryDisplay(menu) + " • " + secondaryRange(kind)));
+        }
+        if (kind != UniversalFieldDeviceMenu.CONFIG_NONE) {
+            panel.addChild(RseLdUiComponents.liveRow("CONFIG", "server model",
+                    () -> configName(menu.configKind())));
+        } else {
+            panel.addChild(RseLdUiComponents.fixedRow("tuning",
+                    () -> "NO SHARED CONTROL",
+                    "measurement, solver and derived values are not operator knobs"));
+        }
+        panel.addChild(new Label().setText(
+                "Configure → validated server parameters / actions; Pioneer → physical variables and evidence."));
+        return panel;
     }
 
     private static UIElement portsPanel(UniversalFieldDeviceMenu menu) {
