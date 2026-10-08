@@ -60,9 +60,19 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.AMETHYST_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(AmethystSystemLdUi.create(this, inventory.player));
         }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof AmethystResonatorBlock) kind.set(KIND_SOURCE);
+        else if (block instanceof AmethystFrequencyFilterBlock) kind.set(KIND_FILTER);
+        else if (block instanceof AmethystTunedResonatorBlock) kind.set(KIND_TUNED);
+        else if (block instanceof AmethystSpectrumAnalyzerBlock) kind.set(KIND_SPECTRUM);
+        else kind.set(-1);
     }
 
     @Override
