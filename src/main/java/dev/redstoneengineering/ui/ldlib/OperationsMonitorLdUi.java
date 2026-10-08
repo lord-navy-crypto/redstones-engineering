@@ -47,10 +47,7 @@ public final class OperationsMonitorLdUi {
                         }
                 )
         );
-        return ModularUI.of(
-                UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
-                player
-        );
+        return RseLdUiComponents.responsiveUi(root, player, 780, 480);
     }
 
     private static UIElement overviewPanel(OperationsMonitorMenu m) {
