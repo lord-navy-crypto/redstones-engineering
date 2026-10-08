@@ -9,6 +9,7 @@ import com.lowdragmc.lowdraglib2.math.Size;
 import dev.vfyjxf.taffy.style.FlexWrap;
 import net.minecraft.world.entity.player.Player;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
+import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -39,42 +40,49 @@ public final class RseLdUiComponents {
         return ModularUI.of(ui, player);
     }
 
-    public static Label title(String text) {
+    private static Label wrap(Label label) {
+        label.textStyle(style -> style.textWrap(TextWrap.WRAP)
+                .adaptiveWidth(false)
+                .adaptiveHeight(true));
+        return label;
+    }
+
+    private static Label liveText(Supplier<String> source) {
         var label = new Label();
-        label.setText(text);
+        label.bind(DataBindingBuilder.componentS2C(() -> Component.literal(source.get())).build());
+        return wrap(label);
+    }
+
+    public static Label title(String text) {
+        var label = wrap(new Label().setText(text));
+        label.layout(l -> l.widthPercent(100));
         return label;
     }
 
     public static UIElement formulaCard(Supplier<String> equation) {
         return new UIElement()
                 .addClass("panel_bg")
-                .layout(l -> l.paddingAll(5))
-                .addChild(new Label().bind(DataBindingBuilder.componentS2C(() ->
-                        Component.literal(equation.get())
-                ).build()));
+                .layout(l -> l.paddingAll(8))
+                .addChild(liveText(equation).layout(l -> l.widthPercent(100)));
     }
 
     public static UIElement liveRow(String role, String symbol, Supplier<String> value) {
         return new UIElement()
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(9).paddingAll(2))
                 .addChildren(
-                        new Label().setText(role).layout(l -> l.width(82)),
-                        new Label().setText(symbol).layout(l -> l.width(62)),
-                        new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                Component.literal(value.get())
-                        ).build()).layout(l -> l.flex(1))
+                        wrap(new Label().setText(role)).layout(l -> l.width(92)),
+                        wrap(new Label().setText(symbol)).layout(l -> l.width(90)),
+                        liveText(value).layout(l -> l.flex(1))
                 );
     }
 
     public static UIElement fixedRow(String symbol, Supplier<String> value, String reason) {
         return new UIElement()
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(9).paddingAll(2))
                 .addChildren(
-                        new Label().setText("FIXED").layout(l -> l.width(82)),
-                        new Label().setText(symbol).layout(l -> l.width(62)),
-                        new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                Component.literal(value.get() + " • " + reason)
-                        ).build()).layout(l -> l.flex(1))
+                        new Label().setText("FIXED").layout(l -> l.width(92)),
+                        wrap(new Label().setText(symbol)).layout(l -> l.width(90)),
+                        liveText(() -> value.get() + " • " + reason).layout(l -> l.flex(1))
                 );
     }
 
@@ -134,8 +142,6 @@ public final class RseLdUiComponents {
     }
 
     public static Label authorityFooter() {
-        var label = new Label();
-        label.setText("SERVER AUTHORITY • UI is presentation + validated operator intent");
-        return label;
+        return title("SERVER AUTHORITY • UI is presentation + validated operator intent");
     }
 }
