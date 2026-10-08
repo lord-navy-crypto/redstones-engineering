@@ -529,6 +529,51 @@ for name in ("UniversalFieldDevice", "SignalConditioner", "Oscilloscope", "PidCo
     if ".flexWrap(FlexWrap.WRAP)" not in source:
         errors.append(f"{name}LdUi.java: tab strip cannot wrap under narrow GUI scales")
 
+# A client menu constructs the LDLib2 tree before vanilla tracked DataSlots
+# arrive. Without a static shape primer the screen can lock in a default
+# read-only page and hide real Pioneer formulas/controls after synchronization.
+client_primers = {
+    "FieldDeviceMenu": "primeClientUiShape(level.getBlockState(blockPos))",
+    "UniversalFieldDeviceMenu": "primeClientUiShape(level.getBlockState(blockPos))",
+    "QuartzTimingMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "MagneticSystemMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "PneumaticSystemMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "AmethystSystemMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "OpticalSystemMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "RadioLinkMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "SignalProcessorMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "ReliabilitySystemMenu": "primeClientUiKind(level.getBlockState(blockPos).getBlock())",
+    "DigitalCommunicationMenu": "kind.set(kindOf(level.getBlockState(blockPos).getBlock()))",
+    "MediaConversionMenu": "mode.set(block instanceof RedstoneToLapisScalerBlock",
+}
+for menu, primer in client_primers.items():
+    code = read(f"src/main/java/dev/redstoneengineering/ui/menu/{menu}.java")
+    if primer not in code:
+        errors.append(f"{menu}: client HMI schema not primed before tracked DataSlot synchronization")
+
+universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
+for kinds, getter_prefix in (
+    ("configKind", "uiConfigKind"),
+    ("pioneerMeasurementKind", "uiMeasurementKind"),
+    ("pioneerProcessKind", "uiProcessKind"),
+):
+    snapshot_constants = set(re.findall(
+        rf'{kinds}\\.set\\(((?:CONFIG|PIONEER)_[A-Z0-9_]+)\\)', universal_menu))
+    marker = f"private static int {getter_prefix}(Block block)"
+    fragment = universal_menu.split(marker, 1)[-1].split("    private static int ", 1)[0]
+    client_constants = set(re.findall(r'return ((?:CONFIG|PIONEER)_[A-Z0-9_]+);', fragment))
+    if not snapshot_constants.issubset(client_constants):
+        errors.append(
+            f"UniversalFieldDeviceMenu {getter_prefix}: server kinds not covered by client UI shape "
+            + ", ".join(sorted(snapshot_constants - client_constants)))
+universal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+for token in ("modelPreviewPanel(menu)", "PIONEER • ACTUAL IMPLEMENTED MODEL",
+              "processEquation(menu.pioneerProcessKind())",
+              "measurementEquation(menu.pioneerMeasurementKind())",
+              "ADJUSTABLE", "secondaryDirectKind(kind)"):
+    if token not in universal_ui:
+        errors.append(f"UniversalFieldDeviceLdUi missing front-page model/tuning contract {token!r}")
+
 if errors:
     print("RSE ALL-BLOCK UI ROLLOUT VERIFY: FAIL")
     for error in errors:
@@ -555,3 +600,5 @@ print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")
 print(f" tabbed bidirectional LDLib2 HMI coverage: {len(ldlib_hmis)} / 23")
 print(" scaled-screen outer bounds + wrapping tabs and long labels: PASS")
+print(f" pre-sync client HMI shape primers: {len(client_primers)} / {len(client_primers)}")
+print(" Universal Pioneer formula preview / real tuning readouts: PASS")
