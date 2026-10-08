@@ -106,23 +106,35 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         } else kind.set(-1);
     }
 
+    /** Hard faults take precedence over missing samples and unbounded observations. */
     private static CommissioningStatus receiverCommissioning(PortQuality q, OpticalCommissioningSupport.SegmentBudget b) {
-        if (!b.bounded() || q == PortQuality.STALE) return CommissioningStatus.NOT_READY;
-        if (q == PortQuality.FAULT || q == PortQuality.DOMAIN_MISMATCH || q == PortQuality.TOPOLOGY_ERROR || b.sourceCount() > 1 || !b.channelCoherent()) return CommissioningStatus.FAIL;
-        if (q == PortQuality.NO_SIGNAL || b.sourceCount() == 0 || b.receiverIntensity() <= 0) return CommissioningStatus.NOT_READY;
-        if (b.receiverHeadroom() <= 1) return CommissioningStatus.MARGINAL;
+        if (hardCommissioningFault(q) || b.sourceCount() > 1 || (b.bounded() && !b.channelCoherent()))
+            return CommissioningStatus.FAIL;
+        if (q == PortQuality.NO_SIGNAL || q == PortQuality.NOT_READY || q == PortQuality.STALE
+                || !b.bounded() || b.sourceCount() == 0 || b.receiverIntensity() <= 0)
+            return CommissioningStatus.NOT_READY;
+        if (q != PortQuality.VALID || b.receiverHeadroom() <= 1)
+            return CommissioningStatus.MARGINAL;
         return CommissioningStatus.PASS;
     }
 
     private static CommissioningStatus opticalCommissioning(PortQuality q, int intensity, OpticalCommissioningSupport.Evidence e) {
-        if (q == PortQuality.NO_SIGNAL || intensity <= 0 || e.connectedNeighbors() == 0) return CommissioningStatus.NOT_READY;
-        if (q == PortQuality.FAULT || q == PortQuality.DOMAIN_MISMATCH || q == PortQuality.TOPOLOGY_ERROR) return CommissioningStatus.FAIL;
-        if (q != PortQuality.VALID || e.channelMismatchNeighbors() > 0 || e.sameChannelNeighbors() == 0) return CommissioningStatus.MARGINAL;
+        if (hardCommissioningFault(q)) return CommissioningStatus.FAIL;
+        if (q == PortQuality.NO_SIGNAL || q == PortQuality.NOT_READY || q == PortQuality.STALE
+                || intensity <= 0 || e.connectedNeighbors() == 0)
+            return CommissioningStatus.NOT_READY;
+        if (q != PortQuality.VALID || e.channelMismatchNeighbors() > 0 || e.sameChannelNeighbors() == 0)
+            return CommissioningStatus.MARGINAL;
         int spread = Math.max(0, e.strongestSameChannel() - e.weakestSameChannel());
         int localStep = Math.max(0, e.strongestSameChannel() - intensity);
         if (localStep >= 4) return CommissioningStatus.FAIL;
         if (localStep >= 2 || spread >= 2) return CommissioningStatus.MARGINAL;
         return CommissioningStatus.PASS;
+    }
+
+    private static boolean hardCommissioningFault(PortQuality quality) {
+        return quality == PortQuality.FAULT || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
     private void captureDomainEndpoints(BlockState state) {
