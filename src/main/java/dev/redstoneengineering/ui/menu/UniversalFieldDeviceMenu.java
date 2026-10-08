@@ -159,9 +159,117 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.UNIVERSAL_FIELD_DEVICE.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiShape(level.getBlockState(blockPos));
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(UniversalFieldDeviceLdUi.create(this, inventory.player));
         }
+    }
+
+    /**
+     * Establish the *structural* client UI shape before menu DataSlots arrive.
+     * Only block type and declared port descriptors are consulted, never
+     * engineeringSnapshot(), solver results, or the world simulation.
+     * The authoritative server snapshot subsequently syncs all runtime values.
+     */
+    private void primeClientUiShape(BlockState state) {
+        Block block = state.getBlock();
+        facing.set(directionOrdinal(state));
+        routeKind.set(routeKind(block));
+        seriesRotatable.set(isRotatable(block) ? 1 : 0);
+        configKind.set(uiConfigKind(block));
+        pioneerMeasurementKind.set(uiMeasurementKind(block));
+        pioneerProcessKind.set(uiProcessKind(block));
+        declaredPortMask.set(0);
+        inputMask.set(0);
+        outputMask.set(0);
+        bidirectionalMask.set(0);
+        if (block instanceof EngineeringPortProvider provider) {
+            int declared = 0, inputs = 0, outputs = 0, bidirectional = 0;
+            for (Direction side : Direction.values()) {
+                var descriptor = provider.engineeringPort(state, side);
+                if (descriptor.isEmpty()) continue;
+                int bit = 1 << side.ordinal();
+                declared |= bit;
+                PortDirection direction = descriptor.get().direction();
+                if (direction == PortDirection.INPUT) inputs |= bit;
+                else if (direction == PortDirection.OUTPUT) outputs |= bit;
+                else if (direction == PortDirection.BIDIRECTIONAL) bidirectional |= bit;
+            }
+            declaredPortMask.set(declared);
+            inputMask.set(inputs);
+            outputMask.set(outputs);
+            bidirectionalMask.set(bidirectional);
+        }
+    }
+
+    private static int uiConfigKind(Block block) {
+        if (block instanceof LapisPrecisionRangeSensorBlock) return CONFIG_LAPIS_RANGE;
+        if (block instanceof AbstractLapisTransducerBlock) return CONFIG_LAPIS_TRANSDUCER;
+        if (block instanceof MolecularCloudReceiverBlock) return CONFIG_MOLECULAR_RECEIVER;
+        if (block instanceof AlarmProcessorBlock) return CONFIG_ALARM;
+        if (block instanceof SampleHoldBlock) return CONFIG_SAMPLE_HOLD;
+        if (block instanceof CalibrationModuleBlock) return CONFIG_CALIBRATION;
+        if (block instanceof PwmControllerBlock) return CONFIG_PWM;
+        if (block instanceof FaultInjectorBlock) return CONFIG_FAULT_INJECTOR;
+        if (block instanceof SequenceControllerBlock) return CONFIG_SEQUENCE_CONTROLLER;
+        if (block instanceof SafetyInterlockBlock) return CONFIG_SAFETY_INTERLOCK;
+        if (block instanceof TopologyDebuggerBlock) return CONFIG_TOPOLOGY_DEBUGGER;
+        if (block instanceof CopperVoltageSourceBlock) return CONFIG_COPPER_VOLTAGE_SOURCE;
+        if (block instanceof CopperResistiveLoadBlock) return CONFIG_COPPER_LOAD;
+        if (block instanceof CopperSeriesResistorBlock) return CONFIG_COPPER_SERIES_RESISTOR;
+        if (block instanceof CopperCapacitorBlock) return CONFIG_COPPER_CAPACITOR;
+        if (block instanceof CopperFuseBlock) return CONFIG_COPPER_FUSE;
+        if (block instanceof LapisNoiseSourceBlock) return CONFIG_LAPIS_NOISE;
+        if (block instanceof QuartzLabOscillatorBlock) return CONFIG_QUARTZ_OSCILLATOR;
+        if (block instanceof QuartzPhaseDelayBlock) return CONFIG_QUARTZ_PHASE_DELAY;
+        if (block instanceof IronCoreBlock) return CONFIG_IRON_CORE;
+        if (block instanceof ThermalMassBlock) return CONFIG_THERMAL_MASS;
+        if (block instanceof ThermalHeaterBlock) return CONFIG_THERMAL_HEATER;
+        if (block instanceof ThermalRadiatorBlock) return CONFIG_THERMAL_RADIATOR;
+        return CONFIG_NONE;
+    }
+
+    private static int uiMeasurementKind(Block block) {
+        if (block instanceof TemperatureSensorBlock) return PIONEER_MEASUREMENT_TEMPERATURE;
+        if (block instanceof EngineeringLightSensorBlock) return PIONEER_MEASUREMENT_LIGHT;
+        if (block instanceof TankLevelSensorBlock) return PIONEER_MEASUREMENT_TANK;
+        if (block instanceof EntityDensitySensorBlock) return PIONEER_MEASUREMENT_ENTITY_DENSITY;
+        if (block instanceof LapisPrecisionMeterBlock) return PIONEER_MEASUREMENT_LAPIS_METER;
+        if (block instanceof LapisPrecisionRangeSensorBlock) return PIONEER_MEASUREMENT_LAPIS_RANGE;
+        if (block instanceof AnalogIndicatorBlock) return PIONEER_MEASUREMENT_ANALOG_INDICATOR;
+        return PIONEER_MEASUREMENT_NONE;
+    }
+
+    private static int uiProcessKind(Block block) {
+        if (block instanceof CalibrationModuleBlock) return PIONEER_PROCESS_CALIBRATION;
+        if (block instanceof SampleHoldBlock) return PIONEER_PROCESS_SAMPLE_HOLD;
+        if (block instanceof PwmControllerBlock) return PIONEER_PROCESS_PWM;
+        if (block instanceof LapisTemperatureTransducerBlock) return PIONEER_PROCESS_LAPIS_TEMPERATURE;
+        if (block instanceof LapisMagneticTransducerBlock) return PIONEER_PROCESS_LAPIS_MAGNETIC;
+        if (block instanceof LapisOpticalTransducerBlock) return PIONEER_PROCESS_LAPIS_OPTICAL;
+        if (block instanceof LapisVoltageTransducerBlock) return PIONEER_PROCESS_LAPIS_VOLTAGE;
+        if (block instanceof CopperWireBlock) return PIONEER_PROCESS_COPPER_WIRE;
+        if (block instanceof CopperVoltageSourceBlock) return PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE;
+        if (block instanceof CopperResistiveLoadBlock) return PIONEER_PROCESS_COPPER_LOAD;
+        if (block instanceof CopperSeriesResistorBlock) return PIONEER_PROCESS_COPPER_SERIES_RESISTOR;
+        if (block instanceof CopperCapacitorBlock) return PIONEER_PROCESS_COPPER_CAPACITOR;
+        if (block instanceof CopperFuseBlock) return PIONEER_PROCESS_COPPER_FUSE;
+        if (block instanceof CopperCableJunctionBlock) return PIONEER_PROCESS_COPPER_JUNCTION;
+        if (block instanceof LapisNoiseSourceBlock) return PIONEER_PROCESS_LAPIS_NOISE;
+        if (block instanceof QuartzLabOscillatorBlock) return PIONEER_PROCESS_QUARTZ_OSCILLATOR;
+        if (block instanceof QuartzPhaseDelayBlock) return PIONEER_PROCESS_QUARTZ_PHASE_DELAY;
+        if (block instanceof QuartzTriggeredLapisSamplerBlock) return PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER;
+        if (block instanceof SoulFluxInjectorBlock) return PIONEER_PROCESS_SOUL_INJECTOR;
+        if (block instanceof SoulFluxMeterBlock) return PIONEER_PROCESS_SOUL_METER;
+        if (block instanceof MolecularCloudReceiverBlock) return PIONEER_PROCESS_MOLECULAR_RECEIVER;
+        if (block instanceof IronCoreBlock) return PIONEER_PROCESS_IRON_CORE;
+        if (block instanceof ThermalMassBlock) return PIONEER_PROCESS_THERMAL_MASS;
+        if (block instanceof ThermalHeaterBlock) return PIONEER_PROCESS_THERMAL_HEATER;
+        if (block instanceof ThermalRadiatorBlock) return PIONEER_PROCESS_THERMAL_RADIATOR;
+        if (block instanceof ThermalCalorimeterBlock) return PIONEER_PROCESS_THERMAL_CALORIMETER;
+        if (block instanceof SoulSoilConduitBlock) return PIONEER_PROCESS_SOUL_CONDUIT;
+        if (block instanceof SoulSandReservoirBlock) return PIONEER_PROCESS_SOUL_RESERVOIR;
+        return PIONEER_PROCESS_NONE;
     }
 
     @Override
