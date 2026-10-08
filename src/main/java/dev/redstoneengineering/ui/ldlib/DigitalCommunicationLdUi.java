@@ -146,8 +146,20 @@ public final class DigitalCommunicationLdUi {
     }
 
     private static String diagnosis(DigitalCommunicationMenu m) {
-        if (m.inputQuality() == PortQuality.TOPOLOGY_ERROR || m.outputQuality() == PortQuality.TOPOLOGY_ERROR)
+        // Never announce a healthy bus, serial link or domain converter when
+        // its authoritative input/output quality is a hard fault or not ready.
+        PortQuality input = m.inputQuality();
+        PortQuality output = m.outputQuality();
+        if (input == PortQuality.TOPOLOGY_ERROR || output == PortQuality.TOPOLOGY_ERROR)
             return "LINK TOPOLOGY / DRIVER CONFLICT";
+        if (input == PortQuality.DOMAIN_MISMATCH || output == PortQuality.DOMAIN_MISMATCH)
+            return "LINK DOMAIN MISMATCH • FAULT";
+        if (input == PortQuality.FAULT || output == PortQuality.FAULT)
+            return "LINK INPUT / OUTPUT FAULT";
+        if (input == PortQuality.NOT_READY || output == PortQuality.NOT_READY)
+            return "LINK NOT READY • EVIDENCE INCOMPLETE";
+        if (input == PortQuality.SATURATED || output == PortQuality.SATURATED)
+            return "LINK SATURATED • VERIFY MARGIN";
         if (m.inputQuality() == PortQuality.NO_SIGNAL) return "NO INPUT LINK EVIDENCE";
         if (m.inputQuality() == PortQuality.STALE) return "STALE INPUT LINK EVIDENCE";
         if (m.outputQuality() == PortQuality.NO_SIGNAL) return "NO VALID OUTPUT AFTER TRANSFORM";
@@ -177,6 +189,8 @@ public final class DigitalCommunicationLdUi {
 
     private static String nextAction(DigitalCommunicationMenu m) {
         String d = diagnosis(m);
+        if (d.contains("FAULT") || d.contains("NOT READY") || d.contains("SATURATED"))
+            return "resolve server link quality, topology and measurement coverage before accepting a healthy link";
         if (d.contains("CONFLICT")) return "isolate multiple drivers or invalid link topology before decoding data";
         if (d.contains("CONTENTION")) return "reduce redundant bus driving; same-value multi-drive still consumes margin";
         if (d.contains("LOADING")) return "shorten or segment the 8-bit bus";
