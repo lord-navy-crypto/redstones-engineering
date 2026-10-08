@@ -66,9 +66,17 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.RADIO_LINK.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(RadioLinkLdUi.create(this, inventory.player));
         }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof RadioTransmitterBlock) kind.set(KIND_TRANSMITTER);
+        else if (block instanceof RadioReceiverBlock) kind.set(KIND_RECEIVER);
+        else kind.set(-1);
     }
 
     @Override
