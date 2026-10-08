@@ -220,10 +220,13 @@ public final class OperationsMonitorLdUi {
     }
 
     private static String systemDiagnosis(OperationsMonitorMenu m) {
-        if (!m.runEvidenceValid() || m.queueEvidenceSources() == 0) return "INSUFFICIENT EVIDENCE";
+        // Known active protection and electrical evidence faults have higher
+        // priority than missing RUN/QUEUE witnesses. A disconnected KPI
+        // source must never hide a retained active trip from the operator.
         if (m.electricalActiveTripCount() > 0) return "ACTIVE PROTECTION LIMIT";
         if (m.copperEvidenceActiveFailedCount() > 0) return "COPPER EVIDENCE FAILURE";
         if (m.copperEvidenceActiveDegradedCount() > 0) return "COPPER EVIDENCE DEGRADED";
+        if (!m.runEvidenceValid() || m.queueEvidenceSources() == 0) return "INSUFFICIENT EVIDENCE";
         if (m.incidentPresent()) return "INCIDENT TRACE AVAILABLE";
         return switch (m.state()) {
             case NOMINAL -> "PROCESS NOMINAL";
@@ -237,11 +240,11 @@ public final class OperationsMonitorLdUi {
     }
 
     private static String nextActionText(OperationsMonitorMenu m) {
-        if (!m.runEvidenceValid()) return "restore a trustworthy RUN source before interpreting KPIs";
-        if (m.queueEvidenceSources() == 0) return "connect at least one trustworthy QUEUE/WIP source";
         if (m.electricalActiveTripCount() > 0) return "inspect protection first-out and downstream evidence before reset";
         if (m.copperEvidenceActiveFailedCount() > 0) return "repair Copper topology/domain evidence before using electrical measurements";
         if (m.copperEvidenceActiveDegradedCount() > 0) return "reacquire fresh Copper evidence; do not count degradation as protection downtime";
+        if (!m.runEvidenceValid()) return "restore a trustworthy RUN source before interpreting KPIs";
+        if (m.queueEvidenceSources() == 0) return "connect at least one trustworthy QUEUE/WIP source";
         if (m.incidentPresent()) return "follow FIRST OUT through the retained event tail before changing the process";
         if (m.state() == OperationsMonitorBlock.SystemState.CONGESTED
                 || m.state() == OperationsMonitorBlock.SystemState.OVERLOADED)
