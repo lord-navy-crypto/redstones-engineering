@@ -24,6 +24,11 @@ public final class SignalAnalyzerLdUi {
         root.addChildren(
                 RseLdUiComponents.title("SIGNAL ANALYZER • METROLOGY / CALIBRATION"),
                 RseLdUiComponents.tabbedWorkspace(
+                        600, 400, 850,
+                        new String[]{"Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
                         new UIElement[]{
@@ -41,6 +46,9 @@ public final class SignalAnalyzerLdUi {
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
                                 )
                         }
                 )
