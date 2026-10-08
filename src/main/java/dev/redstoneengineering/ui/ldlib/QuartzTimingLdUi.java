@@ -32,7 +32,7 @@ public final class QuartzTimingLdUi {
                         }
                 )
         );
-        return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
+        return RseLdUiComponents.responsiveUi(root, player, 600, 390);
     }
 
     private static UIElement overview(QuartzTimingMenu m) {
