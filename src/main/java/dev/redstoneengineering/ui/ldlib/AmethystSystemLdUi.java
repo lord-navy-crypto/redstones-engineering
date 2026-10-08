@@ -38,7 +38,7 @@ public final class AmethystSystemLdUi {
                         }
                 )
         );
-        return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
+        return RseLdUiComponents.responsiveUi(root, player, 620, 440);
     }
 
     private static UIElement overview(AmethystSystemMenu m){
