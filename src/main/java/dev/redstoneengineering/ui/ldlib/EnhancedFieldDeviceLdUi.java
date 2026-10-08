@@ -43,7 +43,7 @@ public final class EnhancedFieldDeviceLdUi {
                         }
                 )
         );
-        return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
+        return RseLdUiComponents.responsiveUi(root, player, 740, 470);
     }
 
     private static UIElement identityPanel(FieldDeviceMenu m) {
