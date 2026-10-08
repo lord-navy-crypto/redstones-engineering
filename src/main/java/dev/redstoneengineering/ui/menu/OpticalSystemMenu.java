@@ -42,9 +42,23 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     public OpticalSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.OPTICAL_SYSTEM.get(), containerId, inventory, pos, inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(OpticalSystemLdUi.create(this, inventory.player));
         }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof OpticalEmitterBlock) kind.set(KIND_EMITTER);
+        else if (block instanceof OpticalReceiverBlock) kind.set(KIND_RECEIVER);
+        else if (block instanceof OpticalPowerMeterBlock) kind.set(KIND_METER);
+        else if (block instanceof OpticalSplitterBlock) kind.set(KIND_SPLITTER);
+        else if (block instanceof OpticalChannelFilterBlock) kind.set(KIND_FILTER);
+        else if (block instanceof OpticalAttenuatorBlock) kind.set(KIND_ATTENUATOR);
+        else if (block instanceof FreeSpaceOpticalTransmitterBlock) kind.set(KIND_FREE_SPACE_TX);
+        else if (block instanceof FreeSpaceOpticalReceiverBlock) kind.set(KIND_FREE_SPACE_RX);
+        else kind.set(-1);
     }
 
     @Override protected void refreshAuthoritativeSnapshot() {
