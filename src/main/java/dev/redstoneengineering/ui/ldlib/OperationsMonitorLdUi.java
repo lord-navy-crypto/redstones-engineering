@@ -22,16 +22,30 @@ public final class OperationsMonitorLdUi {
 
     public static ModularUI create(OperationsMonitorMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(760).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(780).height(480).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("OPERATIONS MONITOR • OBSERVER-ONLY PLANT EVIDENCE"),
-                overviewPanel(m),
-                plantPanel(m),
-                incidentPanel(m),
-                timelinePanel(m),
-                reliabilityPanel(m),
-                authorityPanel(),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        760, 440, 1010,
+                        new String[]{"Overview", "Details", "Controls", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        overviewPanel(m),
+                                        plantPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        incidentPanel(m),
+                                        timelinePanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        reliabilityPanel(m),
+                                        authorityPanel()
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(
                 UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
