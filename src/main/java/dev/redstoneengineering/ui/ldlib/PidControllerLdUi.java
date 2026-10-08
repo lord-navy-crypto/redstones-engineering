@@ -3,6 +3,10 @@ package dev.redstoneengineering.ui.ldlib;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
@@ -13,21 +17,57 @@ public final class PidControllerLdUi {
     private PidControllerLdUi() {}
 
     public static ModularUI create(PidControllerMenu m, Player player) {
-        var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(720).paddingAll(8).gapAll(6));
+        var root = new UIElement().addClass("panel_bg");
+        root.layout(l -> l.width(690).height(450).paddingAll(10).gapAll(8));
+        var page0 = page(RseLdUiComponents.title("PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL"),modelPanel(m),trendPanel(m));
+        var page1 = page(controls(m),runtimePanel(m));
+        page1.setDisplay(false);
+        var page2 = page(plantPanel(m));
+        page2.setDisplay(false);
+        var page3 = page(acceptancePanel(m));
+        page3.setDisplay(false);
+        var page4 = page(trialPanel(m));
+        page4.setDisplay(false);
+        var page5 = page(RseLdUiComponents.authorityFooter());
+        page5.setDisplay(false);
+        var workspace = new ScrollerView().scrollerStyle(style -> style
+                .mode(ScrollerMode.BOTH)
+                .verticalScrollDisplay(ScrollDisplay.AUTO)
+                .horizontalScrollDisplay(ScrollDisplay.AUTO)
+                .minScrollPixel(8).maxScrollPixel(72));
+        workspace.layout(l -> l.flex(1));
+        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.width(950).paddingAll(8).gapAll(8)));
+        workspace.addScrollViewChildren(page0, page1, page2, page3, page4, page5);
+        var tabs = new UIElement().addClass("panel_bg");
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5).paddingAll(5));
+        tabs.addChildren(
+                tabButton("Model", workspace, page0, page0, page1, page2, page3, page4, page5),
+                tabButton("Configure", workspace, page1, page0, page1, page2, page3, page4, page5),
+                tabButton("Plant", workspace, page2, page0, page1, page2, page3, page4, page5),
+                tabButton("Acceptance", workspace, page3, page0, page1, page2, page3, page4, page5),
+                tabButton("Trial", workspace, page4, page0, page1, page2, page3, page4, page5),
+                tabButton("Authority", workspace, page5, page0, page1, page2, page3, page4, page5)
+        );
         root.addChildren(
                 RseLdUiComponents.title("PID CLOSED-LOOP ENGINEERING WORKBENCH"),
-                RseLdUiComponents.title("PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL"),
-                modelPanel(m),
-                trendPanel(m),
-                controls(m),
-                runtimePanel(m),
-                plantPanel(m),
-                acceptancePanel(m),
-                trialPanel(m),
-                RseLdUiComponents.authorityFooter()
+                tabs,
+                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • draggable scrollbars"),
+                workspace
         );
-        return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
+        return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
+    }
+
+    private static UIElement page(UIElement... children) {
+        return new UIElement().layout(l -> l.width(920).paddingAll(12).gapAll(10)).addChildren(children);
+    }
+
+    private static Button tabButton(String label, ScrollerView workspace, UIElement selected, UIElement... pages) {
+        return new Button().setText(label).setOnClick(event -> {
+            for (UIElement page : pages) page.setDisplay(page == selected);
+            workspace.horizontalScroller.setNormalizedValue(0);
+            workspace.verticalScroller.setNormalizedValue(0);
+        });
     }
 
     private static UIElement modelPanel(PidControllerMenu m){
