@@ -16,8 +16,15 @@ public final class SignalAnalyzerPlotElement extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext g) {
-        int x=Math.round(getPositionX()), y=Math.round(getPositionY());
-        int w=Math.max(100,Math.round(getSizeWidth())), h=Math.max(70,Math.round(getSizeHeight()));
+        // Respect the allocated layout box; never overflow when GUI Scale is high.
+        int allocatedWidth = Math.round(getSizeWidth());
+        int allocatedHeight = Math.round(getSizeHeight());
+        if (allocatedWidth < 40 || allocatedHeight < 40) return;
+        final int inset = 4;
+        int x = Math.round(getPositionX()) + inset;
+        int y = Math.round(getPositionY()) + inset;
+        int w = allocatedWidth - 2 * inset;
+        int h = allocatedHeight - 2 * inset;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
         EngineeringPlot.analogTrace(g.graphics, SignalAnalyzerBlock.DISPLAY_SAMPLES,
                 menu::sample,0,15,x+6,y+6,w-12,h-12,0xFF62B0FF);
