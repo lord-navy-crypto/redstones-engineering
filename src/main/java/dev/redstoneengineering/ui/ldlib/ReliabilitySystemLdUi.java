@@ -7,6 +7,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Player;
@@ -173,13 +174,29 @@ public final class ReliabilitySystemLdUi {
         };
     }
 
+    /**
+     * Safety/reliability labels must fail closed on absent or stale evidence.
+     * A zero output / zero error is not proof of a healthy watchdog, agreeing
+     * voter or safely positioned actuator if its physical input is unverified.
+     */
     private static String stateName(ReliabilitySystemMenu m) {
+        PortQuality quality = m.quality();
+        if (quality == PortQuality.FAULT || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR) {
+            return "EVIDENCE FAULT • " + quality.name();
+        }
+        if (quality == PortQuality.NO_SIGNAL || quality == PortQuality.STALE
+                || quality == PortQuality.NOT_READY) {
+            return "UNVERIFIED • " + quality.name();
+        }
+        if (quality == PortQuality.SATURATED) return "SATURATED • CHECK INPUT";
         return switch (m.kind()) {
             case ReliabilitySystemMenu.KIND_WATCHDOG -> m.extraA() > 0 ? "TIMEOUT" : "HEALTHY";
             case ReliabilitySystemMenu.KIND_SERVO -> m.extraA() == 1 ? "BRAKING" : m.auxiliary() == 0 ? "AT COMMAND" : "MOVING / ERROR";
-            case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> m.quality().name();
+            case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> "MEASUREMENT VALID";
             case ReliabilitySystemMenu.KIND_VOTER -> m.extraC() == 1 ? "DEGRADED" : "NOMINAL";
-            default -> m.extraA() == 1 ? "LATCHED" : "CLEAR";
+            case ReliabilitySystemMenu.KIND_FAULT_LATCH -> m.extraA() == 1 ? "LATCHED" : "CLEAR";
+            default -> "UNCLASSIFIED RELIABILITY DEVICE";
         };
     }
 
