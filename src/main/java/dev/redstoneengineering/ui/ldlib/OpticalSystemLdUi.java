@@ -120,20 +120,37 @@ public final class OpticalSystemLdUi {
     }
 
     private static UIElement commissioningPanel(OpticalSystemMenu m) {
-        var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
-        p.addChildren(
-                new Label().setText("Segment TX / RX • guided optical commissioning budget"),
-                RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()),
-                RseLdUiComponents.liveRow("SEGMENT","TX / RX",()->m.budgetSourceIntensity()+"/15 → "+m.primary()+"/15"),
-                RseLdUiComponents.liveRow("DERIVED","Observed segment loss",()->Integer.toString(m.budgetObservedLoss())),
-                RseLdUiComponents.liveRow("DERIVED","Receiver headroom",()->m.budgetReceiverHeadroom()+" above I=1"),
-                RseLdUiComponents.liveRow("TOPOLOGY","Passive nodes / hops",()->m.budgetPassiveNodes()+" / "+m.budgetPassiveHops()),
-                RseLdUiComponents.liveRow("TOPOLOGY","source / channel",()->m.budgetSourceCount()+" / "+m.budgetSourceChannel()),
-                RseLdUiComponents.liveRow("METER","connected / same CH",()->m.meterConnectedNeighbors()+" / "+m.meterSameChannelNeighbors()),
-                RseLdUiComponents.liveRow("METER","mismatches",()->Integer.toString(m.meterChannelMismatches())),
-                new Label().setText("Intensity-unit segment budget only; upstream splitter/attenuator loss is not double-counted."),
-                new Label().setText("Observer-only commissioning evidence does not mutate or re-solve the optical network.")
-        );
+        var p=new UIElement().addClass("panel_bg");
+        p.layout(l->l.paddingAll(5).gapAll(3));
+        // The server only generates classification evidence for the optical
+        // receiver and power meter; other devices must not display the default
+        // NOT_READY value as if a commissioning trial had been performed.
+        if (m.kind()!=OpticalSystemMenu.KIND_RECEIVER && m.kind()!=OpticalSystemMenu.KIND_METER) {
+            p.addChild(RseLdUiComponents.fixedRow("commissioning",
+                    () -> "NOT APPLICABLE",
+                    "Only the receiver and power meter have server-classified optical commissioning evidence"));
+            p.addChild(RseLdUiComponents.liveRow("EVIDENCE","physical port",()->m.quality().name()));
+            return p;
+        }
+        p.addChild(new Label().setText("SERVER-AUTHORITATIVE OPTICAL COMMISSIONING"));
+        p.addChild(RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()));
+        if (m.kind()==OpticalSystemMenu.KIND_RECEIVER) {
+            p.addChildren(
+                    RseLdUiComponents.liveRow("SEGMENT","TX / RX",()->m.budgetSourceIntensity()+"/15 → "+m.primary()+"/15"),
+                    RseLdUiComponents.liveRow("DERIVED","Observed segment loss",()->Integer.toString(m.budgetObservedLoss())),
+                    RseLdUiComponents.liveRow("DERIVED","Receiver headroom",()->m.budgetReceiverHeadroom()+" above I=1"),
+                    RseLdUiComponents.liveRow("TOPOLOGY","Passive nodes / hops",()->m.budgetPassiveNodes()+" / "+m.budgetPassiveHops()),
+                    RseLdUiComponents.liveRow("TOPOLOGY","source / channel",()->m.budgetSourceCount()+" / "+m.budgetSourceChannel())
+            );
+            p.addChild(new Label().setText("Intensity-unit segment budget only; upstream splitter/attenuator loss is not double-counted."));
+        } else {
+            p.addChildren(
+                    RseLdUiComponents.liveRow("METER","connected / same CH",()->m.meterConnectedNeighbors()+" / "+m.meterSameChannelNeighbors()),
+                    RseLdUiComponents.liveRow("METER","mismatches",()->Integer.toString(m.meterChannelMismatches())),
+                    RseLdUiComponents.liveRow("METER","strongest / weakest neighbor",()->m.meterStrongestNeighbor()+" / "+m.meterWeakestNeighbor())
+            );
+        }
+        p.addChild(new Label().setText("Observer-only commissioning evidence never mutates or re-solves the optical network."));
         return p;
     }
 
