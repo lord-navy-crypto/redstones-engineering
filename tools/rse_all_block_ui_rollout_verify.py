@@ -614,6 +614,16 @@ if set(actual_control_slots) != set(expected_control_slots):
 if 'm.tertiary() != 0 ? m.tertiary() : m.primary()' in field_hmi:
     errors.append("FieldDevice must not use value-dependent slot fallback for zero-valued setpoints")
 
+# Pioneer overview must display the law AND actual tuning value together.
+# A correct Configure editor hidden behind a separate tab is not enough.
+field_overview = field_hmi.split("private static UIElement modelPanel(FieldDeviceMenu m) {", 1)[-1].split(
+    "private static UIElement livePanel(FieldDeviceMenu m) {", 1)[0]
+for token in ("PIONEER / MODEL / VARIABLES", "formulaCard(modelContract(m.kind()))",
+              "if (directEntryKind(m.kind()))", '"ADJUSTABLE"', "controlValue(m)",
+              "directRangeLabel(m.kind())"):
+    if token not in field_overview:
+        errors.append(f"FieldDevice Pioneer overview missing formula-linked control readback {token!r}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -651,3 +661,4 @@ print(" RSE Encyclopedia vanilla item texture reference: PASS")
 print(f" pre-sync client HMI shape primers: {len(client_primers)} / {len(client_primers)}")
 print(" Universal Pioneer formula preview / real tuning readouts: PASS")
 print(" FieldDevice zero-safe parameter readback / server slot parity: PASS")
+print(" FieldDevice Pioneer Overview formula + adjustable variable visibility: PASS")
