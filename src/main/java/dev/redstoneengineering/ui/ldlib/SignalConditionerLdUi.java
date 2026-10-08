@@ -74,10 +74,7 @@ public final class SignalConditionerLdUi {
                 workspace
         );
 
-        return ModularUI.of(
-                UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
-                player
-        );
+        return RseLdUiComponents.responsiveUi(root, player, 500, 340);
     }
 
     private static UIElement page(UIElement... children) {
