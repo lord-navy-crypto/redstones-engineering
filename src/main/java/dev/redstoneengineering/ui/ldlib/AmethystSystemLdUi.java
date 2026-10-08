@@ -16,15 +16,27 @@ public final class AmethystSystemLdUi {
 
     public static ModularUI create(AmethystSystemMenu m, Player player){
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(600).paddingAll(8).gapAll(6));
+        root.layout(l->l.width(620).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(m)),
-                RseLdUiComponents.title("PIONEER PATTERN • RESONANCE MODEL"),
-                RseLdUiComponents.formulaCard(()->equation(m)),
-                overview(m),
-                controls(m),
-                diagnostics(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        600, 400, 850,
+                        new String[]{"Overview", "Details", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.title("PIONEER PATTERN • RESONANCE MODEL"),
+                                        RseLdUiComponents.formulaCard(()->equation(m))
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        overview(m),
+                                        controls(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        diagnostics(m),
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
     }
