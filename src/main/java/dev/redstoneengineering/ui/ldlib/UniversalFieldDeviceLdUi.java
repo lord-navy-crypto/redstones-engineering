@@ -4,7 +4,11 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.block.CalibrationModuleBlock;
@@ -33,25 +37,83 @@ public final class UniversalFieldDeviceLdUi {
 
     public static ModularUI create(UniversalFieldDeviceMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(660).paddingAll(8).gapAll(6));
-        root.addChildren(
-                RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
+        root.layout(l -> l.width(620).height(430).paddingAll(10).gapAll(8));
+
+        var overview = page(
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
                 RseLdUiComponents.liveRow("I/O", "route", menu::portRouteLabel),
                 RseLdUiComponents.formulaCard(() -> universalContract(menu.configKind())),
-                portsPanel(menu),
                 mechanismPanel(menu),
+                portsPanel(menu)
+        );
+        var configure = page(
                 parameterPanel(menu),
-                systemStatePanel(menu),
-                pioneerPanel(menu),
+                systemStatePanel(menu)
+        );
+        var pioneer = page(pioneerPanel(menu));
+        var evidence = page(
                 historyPolicyPanel(menu),
                 RseLdUiComponents.authorityFooter()
+        );
+
+        configure.setDisplay(false);
+        pioneer.setDisplay(false);
+        evidence.setDisplay(false);
+
+        var workspace = new ScrollerView()
+                .scrollerStyle(style -> style
+                        .mode(ScrollerMode.BOTH)
+                        .verticalScrollDisplay(ScrollDisplay.AUTO)
+                        .horizontalScrollDisplay(ScrollDisplay.AUTO)
+                        .minScrollPixel(8)
+                        .maxScrollPixel(64));
+        workspace.layout(l -> l.flex(1));
+        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.width(820).paddingAll(8).gapAll(8)));
+        workspace.addScrollViewChildren(overview, configure, pioneer, evidence);
+
+        var tabs = new UIElement().addClass("panel_bg");
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6).paddingAll(5));
+        tabs.addChildren(
+                tabButton("Overview", workspace, overview, overview, configure, pioneer, evidence),
+                tabButton("Configure", workspace, configure, overview, configure, pioneer, evidence),
+                tabButton("Pioneer", workspace, pioneer, overview, configure, pioneer, evidence),
+                tabButton("Evidence", workspace, evidence, overview, configure, pioneer, evidence)
+        );
+
+        root.addChildren(
+                RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
+                tabs,
+                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • drag scrollbars for precise navigation"),
+                workspace
         );
         return ModularUI.of(
                 UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
                 player
         );
+    }
+
+    private static UIElement page(UIElement... children) {
+        var page = new UIElement();
+        page.layout(l -> l.width(790).paddingAll(12).gapAll(10));
+        page.addChildren(children);
+        return page;
+    }
+
+    private static Button tabButton(
+            String label,
+            ScrollerView workspace,
+            UIElement selected,
+            UIElement... pages
+    ) {
+        return new Button().setText(label).setOnClick(event -> {
+            for (UIElement page : pages) {
+                page.setDisplay(page == selected);
+            }
+            workspace.horizontalScroller.setNormalizedValue(0);
+            workspace.verticalScroller.setNormalizedValue(0);
+        });
     }
 
     private static UIElement portsPanel(UniversalFieldDeviceMenu menu) {
