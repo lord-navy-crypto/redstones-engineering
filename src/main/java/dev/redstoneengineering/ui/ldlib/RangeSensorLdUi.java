@@ -20,6 +20,11 @@ public final class RangeSensorLdUi {
         root.addChildren(
                 RseLdUiComponents.title("RANGE SENSOR • FORMULA-FIRST SENSOR RESPONSE"),
                 RseLdUiComponents.tabbedWorkspace(
+                        600, 400, 850,
+                        new String[]{"Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
                         new UIElement[]{
@@ -41,6 +46,9 @@ public final class RangeSensorLdUi {
                                 RseLdUiComponents.workspacePage(
                                         new Label().setText("A complete CLEAR scan with d=0 is valid evidence. The client never infers validity from d>0."),
                                         RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
                                 )
                         }
                 )
