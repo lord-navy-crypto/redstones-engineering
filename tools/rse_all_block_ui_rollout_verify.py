@@ -578,6 +578,42 @@ for token in ("modelPreviewPanel(menu)", "PIONEER • ACTUAL IMPLEMENTED MODEL",
     if token not in universal_ui:
         errors.append(f"UniversalFieldDeviceLdUi missing front-page model/tuning contract {token!r}")
 
+# Guard against treating a legitimate zero-valued tuning parameter as an
+# absent value. FieldDeviceMenu synchronizes the authoritative setpoint in
+# different slots by device kind; a fallback based on != 0 silently displays
+# the wrong physical variable (e.g. optical channel zero -> incoming intensity).
+field_hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
+control_section = field_hmi.split("private static int controlValue(FieldDeviceMenu m) {", 1)[-1].split("\\n    }", 1)[0]
+expected_control_slots = {
+    "KIND_PROBE": "secondary",
+    "KIND_FILTER": "tertiary",
+    "KIND_REFERENCE": "primary",
+    "KIND_LAPIS_SOURCE": "primary",
+    "KIND_DIGITAL_REGENERATOR": "tertiary",
+    "KIND_PRESSURE_REGULATOR": "secondary",
+    "KIND_PNEUMATIC_RELIEF_VALVE": "tertiary",
+    "KIND_PERMANENT_MAGNET": "primary",
+    "KIND_INDUCTION_COIL": "tertiary",
+    "KIND_OPTICAL_EMITTER": "primary",
+    "KIND_OPTICAL_CHANNEL_FILTER": "tertiary",
+    "KIND_OPTICAL_ATTENUATOR": "tertiary",
+    "KIND_MECHANICAL_EXCITER": "secondary",
+    "KIND_HYDRO_EXCITER": "secondary",
+}
+actual_control_slots = {}
+for case_labels, field in re.findall(
+        r"case\\s+([\\s\\S]*?)\\s*->\\s*m\\.(primary|secondary|tertiary)\\(\\);",
+        control_section):
+    for kind in re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", case_labels):
+        actual_control_slots[kind] = field
+for kind, slot in expected_control_slots.items():
+    if actual_control_slots.get(kind) != slot:
+        errors.append(f"FieldDevice {kind}: tuning readback must use {slot}, not {actual_control_slots.get(kind)}")
+if set(actual_control_slots) != set(expected_control_slots):
+    errors.append("FieldDevice control readback case coverage diverges from server-supported direct-entry kinds")
+if 'm.tertiary() != 0 ? m.tertiary() : m.primary()' in field_hmi:
+    errors.append("FieldDevice must not use value-dependent slot fallback for zero-valued setpoints")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -614,3 +650,4 @@ print(" root-percent viewport sizing across 23 LDLib2 HMI families: PASS")
 print(" RSE Encyclopedia vanilla item texture reference: PASS")
 print(f" pre-sync client HMI shape primers: {len(client_primers)} / {len(client_primers)}")
 print(" Universal Pioneer formula preview / real tuning readouts: PASS")
+print(" FieldDevice zero-safe parameter readback / server slot parity: PASS")
