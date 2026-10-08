@@ -18,16 +18,30 @@ public final class DigitalCommunicationLdUi {
 
     public static ModularUI create(DigitalCommunicationMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(640).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(680).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("DIGITAL COMMUNICATION ENGINEERING HMI"),
-                RseLdUiComponents.formulaCard(() -> communicationEquation(m)),
-                overviewPanel(m),
-                mediumPanel(m),
-                parameterPanel(m),
-                routePanel(m),
-                diagnosticsPanel(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        660, 400, 910,
+                        new String[]{"Overview", "Details", "Controls", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.formulaCard(() -> communicationEquation(m)),
+                                        overviewPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        mediumPanel(m),
+                                        parameterPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        routePanel(m),
+                                        diagnosticsPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(
                 UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
