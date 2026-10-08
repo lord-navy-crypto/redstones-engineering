@@ -15,16 +15,30 @@ public final class RadioLinkLdUi {
 
     public static ModularUI create(RadioLinkMenu m, Player player) {
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(560).paddingAll(8).gapAll(6));
+        root.layout(l->l.width(650).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(m.kind()==RadioLinkMenu.KIND_TRANSMITTER?"RADIO TRANSMITTER":"RADIO RECEIVER"),
-                new Label().setText("PIONEER PATTERN • RADIO LINK BUDGET"),
-                RseLdUiComponents.formulaCard(()->"M_decode = Q_link - Q_min; decode ⇔ coverage ∧ one driver ∧ M_decode ≥ 0; availability = 100 · validSamples / samples"),
-                channelControl(m),
-                RseLdUiComponents.liveRow("MEASURED","payload",()->Integer.toString(m.payload())),
-                RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
-                receiverEvidence(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        630, 400, 850,
+                        new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        new Label().setText("PIONEER PATTERN • RADIO LINK BUDGET"),
+                                        RseLdUiComponents.formulaCard(()->"M_decode = Q_link - Q_min; decode ⇔ coverage ∧ one driver ∧ M_decode ≥ 0; availability = 100 · validSamples / samples")
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        channelControl(m),
+                                        RseLdUiComponents.liveRow("MEASURED","payload",()->Integer.toString(m.payload()))
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
+                                        receiverEvidence(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
     }
