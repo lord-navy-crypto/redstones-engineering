@@ -47,6 +47,12 @@ public final class RseLdUiComponents {
         return label;
     }
 
+    private static Label wrappedLabel(String text) {
+        var label = new Label();
+        label.setText(text);
+        return wrap(label);
+    }
+
     private static Label liveText(Supplier<String> source) {
         var label = new Label();
         label.bind(DataBindingBuilder.componentS2C(() -> Component.literal(source.get())).build());
@@ -54,7 +60,7 @@ public final class RseLdUiComponents {
     }
 
     public static Label title(String text) {
-        var label = wrap(new Label().setText(text));
+        var label = wrappedLabel(text);
         label.layout(l -> l.widthPercent(100));
         return label;
     }
@@ -70,8 +76,8 @@ public final class RseLdUiComponents {
         return new UIElement()
                 .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(9).paddingAll(2))
                 .addChildren(
-                        wrap(new Label().setText(role)).layout(l -> l.width(92)),
-                        wrap(new Label().setText(symbol)).layout(l -> l.width(90)),
+                        wrappedLabel(role).layout(l -> l.width(92)),
+                        wrappedLabel(symbol).layout(l -> l.width(90)),
                         liveText(value).layout(l -> l.flex(1))
                 );
     }
@@ -81,7 +87,7 @@ public final class RseLdUiComponents {
                 .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(9).paddingAll(2))
                 .addChildren(
                         new Label().setText("FIXED").layout(l -> l.width(92)),
-                        wrap(new Label().setText(symbol)).layout(l -> l.width(90)),
+                        wrappedLabel(symbol).layout(l -> l.width(90)),
                         liveText(() -> value.get() + " • " + reason).layout(l -> l.flex(1))
                 );
     }
