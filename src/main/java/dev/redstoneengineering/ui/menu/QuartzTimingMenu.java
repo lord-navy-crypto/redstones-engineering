@@ -61,9 +61,18 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.QUARTZ_TIMING.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(QuartzTimingLdUi.create(this, inventory.player));
         }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof QuartzOscillatorBlock) kind.set(KIND_OSCILLATOR);
+        else if (block instanceof QuartzClockDividerBlock) kind.set(KIND_DIVIDER);
+        else if (block instanceof QuartzStabilityMonitorBlock) kind.set(KIND_STABILITY);
+        else kind.set(-1);
     }
 
     @Override
