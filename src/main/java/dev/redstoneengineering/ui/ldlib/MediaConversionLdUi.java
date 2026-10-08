@@ -14,26 +14,40 @@ public final class MediaConversionLdUi {
 
     public static ModularUI create(MediaConversionMenu menu, Player player){
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(520).paddingAll(8).gapAll(6));
+        root.layout(l->l.width(620).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(menu.redstoneToLapis() ? "REDSTONE → LAPIS SCALER" : "LAPIS → REDSTONE QUANTIZER"),
-                new Label().setText("FORMULA-FIRST MEDIA BOUNDARY • SERVER-SYNCHRONIZED OBSERVER"),
-                RseLdUiComponents.formulaCard(()->menu.redstoneToLapis()
+                RseLdUiComponents.tabbedWorkspace(
+                        600, 400, 850,
+                        new String[]{"Overview", "Details", "Controls", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        new Label().setText("FORMULA-FIRST MEDIA BOUNDARY • SERVER-SYNCHRONIZED OBSERVER"),
+                                        RseLdUiComponents.formulaCard(()->menu.redstoneToLapis()
                         ? "y_L = round(100 · x_R / 15)"
                         : "y_R = round(15 · x_L / 100)"),
-                RseLdUiComponents.liveRow("MEASURED","input",()->Integer.toString(menu.inputValue())),
-                RseLdUiComponents.liveRow("DERIVED","output",()->Integer.toString(menu.outputValue())),
-                RseLdUiComponents.liveRow("EVIDENCE","input quality",()->menu.inputQuality().name()),
-                RseLdUiComponents.liveRow("EVIDENCE","output quality",()->menu.outputQuality().name()),
-                quantization(menu),
-                RseLdUiComponents.liveRow("COMMISSIONING","status",()->menu.commissioningStatus().name()),
-                RseLdUiComponents.liveRow("I/O","route",()->menu.inputFace().getName().toUpperCase()+" → "+menu.outputFace().getName().toUpperCase()),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                                        RseLdUiComponents.liveRow("MEASURED","input",()->Integer.toString(menu.inputValue()))
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("DERIVED","output",()->Integer.toString(menu.outputValue())),
+                                        RseLdUiComponents.liveRow("EVIDENCE","input quality",()->menu.inputQuality().name()),
+                                        RseLdUiComponents.liveRow("EVIDENCE","output quality",()->menu.outputQuality().name())
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        quantization(menu),
+                                        RseLdUiComponents.liveRow("COMMISSIONING","status",()->menu.commissioningStatus().name()),
+                                        RseLdUiComponents.liveRow("I/O","route",()->menu.inputFace().getName().toUpperCase()+" → "+menu.outputFace().getName().toUpperCase())
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle RX ▶",menu::cycleRxForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",menu::cycleTxForward)
                 ),
-                new Label().setText("NO NEW SOURCE PRECISION • conversion changes representation, not information content."),
-                RseLdUiComponents.authorityFooter()
+                                        new Label().setText("NO NEW SOURCE PRECISION • conversion changes representation, not information content."),
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
     }
