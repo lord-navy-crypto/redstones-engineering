@@ -43,10 +43,7 @@ public final class DigitalCommunicationLdUi {
                         }
                 )
         );
-        return ModularUI.of(
-                UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
-                player
-        );
+        return RseLdUiComponents.responsiveUi(root, player, 680, 440);
     }
 
     private static UIElement overviewPanel(DigitalCommunicationMenu m) {
