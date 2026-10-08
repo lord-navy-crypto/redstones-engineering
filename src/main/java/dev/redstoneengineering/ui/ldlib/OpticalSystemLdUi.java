@@ -46,10 +46,10 @@ public final class OpticalSystemLdUi {
         p.addChildren(
                 new Label().setText("PIONEER PATTERN • OPTICAL MODEL"),
                 RseLdUiComponents.liveRow("DEVICE","type",()->name(m.kind())),
-                RseLdUiComponents.liveRow("MEASURED","I / state",()->m.primary()+" / 15"),
-                RseLdUiComponents.liveRow("MEASURED","channel",()->Integer.toString(m.secondary())),
-                RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
-                RseLdUiComponents.liveRow("DERIVED","aux",()->m.tertiary()+" / "+m.auxiliary()),
+                RseLdUiComponents.liveRow(m.kind()==OpticalSystemMenu.KIND_EMITTER?"ADJUSTABLE":"MEASURED", primaryMetric(m.kind()),()->m.primary()+" / 15"),
+                RseLdUiComponents.liveRow(secondaryIsConfiguration(m.kind())?"ADJUSTABLE":"MEASURED", secondaryMetric(m.kind()),()->Integer.toString(m.secondary())),
+                RseLdUiComponents.liveRow("EVIDENCE","input / source quality",()->m.quality().name()),
+                RseLdUiComponents.liveRow("DERIVED",tertiaryMetric(m.kind()),()->m.tertiary()+" / "+m.auxiliary()),
                 new Label().setText("Optical controls remain server-authoritative; the client never performs a second optical propagation solve.")
         );
         return p;
@@ -126,6 +126,44 @@ public final class OpticalSystemLdUi {
             case OpticalSystemMenu.KIND_EMITTER -> "I_out = I_set on selected channel";
             default -> "I_obs = authoritative optical path evidence";
         };
+    }
+
+    /** Expose the actual physical meaning of the server-synchronized slots. */
+    private static String primaryMetric(int kind) {
+        return switch (kind) {
+            case OpticalSystemMenu.KIND_EMITTER -> "I_set";
+            case OpticalSystemMenu.KIND_SPLITTER, OpticalSystemMenu.KIND_FILTER,
+                 OpticalSystemMenu.KIND_ATTENUATOR -> "I_in";
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX -> "input intensity";
+            case OpticalSystemMenu.KIND_FREE_SPACE_RX -> "received input";
+            default -> "I_observed";
+        };
+    }
+
+    private static String secondaryMetric(int kind) {
+        return switch (kind) {
+            case OpticalSystemMenu.KIND_SPLITTER -> "I_branch_A";
+            case OpticalSystemMenu.KIND_FILTER -> "CH_target";
+            case OpticalSystemMenu.KIND_ATTENUATOR -> "loss L";
+            case OpticalSystemMenu.KIND_EMITTER, OpticalSystemMenu.KIND_FREE_SPACE_TX,
+                 OpticalSystemMenu.KIND_FREE_SPACE_RX -> "CH_set";
+            default -> "CH_observed";
+        };
+    }
+
+    private static String tertiaryMetric(int kind) {
+        return switch (kind) {
+            case OpticalSystemMenu.KIND_SPLITTER -> "I_branch_B / quantization loss";
+            case OpticalSystemMenu.KIND_FILTER -> "I_out / input CH";
+            case OpticalSystemMenu.KIND_ATTENUATOR -> "I_out / channel";
+            case OpticalSystemMenu.KIND_RECEIVER -> "inputs / drivers";
+            default -> "auxiliary evidence";
+        };
+    }
+
+    private static boolean secondaryIsConfiguration(int kind) {
+        return secondaryAdjustable(kind) || kind == OpticalSystemMenu.KIND_FILTER
+                || kind == OpticalSystemMenu.KIND_ATTENUATOR;
     }
 
     private static boolean primaryAdjustable(int k){return k==OpticalSystemMenu.KIND_EMITTER||k==OpticalSystemMenu.KIND_FILTER||k==OpticalSystemMenu.KIND_ATTENUATOR;}
