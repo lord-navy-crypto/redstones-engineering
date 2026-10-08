@@ -14,14 +14,26 @@ public final class IndustrialBufferLdUi {
 
     public static ModularUI create(IndustrialBufferMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(650).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(620).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("INDUSTRIAL BUFFER • SERVER SNAPSHOT"),
-                modelPanel(m),
-                rolesPanel(m),
-                lotsPanel(m),
-                persistencePanel(),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        600, 400, 850,
+                        new String[]{"Overview", "Details", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        modelPanel(m),
+                                        rolesPanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        lotsPanel(m),
+                                        persistencePanel()
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
     }
