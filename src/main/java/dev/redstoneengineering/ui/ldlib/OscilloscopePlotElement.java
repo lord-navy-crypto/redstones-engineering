@@ -26,10 +26,15 @@ public final class OscilloscopePlotElement extends UIElement {
 
     @Override
     public void drawBackgroundAdditional(GUIContext g) {
-        int x = Math.round(getPositionX());
-        int y = Math.round(getPositionY());
-        int width = Math.max(40, Math.round(getSizeWidth()));
-        int height = Math.max(40, Math.round(getSizeHeight()));
+        // Respect the allocated layout box; never overflow when GUI Scale is high.
+        int allocatedWidth = Math.round(getSizeWidth());
+        int allocatedHeight = Math.round(getSizeHeight());
+        if (allocatedWidth < 40 || allocatedHeight < 40) return;
+        final int inset = 4;
+        int x = Math.round(getPositionX()) + inset;
+        int y = Math.round(getPositionY()) + inset;
+        int width = allocatedWidth - 2 * inset;
+        int height = allocatedHeight - 2 * inset;
 
         EngineeringPlot.analogFrame(g.graphics, x, y, width, height);
         plotChannel(g, 0, CHANNEL_A, x, y, width, height);
