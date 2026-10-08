@@ -50,6 +50,10 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.MEDIA_CONVERSION.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else { Block block = level.getBlockState(blockPos).getBlock();
+            mode.set(block instanceof RedstoneToLapisScalerBlock ? MODE_REDSTONE_TO_LAPIS
+                    : block instanceof LapisToRedstoneQuantizerBlock ? MODE_LAPIS_TO_REDSTONE : MODE_UNKNOWN);
+        }
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(MediaConversionLdUi.create(this, inventory.player));
         }
