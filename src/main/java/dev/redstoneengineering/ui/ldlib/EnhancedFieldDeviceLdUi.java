@@ -59,14 +59,24 @@ public final class EnhancedFieldDeviceLdUi {
     }
 
     private static UIElement modelPanel(FieldDeviceMenu m) {
-        return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
-                new Label().setText("MODEL / CONTRACT"),
+        var panel = new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
+                new Label().setText("PIONEER / MODEL / VARIABLES"),
                 RseLdUiComponents.formulaCard(modelContract(m.kind())),
                 RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 0), () -> Integer.toString(m.primary())),
                 RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 1), () -> Integer.toString(m.secondary())),
-                RseLdUiComponents.liveRow("STATE", metricLabel(m.kind(), 2), () -> Integer.toString(m.tertiary())),
-                new Label().setText("server state → synchronized HMI evidence • no hidden client physics")
+                RseLdUiComponents.liveRow("STATE", metricLabel(m.kind(), 2), () -> Integer.toString(m.tertiary()))
         );
+        // Show the *real* server-backed tuning variable with the governing
+        // model on Overview, rather than hiding it on a separate Configure tab.
+        // Observer-only devices retain the read-only model with no fake knob.
+        if (directEntryKind(m.kind())) {
+            panel.addChild(RseLdUiComponents.liveRow(
+                    "ADJUSTABLE", formulaSymbol(m.kind()),
+                    () -> controlValue(m) + " • " + directRangeLabel(m.kind())));
+        }
+        panel.addChild(new Label().setText(
+                "Server evidence above; editable setpoints use the Configure tab."));
+        return panel;
     }
 
     private static UIElement livePanel(FieldDeviceMenu m) {
