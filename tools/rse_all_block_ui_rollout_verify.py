@@ -683,8 +683,12 @@ process_roles = pioneer_source.split("private static String[] processRoles(int k
     "private static String processValue(", 1)[0]
 measurement_values = pioneer_source.split("private static String measurementValue(", 1)[-1].split(
     "private static String measurementEquation", 1)[0]
-if "SensorModel.profileName(raw)" not in measurement_values:
-    errors.append("Pioneer sensor profile columns must use human-readable names, not bare indices")
+if "UniversalFieldDeviceMenu.profileNameForUi(raw)" not in measurement_values:
+    errors.append("Pioneer sensor profile columns must use menu-owned readable names, not bare indices")
+if "import dev.redstoneengineering.physics." in pioneer_source:
+    errors.append("Pioneer LDLib2 UI must not import the physics solver directly")
+if "SensorModel.profileName(profile)" not in pioneer_server:
+    errors.append("Universal menu lost its server-model sensor profile presentation adapter")
 for fragment in (
     "PIONEER_MEASUREMENT_LIGHT && slot == 2",
     "PIONEER_MEASUREMENT_LAPIS_RANGE && slot == 3",
