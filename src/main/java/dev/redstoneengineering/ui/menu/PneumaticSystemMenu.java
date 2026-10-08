@@ -155,8 +155,14 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     }
 
     private static CommissioningStatus flowCommissioning(long samples, PortQuality in, PortQuality out, PortQuality upstream, PortQuality downstream, int meterDrop) {
-        if (samples < 4 || in == PortQuality.NO_SIGNAL || out == PortQuality.NO_SIGNAL) return CommissioningStatus.NOT_READY;
-        if (hardFault(in) || hardFault(out)) return CommissioningStatus.FAIL;
+        // A real topology/domain/fault witness must not be hidden by a short
+        // history window or no-signal sample from another meter face.
+        if (hardFault(in) || hardFault(out) || hardFault(upstream) || hardFault(downstream))
+            return CommissioningStatus.FAIL;
+        if (samples < 4 || in == PortQuality.NO_SIGNAL || out == PortQuality.NO_SIGNAL
+                || in == PortQuality.STALE || out == PortQuality.STALE
+                || in == PortQuality.NOT_READY || out == PortQuality.NOT_READY)
+            return CommissioningStatus.NOT_READY;
         if (in != PortQuality.VALID || out != PortQuality.VALID) return CommissioningStatus.MARGINAL;
         boolean completeWitness = upstream == PortQuality.VALID && downstream == PortQuality.VALID;
         if (!completeWitness) return CommissioningStatus.MARGINAL;
