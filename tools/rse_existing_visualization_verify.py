@@ -82,6 +82,30 @@ for token in ("new SignalAnalyzerPlotElement(m)", "μ=rounded mean"):
     if signal_ui and token not in signal_ui:
         errors.append(f"Signal Analyzer LDLib2 HMI missing {token!r}")
 
+# Draw extents must never exceed the actual allocated UI element box.
+# Fixed minimum drawing widths were a real overflow risk on narrow GUI scales.
+for name, source in (
+    ("OscilloscopePlotElement", scope),
+    ("LogicAnalyzerPlotElement", logic),
+    ("SignalAnalyzerPlotElement", signal),
+    ("PidTrendPlotElement", read("src/main/java/dev/redstoneengineering/ui/ldlib/PidTrendPlotElement.java")),
+):
+    for token in (
+        "allocatedWidth = Math.round(getSizeWidth())",
+        "allocatedHeight = Math.round(getSizeHeight())",
+        "final int inset = 4",
+        "allocatedWidth - 2 * inset",
+        "allocatedHeight - 2 * inset",
+    ):
+        if token not in source:
+            errors.append(f"{name}: allocated-size inset clipping contract missing {token!r}")
+    if "Math.max(" in source and ("Math.round(getSizeWidth())" in source.split("Math.max(", 1)[-1][:80]):
+        errors.append(f"{name}: unsafe minimum-size graph paint may exceed UI element bounds")
+
+components = read("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java")
+if "layout.height(20).paddingAll(4)" not in components:
+    errors.append("RSE shared server-action controls lost 20px minimum hit targets")
+
 if errors:
     print("RSE existing-content visualization verification: FAIL")
     for error in errors:
