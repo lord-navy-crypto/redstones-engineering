@@ -19,15 +19,27 @@ public final class LapisLowPassLdUi {
 
     public static ModularUI create(LapisLowPassMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(640).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(620).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("LAPIS PRECISION • FIRST-ORDER SAMPLED LOW-PASS"),
-                modelPanel(m),
-                livePanel(m),
-                configurePanel(m),
-                routePanel(m),
-                evidencePanel(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        600, 400, 850,
+                        new String[]{"Overview", "Details", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        modelPanel(m),
+                                        livePanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        configurePanel(m),
+                                        routePanel(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        evidencePanel(m),
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
     }
