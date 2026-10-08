@@ -16,6 +16,7 @@ import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import dev.vfyjxf.taffy.style.FlexWrap;
 import org.appliedenergistics.yoga.YogaFlexDirection;
 
 public final class LogicAnalyzerLdUi {
@@ -50,7 +51,7 @@ public final class LogicAnalyzerLdUi {
         workspace.addScrollViewChildren(capture, configure, channels, network, authority);
 
         var tabs = new UIElement().addClass("panel_bg");
-        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5).paddingAll(5));
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
         tabs.addChildren(
                 tabButton("Capture", workspace, capture, capture, configure, channels, network, authority),
                 tabButton("Configure", workspace, configure, capture, configure, channels, network, authority),
@@ -62,7 +63,7 @@ public final class LogicAnalyzerLdUi {
         root.addChildren(
                 RseLdUiComponents.title("FOUR-CHANNEL LOGIC ANALYZER"),
                 tabs,
-                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • draggable scrollbars"),
+                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
         return RseLdUiComponents.responsiveUi(root, player, 640, 440);
