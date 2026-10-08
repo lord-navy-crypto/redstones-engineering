@@ -677,6 +677,28 @@ for piece in (
     if piece not in pioneer_server:
         errors.append(f"Pioneer server snapshot slot contract changed: {piece}")
 
+# Never label measurement coverage as a tunable 'profile' or a derived
+# redstone output as 'evidence'. This affects the experimenter's interpretation.
+process_roles = pioneer_source.split("private static String[] processRoles(int kind)", 1)[-1].split(
+    "private static String processValue(", 1)[0]
+measurement_roles = pioneer_source.split("private static String[] measurementRoles(int kind)", 1)[-1].split(
+    "private static String measurementValue(", 1)[0]
+for role_text in (
+    'a("MEASURED","EVIDENCE","TOPOLOGY","","","")',
+    'a("ADJUSTABLE","TOPOLOGY","","","","")',
+    'a("ADJUSTABLE","MEASURED","MEASURED","MEASURED","FIXED","FIXED")',
+):
+    if role_text not in process_roles:
+        errors.append(f"Pioneer process variable semantic roles missing: {role_text}")
+for role_text in (
+    'PIONEER_MEASUREMENT_TANK ->',
+    'a("MEASURED","EVIDENCE","EVIDENCE","DERIVED")',
+    'PIONEER_MEASUREMENT_ENTITY_DENSITY ->',
+    'a("MEASURED","EVIDENCE","DERIVED","FIXED")',
+):
+    if role_text not in measurement_roles:
+        errors.append(f"Pioneer measurement roles inconsistent with solver: {role_text}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -716,3 +738,4 @@ print(" Universal Pioneer formula preview / real tuning readouts: PASS")
 print(" FieldDevice zero-safe parameter readback / server slot parity: PASS")
 print(" FieldDevice Pioneer Overview formula + adjustable variable visibility: PASS")
 print(" Pioneer Copper / Quartz / Soul / Calorimeter snapshot slot alignment: PASS")
+print(" Pioneer solver / measurement role semantics and status evidence: PASS")
