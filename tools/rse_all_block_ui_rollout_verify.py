@@ -558,7 +558,7 @@ for kinds, getter_prefix in (
     ("pioneerProcessKind", "uiProcessKind"),
 ):
     snapshot_constants = set(re.findall(
-        rf'{kinds}\\.set\\(((?:CONFIG|PIONEER)_[A-Z0-9_]+)\\)', universal_menu))
+        rf'{kinds}\.set\(((?:CONFIG|PIONEER)_[A-Z0-9_]+)\)', universal_menu))
     marker = f"private static int {getter_prefix}(Block block)"
     fragment = universal_menu.split(marker, 1)[-1].split("    private static int ", 1)[0]
     client_constants = set(re.findall(r'return ((?:CONFIG|PIONEER)_[A-Z0-9_]+);', fragment))
