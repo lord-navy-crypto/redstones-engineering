@@ -19,7 +19,7 @@ public final class LapisLowPassLdUi {
 
     public static ModularUI create(LapisLowPassMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(620).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("LAPIS PRECISION • FIRST-ORDER SAMPLED LOW-PASS"),
                 RseLdUiComponents.tabbedWorkspace(

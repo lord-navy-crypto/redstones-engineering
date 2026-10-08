@@ -16,7 +16,7 @@ public final class QuartzTimingLdUi {
 
     public static ModularUI create(QuartzTimingMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(600).height(390).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(menu)),
                 RseLdUiComponents.tabbedWorkspace(

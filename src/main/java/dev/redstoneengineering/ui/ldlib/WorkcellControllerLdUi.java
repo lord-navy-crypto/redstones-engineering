@@ -14,7 +14,7 @@ public final class WorkcellControllerLdUi {
 
     public static ModularUI create(WorkcellControllerMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(650).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("WORKCELL CONTROLLER"),
                 RseLdUiComponents.tabbedWorkspace(

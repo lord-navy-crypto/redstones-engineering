@@ -17,7 +17,7 @@ public final class ReliabilitySystemLdUi {
 
     public static ModularUI create(ReliabilitySystemMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(650).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RELIABILITY / SAFE-STATE ENGINEERING HMI"),
                 RseLdUiComponents.tabbedWorkspace(

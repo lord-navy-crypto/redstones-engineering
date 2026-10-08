@@ -14,7 +14,7 @@ public final class MediaConversionLdUi {
 
     public static ModularUI create(MediaConversionMenu menu, Player player){
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(620).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(menu.redstoneToLapis() ? "REDSTONE → LAPIS SCALER" : "LAPIS → REDSTONE QUANTIZER"),
                 RseLdUiComponents.tabbedWorkspace(

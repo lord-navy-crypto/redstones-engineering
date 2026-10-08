@@ -24,7 +24,7 @@ public final class OscilloscopeLdUi {
     public static ModularUI create(OscilloscopeMenu menu, Player player) {
         var root = new UIElement()
                 .addClass("panel_bg")
-                .layout(l -> l.width(640).height(450).paddingAll(10).gapAll(8));
+                .layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
 
         var scope = page(
                 RseLdUiComponents.formulaCard(() ->

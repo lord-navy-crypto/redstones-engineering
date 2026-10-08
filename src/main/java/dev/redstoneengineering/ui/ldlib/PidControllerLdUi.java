@@ -19,7 +19,7 @@ public final class PidControllerLdUi {
 
     public static ModularUI create(PidControllerMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(690).height(450).paddingAll(10).gapAll(8));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
         var page0 = page(RseLdUiComponents.title("PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL"),modelPanel(m),trendPanel(m));
         var page1 = page(controls(m),runtimePanel(m));
         page1.setDisplay(false);

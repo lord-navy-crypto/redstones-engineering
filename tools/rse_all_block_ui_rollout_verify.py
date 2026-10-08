@@ -494,6 +494,10 @@ for hmi in ldlib_hmis:
     source = hmi.read_text(errors="ignore")
     if "RseLdUiComponents.responsiveUi(root, player," not in source:
         errors.append(f"{hmi.name}: UI does not use dynamic GUI-scaled viewport")
+    # Dynamic outer size is ineffective when its immediate content root remains
+    # fixed-width/height. Every HMI root must follow the allocated screen canvas.
+    if ".layout(l -> l.widthPercent(100).heightPercent(100)" not in source:
+        errors.append(f"{hmi.name}: root is fixed-size and can overflow scaled viewport")
 
     has_shared_workspace = "RseLdUiComponents.tabbedWorkspace(" in source
     has_native_workspace = "new ScrollerView()" in source and "ScrollerMode.BOTH" in source
@@ -574,6 +578,12 @@ for token in ("modelPreviewPanel(menu)", "PIONEER • ACTUAL IMPLEMENTED MODEL",
     if token not in universal_ui:
         errors.append(f"UniversalFieldDeviceLdUi missing front-page model/tuning contract {token!r}")
 
+encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
+if "minecraft:block/smooth_quartz" in encyclopedia:
+    errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
+if '"pages": "minecraft:block/quartz_block_bottom"' not in encyclopedia:
+    errors.append("RSE Encyclopedia pages must use existing vanilla quartz_block_bottom texture")
+
 if errors:
     print("RSE ALL-BLOCK UI ROLLOUT VERIFY: FAIL")
     for error in errors:
@@ -600,5 +610,7 @@ print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")
 print(f" tabbed bidirectional LDLib2 HMI coverage: {len(ldlib_hmis)} / 23")
 print(" scaled-screen outer bounds + wrapping tabs and long labels: PASS")
+print(" root-percent viewport sizing across 23 LDLib2 HMI families: PASS")
+print(" RSE Encyclopedia vanilla item texture reference: PASS")
 print(f" pre-sync client HMI shape primers: {len(client_primers)} / {len(client_primers)}")
 print(" Universal Pioneer formula preview / real tuning readouts: PASS")

@@ -16,7 +16,7 @@ public final class OpticalSystemLdUi {
 
     public static ModularUI create(OpticalSystemMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(680).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("OPTICAL ENGINEERING HMI"),
                 RseLdUiComponents.tabbedWorkspace(

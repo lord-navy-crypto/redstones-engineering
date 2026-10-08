@@ -16,7 +16,7 @@ public final class RangeSensorLdUi {
 
     public static ModularUI create(RangeSensorMenu menu, Player player) {
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(650).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RANGE SENSOR • FORMULA-FIRST SENSOR RESPONSE"),
                 RseLdUiComponents.tabbedWorkspace(

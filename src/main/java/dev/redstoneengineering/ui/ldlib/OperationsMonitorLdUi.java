@@ -22,7 +22,7 @@ public final class OperationsMonitorLdUi {
 
     public static ModularUI create(OperationsMonitorMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(780).height(480).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("OPERATIONS MONITOR • OBSERVER-ONLY PLANT EVIDENCE"),
                 RseLdUiComponents.tabbedWorkspace(

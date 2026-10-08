@@ -38,7 +38,7 @@ public final class UniversalFieldDeviceLdUi {
 
     public static ModularUI create(UniversalFieldDeviceMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(620).height(430).paddingAll(10).gapAll(8));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
 
         var overview = page(
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),

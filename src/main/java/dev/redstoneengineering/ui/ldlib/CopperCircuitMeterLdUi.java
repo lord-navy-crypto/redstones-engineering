@@ -13,7 +13,7 @@ public final class CopperCircuitMeterLdUi {
 
     public static ModularUI create(CopperCircuitMeterMenu m, Player player) {
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(620).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("COPPER CIRCUIT METER"),
                 RseLdUiComponents.tabbedWorkspace(

@@ -24,7 +24,7 @@ public final class LogicAnalyzerLdUi {
 
     public static ModularUI create(LogicAnalyzerMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(640).height(440).paddingAll(10).gapAll(8));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
 
         var capture = page(
                 RseLdUiComponents.formulaCard(() -> "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW"),

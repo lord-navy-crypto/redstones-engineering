@@ -15,7 +15,7 @@ public final class MagneticSystemLdUi {
 
     public static ModularUI create(MagneticSystemMenu m, Player player) {
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(620).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(m)),
                 RseLdUiComponents.tabbedWorkspace(

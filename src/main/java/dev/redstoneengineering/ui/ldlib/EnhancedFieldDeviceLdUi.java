@@ -27,7 +27,7 @@ public final class EnhancedFieldDeviceLdUi {
 
     public static ModularUI create(FieldDeviceMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(740).height(470).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RSE FIELD DEVICE • " + deviceName(m.kind())),
                 RseLdUiComponents.tabbedWorkspace(

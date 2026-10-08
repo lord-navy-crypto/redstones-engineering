@@ -16,7 +16,7 @@ public final class SignalProcessorLdUi {
 
     public static ModularUI create(SignalProcessorMenu menu, Player player){
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(650).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("PIONEER PATTERN • SIGNAL PROCESSOR MODEL"),
                 RseLdUiComponents.tabbedWorkspace(

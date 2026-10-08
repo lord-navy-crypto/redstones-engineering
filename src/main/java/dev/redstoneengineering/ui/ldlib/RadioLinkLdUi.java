@@ -15,7 +15,7 @@ public final class RadioLinkLdUi {
 
     public static ModularUI create(RadioLinkMenu m, Player player) {
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(650).height(440).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(m.kind()==RadioLinkMenu.KIND_TRANSMITTER?"RADIO TRANSMITTER":"RADIO RECEIVER"),
                 RseLdUiComponents.tabbedWorkspace(

@@ -30,7 +30,7 @@ public final class SignalConditionerLdUi {
     public static ModularUI create(SignalConditionerMenu menu, Player player) {
         var root = new UIElement()
                 .addClass("panel_bg")
-                .layout(l -> l.width(500).height(340).paddingAll(10).gapAll(8));
+                .layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
 
         var overview = page(
                 new Label().setText("FORMULA-FIRST SERVER CONTROL"),
