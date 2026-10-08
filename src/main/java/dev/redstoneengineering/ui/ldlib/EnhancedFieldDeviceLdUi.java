@@ -51,6 +51,7 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().setText("PIONEER PATTERN • SHARED FIELD DEVICE"),
                 RseLdUiComponents.liveRow("ROLE", "device", () -> deviceRole(m.kind())),
                 RseLdUiComponents.liveRow("FAMILY", "domain", () -> family(m.kind())),
+                RseLdUiComponents.liveRow("CONTROLS", "operator", () -> operatorMode(m.kind())),
                 RseLdUiComponents.liveRow("HEALTH", "state", () ->
                         !m.topologyValid() ? "FAIL-CLOSED TOPOLOGY"
                                 : m.dataValid() ? "VALID" : "NO / INVALID EVIDENCE")
@@ -109,6 +110,9 @@ public final class EnhancedFieldDeviceLdUi {
                             new Label().setText(directRangeLabel(m.kind())).layout(l -> l.flex(1))
                     )
             );
+        } else if (hasOperatorActions(m.kind())) {
+            panel.addChild(new Label().setText(
+                    "SERVER-AUTHORITATIVE ACTIONS • use the controls below; no invented numeric coefficient"));
         } else {
             panel.addChild(new Label().setText("READ-ONLY HMI • no fake control"));
         }
@@ -127,6 +131,19 @@ public final class EnhancedFieldDeviceLdUi {
             ));
         }
         return panel;
+    }
+
+    private static boolean hasOperatorActions(int kind) {
+        return kind == FieldDeviceMenu.KIND_TERMINAL
+                || kind == FieldDeviceMenu.KIND_PNEUMATIC_VALVE
+                || kind == FieldDeviceMenu.KIND_REFERENCE
+                || kind == FieldDeviceMenu.KIND_OPTICAL_EMITTER;
+    }
+
+    private static String operatorMode(int kind) {
+        if (directEntryKind(kind)) return "DIRECT NUMERIC • Configure tab";
+        if (hasOperatorActions(kind)) return "SERVER ACTIONS • Configure tab";
+        return "OBSERVER / PHYSICAL MODEL • read-only";
     }
 
     private static UIElement routePanel(FieldDeviceMenu m) {
