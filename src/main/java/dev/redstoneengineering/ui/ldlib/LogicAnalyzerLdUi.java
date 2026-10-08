@@ -4,6 +4,10 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
@@ -17,20 +21,63 @@ import org.appliedenergistics.yoga.YogaFlexDirection;
 public final class LogicAnalyzerLdUi {
     private LogicAnalyzerLdUi(){}
 
-    public static ModularUI create(LogicAnalyzerMenu menu, Player player){
-        var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(620).paddingAll(8).gapAll(6));
+    public static ModularUI create(LogicAnalyzerMenu menu, Player player) {
+        var root = new UIElement().addClass("panel_bg");
+        root.layout(l -> l.width(640).height(440).paddingAll(10).gapAll(8));
+
+        var capture = page(
+                RseLdUiComponents.formulaCard(() -> "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW"),
+                new LogicAnalyzerPlotElement(menu),
+                timingPanel(menu)
+        );
+        var configure = page(controls(menu));
+        var channels = page(channelPanel(menu));
+        var network = page(networkPanel(menu));
+        var authority = page(RseLdUiComponents.authorityFooter());
+        configure.setDisplay(false);
+        channels.setDisplay(false);
+        network.setDisplay(false);
+        authority.setDisplay(false);
+
+        var workspace = new ScrollerView().scrollerStyle(style -> style
+                .mode(ScrollerMode.BOTH)
+                .verticalScrollDisplay(ScrollDisplay.AUTO)
+                .horizontalScrollDisplay(ScrollDisplay.AUTO)
+                .minScrollPixel(8).maxScrollPixel(72));
+        workspace.layout(l -> l.flex(1));
+        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.width(870).paddingAll(8).gapAll(8)));
+        workspace.addScrollViewChildren(capture, configure, channels, network, authority);
+
+        var tabs = new UIElement().addClass("panel_bg");
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5).paddingAll(5));
+        tabs.addChildren(
+                tabButton("Capture", workspace, capture, capture, configure, channels, network, authority),
+                tabButton("Configure", workspace, configure, capture, configure, channels, network, authority),
+                tabButton("Channels", workspace, channels, capture, configure, channels, network, authority),
+                tabButton("Network", workspace, network, capture, configure, channels, network, authority),
+                tabButton("Authority", workspace, authority, capture, configure, channels, network, authority)
+        );
+
         root.addChildren(
                 RseLdUiComponents.title("FOUR-CHANNEL LOGIC ANALYZER"),
-                RseLdUiComponents.formulaCard(()->"D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW"),
-                new LogicAnalyzerPlotElement(menu),
-                timingPanel(menu),
-                controls(menu),
-                channelPanel(menu),
-                networkPanel(menu),
-                RseLdUiComponents.authorityFooter()
+                tabs,
+                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • draggable scrollbars"),
+                workspace
         );
-        return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
+        return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
+    }
+
+    private static UIElement page(UIElement... children) {
+        return new UIElement().layout(l -> l.width(840).paddingAll(12).gapAll(10)).addChildren(children);
+    }
+
+    private static Button tabButton(String label, ScrollerView workspace, UIElement selected, UIElement... pages) {
+        return new Button().setText(label).setOnClick(event -> {
+            for (UIElement page : pages) page.setDisplay(page == selected);
+            workspace.horizontalScroller.setNormalizedValue(0);
+            workspace.verticalScroller.setNormalizedValue(0);
+        });
     }
 
     private static UIElement timingPanel(LogicAnalyzerMenu m){
