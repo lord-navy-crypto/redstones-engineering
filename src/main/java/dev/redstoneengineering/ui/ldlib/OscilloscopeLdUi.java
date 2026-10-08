@@ -4,8 +4,11 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
+import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.TextField;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
@@ -20,17 +23,18 @@ public final class OscilloscopeLdUi {
     public static ModularUI create(OscilloscopeMenu menu, Player player) {
         var root = new UIElement()
                 .addClass("panel_bg")
-                .layout(l -> l.width(620).paddingAll(8).gapAll(6));
+                .layout(l -> l.width(640).height(450).paddingAll(10).gapAll(8));
 
-        root.addChildren(
-                RseLdUiComponents.title("TWO-CHANNEL ENGINEERING OSCILLOSCOPE"),
+        var scope = page(
                 RseLdUiComponents.formulaCard(() ->
                         "Δt = N_ticks / 20 s   •   f_s = 1 / Δt = 20 / N_ticks Hz   •   f_N = f_s / 2"),
-                waveformPanel(menu),
-                samplingControls(menu),
-                triggerControls(menu),
-                experimentControls(menu),
-                networkEvidence(menu),
+                waveformPanel(menu)
+        );
+        var sampling = page(samplingControls(menu));
+        var trigger = page(triggerControls(menu));
+        var experiment = page(experimentControls(menu));
+        var network = page(networkEvidence(menu));
+        var status = page(
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
                 RseLdUiComponents.liveRow("I/O", "route", menu::portRouteLabel),
@@ -38,10 +42,65 @@ public final class OscilloscopeLdUi {
                 RseLdUiComponents.authorityFooter()
         );
 
+        sampling.setDisplay(false);
+        trigger.setDisplay(false);
+        experiment.setDisplay(false);
+        network.setDisplay(false);
+        status.setDisplay(false);
+
+        var workspace = new ScrollerView()
+                .scrollerStyle(style -> style
+                        .mode(ScrollerMode.BOTH)
+                        .verticalScrollDisplay(ScrollDisplay.AUTO)
+                        .horizontalScrollDisplay(ScrollDisplay.AUTO)
+                        .minScrollPixel(8)
+                        .maxScrollPixel(72));
+        workspace.layout(l -> l.flex(1));
+        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.width(900).paddingAll(8).gapAll(8)));
+        workspace.addScrollViewChildren(scope, sampling, trigger, experiment, network, status);
+
+        var tabs = new UIElement().addClass("panel_bg")
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5).paddingAll(5))
+                .addChildren(
+                        tabButton("Scope", workspace, scope, scope, sampling, trigger, experiment, network, status),
+                        tabButton("Sampling", workspace, sampling, scope, sampling, trigger, experiment, network, status),
+                        tabButton("Trigger", workspace, trigger, scope, sampling, trigger, experiment, network, status),
+                        tabButton("Experiment", workspace, experiment, scope, sampling, trigger, experiment, network, status),
+                        tabButton("Network", workspace, network, scope, sampling, trigger, experiment, network, status),
+                        tabButton("Status", workspace, status, scope, sampling, trigger, experiment, network, status)
+                );
+
+        root.addChildren(
+                RseLdUiComponents.title("TWO-CHANNEL ENGINEERING OSCILLOSCOPE"),
+                tabs,
+                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • scrollbars remain available"),
+                workspace
+        );
+
         return ModularUI.of(
                 UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
                 player
         );
+    }
+
+    private static UIElement page(UIElement... children) {
+        return new UIElement()
+                .layout(l -> l.width(870).paddingAll(12).gapAll(10))
+                .addChildren(children);
+    }
+
+    private static Button tabButton(
+            String label,
+            ScrollerView workspace,
+            UIElement selected,
+            UIElement... pages
+    ) {
+        return new Button().setText(label).setOnClick(event -> {
+            for (UIElement page : pages) page.setDisplay(page == selected);
+            workspace.horizontalScroller.setNormalizedValue(0);
+            workspace.verticalScroller.setNormalizedValue(0);
+        });
     }
 
     private static UIElement waveformPanel(OscilloscopeMenu menu) {
