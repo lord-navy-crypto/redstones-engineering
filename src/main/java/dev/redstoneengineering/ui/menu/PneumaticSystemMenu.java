@@ -83,9 +83,26 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.PNEUMATIC_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(PneumaticSystemLdUi.create(this, inventory.player));
         }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof AirCompressorBlock) kind.set(KIND_COMPRESSOR);
+        else if (block instanceof PneumaticPipeBlock) kind.set(KIND_PIPE);
+        else if (block instanceof AirReservoirBlock) kind.set(KIND_RESERVOIR);
+        else if (block instanceof PressureRegulatorBlock) kind.set(KIND_REGULATOR);
+        else if (block instanceof PneumaticReceiverBlock) kind.set(KIND_RECEIVER);
+        else if (block instanceof PneumaticValveBlock) kind.set(KIND_VALVE);
+        else if (block instanceof PneumaticCheckValveBlock) kind.set(KIND_CHECK_VALVE);
+        else if (block instanceof PneumaticFlowMeterBlock) kind.set(KIND_FLOW_METER);
+        else if (block instanceof PneumaticProportionalValveBlock) kind.set(KIND_PROPORTIONAL);
+        else if (block instanceof PneumaticReliefValveBlock) kind.set(KIND_RELIEF);
+        else if (block instanceof PneumaticCylinderBlock) kind.set(KIND_CYLINDER);
+        else kind.set(-1);
     }
 
     @Override
