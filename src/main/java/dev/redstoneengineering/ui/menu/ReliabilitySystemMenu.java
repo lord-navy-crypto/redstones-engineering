@@ -57,9 +57,20 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.RELIABILITY_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(ReliabilitySystemLdUi.create(this, inventory.player));
         }
+    }
+
+    /** UI-shape only; the physics values are synchronized from the server. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof WatchdogBlock) kind.set(KIND_WATCHDOG);
+        else if (block instanceof ServoActuatorBlock) kind.set(KIND_SERVO);
+        else if (block instanceof ServoPositionSensorBlock) kind.set(KIND_POSITION_SENSOR);
+        else if (block instanceof RedundantVoterBlock) kind.set(KIND_VOTER);
+        else if (block instanceof FaultLatchBlock) kind.set(KIND_FAULT_LATCH);
+        else kind.set(-1);
     }
 
     @Override
