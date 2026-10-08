@@ -681,6 +681,16 @@ for piece in (
 # redstone output as 'evidence'. This affects the experimenter's interpretation.
 process_roles = pioneer_source.split("private static String[] processRoles(int kind)", 1)[-1].split(
     "private static String processValue(", 1)[0]
+measurement_values = pioneer_source.split("private static String measurementValue(", 1)[-1].split(
+    "private static String measurementEquation", 1)[0]
+if "SensorModel.profileName(raw)" not in measurement_values:
+    errors.append("Pioneer sensor profile columns must use human-readable names, not bare indices")
+for fragment in (
+    "PIONEER_MEASUREMENT_LIGHT && slot == 2",
+    "PIONEER_MEASUREMENT_LAPIS_RANGE && slot == 3",
+):
+    if fragment not in measurement_values:
+        errors.append(f"Pioneer synchronized measurement profile decode is absent: {fragment}")
 measurement_roles = pioneer_source.split("private static String[] measurementRoles(int kind)", 1)[-1].split(
     "private static String measurementValue(", 1)[0]
 for role_text in (
@@ -739,3 +749,4 @@ print(" FieldDevice zero-safe parameter readback / server slot parity: PASS")
 print(" FieldDevice Pioneer Overview formula + adjustable variable visibility: PASS")
 print(" Pioneer Copper / Quartz / Soul / Calorimeter snapshot slot alignment: PASS")
 print(" Pioneer solver / measurement role semantics and status evidence: PASS")
+print(" Pioneer named sensor profile decoding: PASS")
