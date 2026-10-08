@@ -27,23 +27,23 @@ public final class EnhancedFieldDeviceLdUi {
 
     public static ModularUI create(FieldDeviceMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.width(720).paddingAll(8).gapAll(6));
+        root.layout(l -> l.width(740).height(470).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RSE FIELD DEVICE • " + deviceName(m.kind())),
-                identityPanel(m),
-                modelPanel(m),
-                livePanel(m),
-                controlPanel(m),
-                routePanel(m),
-                evidencePanel(m),
-                sourceMediumIntegrityPanel(m),
-                discreteTransportPanel(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        720, 430, 900,
+                        new String[]{"Overview", "Configure", "Topology", "Evidence", "Integrity", "Transport"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(identityPanel(m), modelPanel(m), livePanel(m)),
+                                RseLdUiComponents.workspacePage(controlPanel(m)),
+                                RseLdUiComponents.workspacePage(routePanel(m)),
+                                RseLdUiComponents.workspacePage(evidencePanel(m), RseLdUiComponents.authorityFooter()),
+                                RseLdUiComponents.workspacePage(sourceMediumIntegrityPanel(m)),
+                                RseLdUiComponents.workspacePage(discreteTransportPanel(m))
+                        }
+                )
         );
-        return ModularUI.of(
-                UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
-                player
-        );
+        return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
     }
 
     private static UIElement identityPanel(FieldDeviceMenu m) {
