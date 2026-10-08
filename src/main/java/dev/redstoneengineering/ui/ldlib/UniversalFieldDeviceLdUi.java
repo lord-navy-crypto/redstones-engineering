@@ -17,7 +17,6 @@ import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -776,7 +775,7 @@ public final class UniversalFieldDeviceLdUi {
             return String.format(Locale.ROOT, "%.2f", raw / 100.0);
         if ((kind == UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT && slot == 2)
                 || (kind == UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE && slot == 3))
-            return SensorModel.profileName(raw);
+            return UniversalFieldDeviceMenu.profileNameForUi(raw);
         if (kind == UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE && slot == 0 && raw < 0) return "NO TARGET";
         if (kind == UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE && slot == 2)
             return String.format(Locale.ROOT, "%.2f", raw / 100.0);
