@@ -14,6 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import dev.vfyjxf.taffy.style.FlexWrap;
 import org.appliedenergistics.yoga.YogaFlexDirection;
 
 /** LDLib2 oscilloscope HMI backed entirely by the existing authoritative menu/capture engine. */
@@ -61,7 +62,7 @@ public final class OscilloscopeLdUi {
         workspace.addScrollViewChildren(scope, sampling, trigger, experiment, network, status);
 
         var tabs = new UIElement().addClass("panel_bg")
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5).paddingAll(5))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5))
                 .addChildren(
                         tabButton("Scope", workspace, scope, scope, sampling, trigger, experiment, network, status),
                         tabButton("Sampling", workspace, sampling, scope, sampling, trigger, experiment, network, status),
@@ -74,7 +75,7 @@ public final class OscilloscopeLdUi {
         root.addChildren(
                 RseLdUiComponents.title("TWO-CHANNEL ENGINEERING OSCILLOSCOPE"),
                 tabs,
-                new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • scrollbars remain available"),
+                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
 
