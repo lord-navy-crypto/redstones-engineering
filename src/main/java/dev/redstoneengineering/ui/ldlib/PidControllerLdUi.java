@@ -55,7 +55,7 @@ public final class PidControllerLdUi {
                 new Label().setText("WORKSPACE • wheel = vertical • Shift + wheel = horizontal • draggable scrollbars"),
                 workspace
         );
-        return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)), player);
+        return RseLdUiComponents.responsiveUi(root, player, 690, 450);
     }
 
     private static UIElement page(UIElement... children) {
