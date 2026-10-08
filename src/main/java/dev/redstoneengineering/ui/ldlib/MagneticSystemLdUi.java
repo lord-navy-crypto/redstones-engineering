@@ -15,15 +15,27 @@ public final class MagneticSystemLdUi {
 
     public static ModularUI create(MagneticSystemMenu m, Player player) {
         var root=new UIElement().addClass("panel_bg");
-        root.layout(l->l.width(580).paddingAll(8).gapAll(6));
+        root.layout(l->l.width(620).height(440).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(m)),
-                RseLdUiComponents.title("PIONEER PATTERN • MAGNETIC MODEL"),
-                RseLdUiComponents.formulaCard(()->equation(m)),
-                overview(m),
-                controls(m),
-                evidence(m),
-                RseLdUiComponents.authorityFooter()
+                RseLdUiComponents.tabbedWorkspace(
+                        600, 400, 850,
+                        new String[]{"Overview", "Details", "Evidence"},
+                        new UIElement[]{
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.title("PIONEER PATTERN • MAGNETIC MODEL"),
+                                        RseLdUiComponents.formulaCard(()->equation(m))
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        overview(m),
+                                        controls(m)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        evidence(m),
+                                        RseLdUiComponents.authorityFooter()
+                                )
+                        }
+                )
         );
         return ModularUI.of(UI.of(root,StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),player);
     }
