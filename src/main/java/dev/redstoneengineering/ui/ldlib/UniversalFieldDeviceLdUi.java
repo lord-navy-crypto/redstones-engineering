@@ -538,24 +538,24 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC -> a("B_norm","y_L","Δt_sample","resolution","noise","latency");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL -> a("I_norm","y_L","Δt_sample","resolution","noise","latency");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE -> a("V_norm","y_L","Δt_sample","resolution","noise","latency");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE, UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> a("V_node","network law","drivers","ports","","");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE -> a("V_set","output faces","V_out","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE, UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> a("V_node","drivers","ports","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE -> a("V_set","output faces","","","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD -> a("V","R","I","P","feeds","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR -> a("V_in","R_s","R_load","V_out","I","evaluated");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR -> a("V_in","C_index","τ","charge","V_out","evaluated");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE -> a("V_in","I_rating","R_eq","I","V_out","trip latch");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE -> a("μ","|η|max","y[n]","Δt_sample","initialized","");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> a("T_nom","J","Δt_half,last","jitter offset","clock","interval");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> a("T_in","D","pending","pulse_out","edge history","");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> a("x_L","clock","trigger","y_hold","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> a("T_nom","J","Δt_half,last","jitter offset","clock","timing ready");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> a("input signal","D","pending","pulse_out","edge history","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> a("x_L","clock","y_hold","hold quality","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR -> a("u_R","packet","attached nodes","output faces","","");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> a("Q_s","y_R","","","","");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> a("c_raw","c_filt","peak","","g","y_R");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> a("Q_s","y_R","y_R(model)","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> a("c_raw","c_filt","peak","sensitivity index","g","y_R");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE -> a("B_applied","B_threshold","scan radius","remanence","coverage","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> a("T","T_env","T_neighbor","T_target","C_index","ΔT_max");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> a("V","R","I","P","T","T_target");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> a("k_cool","N_mass","T_avg","T_hot","T_floor","Δt");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("T","Δt_history","ΔT_20t","C_sum","C·ΔT","history");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("T","ΔT_20t","C_mean","C·ΔT","N_mass","history ready");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT -> a("J","age","quality","decay period","ports","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR -> a("Q_s","age","quality","decay period","ports","");
             default -> a("p1","p2","p3","p4","p5","p6");
@@ -571,10 +571,12 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE -> a("V-eq","I-eq","R-eq","I-eq","V-eq","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE -> a("Lapis","Lapis","Lapis","ticks","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> a("ticks","ticks","ticks","ticks","","");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> a("ticks","ticks","ticks","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> a("Lapis","pulse","Lapis","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> a("charge","redstone","redstone","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> a("pulse","ticks","ticks","","","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> a("T-index","T-index","T-index","T-index","index","T-index");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> a("index/tick","bodies","T-index","T-index","T-index","ticks");
-            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("T-index","T-index","capacity","relative heat","bodies","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("T-index","T-index","capacity units","relative heat","bodies","");
             default -> a("","","","","","");
         };
     }
@@ -588,6 +590,10 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE -> a("MEASURED","ADJUSTABLE","SOLVER","DERIVED","DERIVED","STATE");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE -> a("ADJUSTABLE","ADJUSTABLE","MEASURED","PROFILE","EVIDENCE","");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> a("ADJUSTABLE","ADJUSTABLE","MEASURED","EVIDENCE","STATE","EVIDENCE");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> a("MEASURED","MEASURED","STATE","EVIDENCE","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> a("MEASURED","OUTPUT","DERIVED","","","");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> a("MEASURED","STATE","EVIDENCE","ADJUSTABLE","PROFILE","OUTPUT");
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> a("MEASURED","MEASURED","SOLVER","DERIVED","MEASURED","EVIDENCE");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> a("STATE","MEASURED","MEASURED","SOLVER","ADJUSTABLE","DERIVED");
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> a("MEASURED","ADJUSTABLE","DERIVED","DERIVED","STATE","SOLVER");
             default -> a("STATE","STATE","STATE","STATE","STATE","STATE");
@@ -606,6 +612,14 @@ public final class UniversalFieldDeviceLdUi {
         if (kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_CALIBRATION && slot == 3) return CalibrationModuleBlock.profileName(raw);
         if (kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_SAMPLE_HOLD && slot == 3) return SampleHoldBlock.modeName(raw);
         if (kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE && slot <= 2) return String.format(Locale.ROOT, "%.2f", raw / 100.0);
+        // This sampler keeps Lapis in integer hundredths on the server.
+        if (kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER) {
+            if (slot == 0 || slot == 2) return String.format(Locale.ROOT, "%.2f", raw / 100.0);
+            if (slot == 3) {
+                PortQuality[] qualities = PortQuality.values();
+                return raw >= 0 && raw < qualities.length ? qualities[raw].name() : "UNKNOWN";
+            }
+        }
         if (kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD && (slot == 2 || slot == 3)) return String.format(Locale.ROOT, "%.3f", raw / 1000.0);
         if (kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR && (slot == 2 || slot == 4)) return String.format(Locale.ROOT, "%.3f", raw / 1000.0);
         if (kind == UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE && (slot == 2 || slot == 3)) return String.format(Locale.ROOT, "%.3f", raw / 1000.0);
