@@ -1132,6 +1132,27 @@ for token in ("m.mode()==SignalAnalyzerBlock.TAP", "TAP mode never drives Redsto
     if token not in signal_hmi:
         errors.append(f"Signal Analyzer TAP/statistics evidence regression: {token!r}")
 
+# Tracked DataSlots start at zero on the client. Zero measurements and
+# absent server captures cannot share the same rendered trace. Each graph
+# must wait for a real capture or telemetry count, not just an initialized GUI.
+for plot_family, guard in (
+    ("Oscilloscope", "menu.sampleCount() <= 0"),
+    ("LogicAnalyzer", "menu.sampleCount() <= 0"),
+    ("PidTrend", "menu.trendCount() <= 0"),
+    ("SignalAnalyzer", "!menu.snapshotReady() || menu.validWindowCount() <= 0"),
+):
+    source = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{plot_family}PlotElement.java")
+    if guard not in source:
+        errors.append(f"{plot_family} plot renders initial DataSlot zeros as fabricated samples")
+metrology_menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java")
+for token in ("snapshotReady.set(0)", "snapshotReady.set(1)",
+              "measurementQuality.set(PortQuality.NOT_READY.ordinal())",
+              "public boolean snapshotReady()"):
+    if token not in metrology_menu:
+        errors.append(f"Signal Analyzer pre-synchronization protection missing: {token!r}")
+if "m.snapshotReady() && m.windowCount()>0" not in signal_hmi:
+    errors.append("Signal Analyzer HMI reports complete evidence before first synchronized snapshot")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
