@@ -204,7 +204,7 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().bind(DataBindingBuilder.componentS2C(() ->
                         Component.literal(legacyEngineeringContract(m.kind()))
                 ).build()),
-                new Label().setText("Client presentation only • mutation, topology and solver authority remain server-owned.")
+                RseLdUiComponents.note("Client presentation only • mutation, topology and solver authority remain server-owned.")
         );
     }
 
@@ -212,7 +212,7 @@ public final class EnhancedFieldDeviceLdUi {
         var panel = new UIElement().addClass("panel_bg");
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         if (!isSourceMediumIntegrityDevice(m.kind())) {
-            panel.addChild(new Label().setText("SOURCE / MEDIUM INTEGRITY • not the primary contract for this device"));
+            panel.addChild(RseLdUiComponents.note("SOURCE / MEDIUM INTEGRITY • not the primary contract for this device"));
             return panel;
         }
         panel.addChildren(
@@ -220,7 +220,7 @@ public final class EnhancedFieldDeviceLdUi {
                 new Label().setText("PortQuality • configured zero remains VALID evidence"),
                 new Label().setText("valid zero ≠ no source"),
                 new Label().setText("multi-source=TOPOLOGY_ERROR; truncated scan=STALE"),
-                new Label().setText("duplicate channel or truncated scan invalidates trustworthy evidence"),
+                RseLdUiComponents.note("duplicate channel or truncated scan invalidates trustworthy evidence"),
                 new Label().setText("STALE • SERVER EVIDENCE INCOMPLETE"),
                 new Label().setText("TOPOLOGY ERROR • CONFLICT / INVALID PATH")
         );
@@ -231,14 +231,14 @@ public final class EnhancedFieldDeviceLdUi {
         var panel = new UIElement().addClass("panel_bg");
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         if (!isDiscreteTransportDevice(m.kind())) {
-            panel.addChild(new Label().setText("DISCRETE TRANSPORT MODEL • not applicable to this device"));
+            panel.addChild(RseLdUiComponents.note("DISCRETE TRANSPORT MODEL • not applicable to this device"));
             return panel;
         }
         panel.addChildren(
                 new Label().setText("PIONEER PATTERN • RSE DISCRETE TRANSPORT MODEL"),
                 RseLdUiComponents.liveRow("MODEL", "transport", () -> discreteTransportModel(m.kind())),
                 RseLdUiComponents.liveRow("TOPOLOGY", "medium", () -> discreteTransportTopology(m.kind())),
-                new Label().setText("server-owned packet/event state • HMI exposes the implemented bounded abstraction only")
+                RseLdUiComponents.note("server-owned packet/event state • HMI exposes the implemented bounded abstraction only")
         );
         return panel;
     }
