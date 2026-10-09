@@ -54,7 +54,11 @@ public final class EnhancedFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("CONTROLS", "operator", () -> operatorMode(m.kind())),
                 RseLdUiComponents.liveRow("HEALTH", "state", () ->
                         !m.topologyValid() ? "FAIL-CLOSED TOPOLOGY"
-                                : m.dataValid() ? "VALID" : "NO / INVALID EVIDENCE")
+                                : !m.dataValid() ? "NO / INVALID EVIDENCE"
+                                : m.evidenceQualityKnown()
+                                    ? (m.evidenceQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                        ? "VALID PORT EVIDENCE" : "PORT "+m.evidenceQuality().name())
+                                    : "CONFIG / TOPOLOGY • PORT QUALITY NOT REPORTED")
         );
     }
 
@@ -62,9 +66,9 @@ public final class EnhancedFieldDeviceLdUi {
         var panel = new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PIONEER / MODEL / VARIABLES"),
                 RseLdUiComponents.formulaCard(modelContract(m.kind())),
-                RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 0), () -> Integer.toString(m.primary())),
-                RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 1), () -> Integer.toString(m.secondary())),
-                RseLdUiComponents.liveRow("STATE", metricLabel(m.kind(), 2), () -> Integer.toString(m.tertiary()))
+                RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 0), () -> qualifiedRawMetric(m, m.primary())),
+                RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 1), () -> qualifiedRawMetric(m, m.secondary())),
+                RseLdUiComponents.liveRow("STATE", metricLabel(m.kind(), 2), () -> qualifiedRawMetric(m, m.tertiary()))
         );
         // Show the *real* server-backed tuning variable with the governing
         // model on Overview, rather than hiding it on a separate Configure tab.
@@ -82,8 +86,12 @@ public final class EnhancedFieldDeviceLdUi {
     private static UIElement livePanel(FieldDeviceMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("LIVE MECHANISM / EVIDENCE"),
-                RseLdUiComponents.liveRow("EVIDENCE", "PortQuality", () -> m.evidenceQuality().name()),
-                RseLdUiComponents.liveRow("EVIDENCE", "quality", () -> m.qualityPercent() + "%"),
+                RseLdUiComponents.liveRow("EVIDENCE", "PortQuality", () ->
+                        m.evidenceQualityKnown() ? m.evidenceQuality().name()
+                                : "NOT REPORTED • not equivalent to VALID"),
+                RseLdUiComponents.liveRow("EVIDENCE", "quality", () ->
+                        m.evidenceQualityKnown() && m.topologyValid() && m.dataValid()
+                                ? m.qualityPercent()+"%" : "UNVERIFIED • score not qualified"),
                 RseLdUiComponents.liveRow("EVIDENCE", "sources / drivers", () -> Integer.toString(m.driverCount())),
                 RseLdUiComponents.liveRow("TOPOLOGY", "ports / links", () ->
                         m.portCount() + " / " + m.connectionCount()),
@@ -92,6 +100,16 @@ public final class EnhancedFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("AUTHORITY", "policy", () ->
                         m.topologyValid() ? "SERVER SYNCHRONIZED" : "FAIL-CLOSED")
         );
+    }
+
+    /** Preserve server-owned raw values for engineering diagnostics, but do not
+     * misrepresent a default 0 as an authoritative physical measurement. */
+    private static String qualifiedRawMetric(FieldDeviceMenu m, int raw) {
+        if (!m.topologyValid() || !m.dataValid()) return "NOT READY • raw=" + raw + " (unverified)";
+        if (!m.evidenceQualityKnown()) return raw + " • PORT QUALITY NOT REPORTED";
+        return m.evidenceQuality() == dev.redstoneengineering.core.port.PortQuality.VALID
+                ? Integer.toString(raw)
+                : "NOT READY • " + m.evidenceQuality().name() + " • raw=" + raw;
     }
 
     private static UIElement controlPanel(FieldDeviceMenu m) {
