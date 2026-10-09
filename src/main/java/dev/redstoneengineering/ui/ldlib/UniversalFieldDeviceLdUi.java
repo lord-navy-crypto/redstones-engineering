@@ -71,7 +71,7 @@ public final class UniversalFieldDeviceLdUi {
                         .maxScrollPixel(64));
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
-        workspace.viewContainer(view -> view.layout(l -> l.width(820).paddingAll(8).gapAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(440).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(overview, configure, pioneer, evidence);
 
         var tabs = new UIElement().addClass("panel_bg");
@@ -86,7 +86,7 @@ public final class UniversalFieldDeviceLdUi {
         root.addChildren(
                 RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
                 tabs,
-                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
+                RseLdUiComponents.note("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
         return RseLdUiComponents.responsiveUi(root, player, 620, 430);
@@ -94,7 +94,7 @@ public final class UniversalFieldDeviceLdUi {
 
     private static UIElement page(UIElement... children) {
         var page = new UIElement();
-        page.layout(l -> l.width(790).paddingAll(12).gapAll(10));
+        page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
         page.addChildren(children);
         return page;
     }
