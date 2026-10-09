@@ -72,7 +72,7 @@ public final class IndustrialBufferLdUi {
                 new Label().setText("OUTPUT        JOB          UNITS"),
                 RseLdUiComponents.liveRow("LOTS", "live count", () -> m.snapshotPresent()
                         ? Integer.toString(m.totalLotCount()) : "NOT READY • live buffer evidence unavailable"),
-                RseLdUiComponents.fixedRow("opening count", m::openingLotCount,
+                RseLdUiComponents.fixedRow("opening count", () -> Integer.toString(m.openingLotCount()),
                         "identity list is frozen at menu open; reopen for new lot IDs")
         );
         if (m.visibleLots().isEmpty()) {
