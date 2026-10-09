@@ -239,6 +239,17 @@ for token in ("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL", "I = V / R_eq 
     if token not in copper_meter_ld:
         errors.append(f"LDLib2 Copper meter rollout missing {token!r}")
 
+optical_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
+for token in (
+    "private static String measurement(OpticalSystemMenu m, String value)",
+    "m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID",
+    'measurement(m,m.primary()+" / 15")',
+    "secondaryIsConfiguration(m.kind()) ? Integer.toString(m.secondary())",
+    'measurement(m,m.tertiary()+" / "+m.auxiliary())',
+):
+    if token not in optical_ld:
+        errors.append(f"Optical observed-value authority gate missing {token!r}")
+
 magnetic_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java")
 for token in ("PIONEER PATTERN • MAGNETIC MODEL", "V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)", "Σ S_i / max(1,r_i²)", "DataBindingBuilder.string"):
     if token not in magnetic_ld:
