@@ -162,7 +162,9 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
     }
 
     public boolean resetDiagnostics(Level level, BlockPos pos) {
-        if (!level.getBlockState(pos).is(this)) return false;
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
         RuntimeIntStore.remove(level, KEY, pos);
         // Fail closed immediately: never leave a previously asserted permit
         // energised while the diagnostic mask is unknown after reset.
