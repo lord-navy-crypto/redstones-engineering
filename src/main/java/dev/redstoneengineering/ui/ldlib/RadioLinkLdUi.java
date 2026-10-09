@@ -65,10 +65,16 @@ public final class RadioLinkLdUi {
         }else{
             p.addChildren(
                     RseLdUiComponents.liveRow("RX","output",()->m.output()+" / 15"),
-                    RseLdUiComponents.liveRow("LINK","quality",()->m.linkQuality()+" • margin="+m.decodeMargin()),
-                    RseLdUiComponents.liveRow("LINK","distance",()->m.distanceBlocks()+" blocks • latency="+m.latency()+"t"),
+                    RseLdUiComponents.liveRow("LINK","quality",()->m.samples()>0
+                            ? m.linkQuality()+" • margin="+m.decodeMargin()
+                            : "NOT READY • no receiver observations"),
+                    RseLdUiComponents.liveRow("LINK","distance",()->m.samples()>0 && m.coverageComplete()
+                            ? m.distanceBlocks()+" blocks • latency="+m.latency()+"t"
+                            : "UNVERIFIED • source path not established"),
                     RseLdUiComponents.liveRow("INTERFERENCE","environment",()->"aggressors="+m.adjacentAggressors()+" • obstacles="+m.obstacleHits()+" • noise="+m.noise()+"%"),
-                    RseLdUiComponents.liveRow("HISTORY","availability",()->m.availabilityPercent()+"% • samples="+m.samples()),
+                    RseLdUiComponents.liveRow("HISTORY","availability",()->m.samples()>0
+                            ? m.availabilityPercent()+"% • samples="+m.samples()
+                            : "NOT READY • no receiver observations"),
                     RseLdUiComponents.liveRow("HISTORY","faults",()->"collision="+m.collisions()+" • dropout="+m.dropouts()+" • handoff="+m.handoffs())
             );
         }
@@ -85,6 +91,7 @@ public final class RadioLinkLdUi {
 
     private static String diagnosis(RadioLinkMenu m){
         if(m.kind()==RadioLinkMenu.KIND_TRANSMITTER) return m.quality().name();
+        if(m.samples()<=0) return "NOT READY • NO RECEIVER OBSERVATIONS";
         if(m.collision()) return "SAME-CHANNEL COLLISION";
         if(!m.coverageComplete()) return "STALE / INCOMPLETE COVERAGE";
         if(m.quality()==dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL)
@@ -103,7 +110,7 @@ public final class RadioLinkLdUi {
         if(d.contains("COLLISION")) return "NEXT • move one same-channel transmitter or change one channel.";
         if(d.contains("ADJACENT")) return "NEXT • separate adjacent channels first; then re-check margin.";
         if(d.contains("NO RADIO FRAME")) return "NEXT • check transmitter activation, matching channel and loaded radio coverage.";
-        if(d.contains("UNVERIFIED") || d.contains("STALE"))
+        if(d.contains("NOT READY") || d.contains("UNVERIFIED") || d.contains("STALE"))
             return "NEXT • resolve input quality/coverage before accepting any link as healthy.";
         if(d.contains("OBSTRUCTED") || d.contains("MARGIN"))
             return "NEXT • improve line-of-sight or shorten the path before accepting the link.";
