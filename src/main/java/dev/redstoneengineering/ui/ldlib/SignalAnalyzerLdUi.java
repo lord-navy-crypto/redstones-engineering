@@ -63,7 +63,11 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("DERIVED","x_cal",()->m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                         ? m.calibrated()+" / 15" : "NOT READY • valid raw input required"),
                 RseLdUiComponents.liveRow("MODEL","b_cal / x_ref",()->signed(m.calibrationOffset())+" / "+m.reference()),
-                RseLdUiComponents.liveRow("OUTPUT","inline",()->m.output()+" / 15 • raw pass-through semantics"),
+                RseLdUiComponents.liveRow("OUTPUT","inline",()->m.mode()==SignalAnalyzerBlock.TAP
+                        ? "NOT APPLICABLE • TAP mode never drives Redstone"
+                        : m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                            ? m.output()+" / 15 • raw pass-through"
+                            : "NOT READY • INLINE input evidence unverified"),
                 RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.measurementQuality().name()+" • coverage="+m.coveragePercent()+"%"),
                 new Label().setText("DISPLAY ONLY • calibrated reading does not drive INLINE; physical output remains RAW."),
                 new Label().setText("Rolling statistics are synchronized server evidence; the client never samples the world."),
@@ -79,7 +83,7 @@ public final class SignalAnalyzerLdUi {
         p.addChildren(
                 controlRow("b_cal","-2..+2 • direct entry",cal),
                 controlRow("x_ref","0..15 • direct entry",ref),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Toggle TAP/INLINE",m::toggleMode),
                         RseLdUiComponents.serverAction("Reset statistics",m::resetStatistics)
                 ),
@@ -91,8 +95,11 @@ public final class SignalAnalyzerLdUi {
     private static UIElement statisticsPanel(SignalAnalyzerMenu m){
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         p.addChildren(
-                RseLdUiComponents.liveRow("WINDOW","avg / p2p",()->decimal100(m.average100())+" / "+m.peakToPeak()),
-                RseLdUiComponents.liveRow("WINDOW","meanStep",()->decimal100(m.meanStep100())),
+                RseLdUiComponents.liveRow("WINDOW","avg / p2p",()->m.validWindowCount()>0
+                        ? decimal100(m.average100())+" / "+m.peakToPeak()+" • "+m.validWindowCount()+" valid samples"
+                        : "NOT READY • no valid rolling samples"),
+                RseLdUiComponents.liveRow("WINDOW","meanStep",()->m.validWindowCount()>1
+                        ? decimal100(m.meanStep100()) : "NOT READY • need ≥2 valid samples"),
                 RseLdUiComponents.liveRow("WINDOW","measurement coverage",()->"measurement coverage="+m.validWindowCount()+"/"+m.windowCount()+" • "+m.coveragePercent()+"%"),
                 RseLdUiComponents.liveRow("SYNC","age",()->m.sampleAgeTicks()<0?"NO SAMPLE":m.sampleAgeTicks()+" ticks"),
                 RseLdUiComponents.liveRow("LIFETIME","min / max",()->m.lifeMin()+" / "+m.lifeMax()),
@@ -131,8 +138,8 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("TRIAL","baseline / candidate",()->(m.trialBaselineSequence()>0
                         ? "#"+m.trialBaselineSequence() : "NONE")+" / "+(m.trialCandidateSequence()>0
                         ? "#"+m.trialCandidateSequence() : "NONE")),
-                new Label().setText("History statistics are raw; clipping-aware calibrated residuals require a qualified server trial."),
-                new Label().setText("An empty or partially invalid rolling window is not evidence of a stable zero.")
+                RseLdUiComponents.note("History statistics are raw; clipping-aware calibrated residuals require a qualified server trial."),
+                RseLdUiComponents.note("An empty or partially invalid rolling window is not evidence of a stable zero.")
         );
         return p;
     }
@@ -155,13 +162,13 @@ public final class SignalAnalyzerLdUi {
                         ?signed(m.trialSpanDelta())+" / "+decimal100(m.trialMeanStepDelta100()):"NOT READY"),
                 RseLdUiComponents.liveRow("DELTA","calibration",()->trialReady(m)
                         ?signed(m.trialCalibrationDelta()):"NOT READY"),
-                new Label().setText("Internal RSE reference comparison only; this does not establish external metrological traceability.")
+                RseLdUiComponents.note("Internal RSE reference comparison only; this does not establish external metrological traceability.")
         );
         return p;
     }
 
     private static UIElement controlRow(String symbol,String range,TextField field){
-        var r=new UIElement(); r.layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6));
+        var r=new UIElement(); r.layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6));
         r.addChildren(new Label().setText("ADJUSTABLE").layout(l->l.width(82)),
                 new Label().setText(symbol).layout(l->l.width(62)),field,
                 new Label().setText(range).layout(l->l.flex(1)));
