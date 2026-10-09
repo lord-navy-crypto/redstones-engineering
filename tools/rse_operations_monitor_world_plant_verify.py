@@ -104,6 +104,17 @@ for required in (
     if screen and required not in screen:
         errors.append(f"OperationsMonitorLdUi must withhold unsupported plant KPIs; missing {required!r}")
 
+# Withhold zero/default live KPIs when RUN / queue / cycle evidence is absent.
+for token in (
+    "m.queueEvidenceSources()>0",
+    "m.telemetryReady() && m.cycleEvidenceValid()",
+    "NOT READY • RUN / QUEUE / CYCLE evidence incomplete",
+    "UNVERIFIED • input evidence missing",
+    'm.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"',
+):
+    if screen and token not in screen:
+        errors.append(f"OperationsMonitorLdUi missing missing-evidence guard {token!r}")
+
 if errors:
     print("RSE OPERATIONS MONITOR WORLD PLANT VERIFY: FAIL")
     for error in errors:
