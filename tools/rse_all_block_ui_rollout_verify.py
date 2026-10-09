@@ -1024,6 +1024,9 @@ new_evidence_guards = {
                            "UNVERIFIED • no fault assessment"),
     "ReliabilitySystem": ("primaryReadout(m)", "secondaryReadout(m)", "tertiaryReadout(m)",
                           "evidenceInterpretation(m)", "raw/retained != current measured value"),
+    "SignalConditioner": ("boundaryInterpretation(menu)", "threshold gate, not saturation",
+                          "deadband hold, not saturation",
+                          "SATURATED • 0..15 transfer limit"),
 }
 for family, evidence_tokens in new_evidence_guards.items():
     ui_code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
