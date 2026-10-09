@@ -57,7 +57,7 @@ public final class SignalConditionerLdUi {
                         .maxScrollPixel(64));
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
-        workspace.viewContainer(view -> view.layout(l -> l.width(640).paddingAll(8).gapAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(410).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(overview, configure, authority);
 
         var tabs = new UIElement().addClass("panel_bg")
@@ -71,7 +71,7 @@ public final class SignalConditionerLdUi {
         root.addChildren(
                 RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
                 tabs,
-                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
+                RseLdUiComponents.note("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
 
@@ -80,7 +80,7 @@ public final class SignalConditionerLdUi {
 
     private static UIElement page(UIElement... children) {
         return new UIElement()
-                .layout(l -> l.width(610).paddingAll(12).gapAll(10))
+                .layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10))
                 .addChildren(children);
     }
 
