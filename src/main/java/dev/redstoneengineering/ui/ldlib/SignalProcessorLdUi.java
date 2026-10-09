@@ -24,10 +24,16 @@ public final class SignalProcessorLdUi {
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence", "More"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.formulaCard(()->processorEquation(menu.kind())),
-                                        RseLdUiComponents.liveRow("MEASURED","x[n]",()->menu.input()+" / 15"),
-                                        RseLdUiComponents.liveRow("OUTPUT","y[n]",()->menu.output()+" / 15"),
-                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu)),
+                                        RseLdUiComponents.formulaCard(()->menu.snapshotReady()
+                                                 ? processorEquation(menu.kind()) : "NOT READY • awaiting server transfer model"),
+                                        RseLdUiComponents.liveRow("EVIDENCE","server snapshot",()->menu.snapshotReady()
+                                                 ? "SYNCED • current Redstone readback" : "NOT READY • awaiting server data"),
+                                         RseLdUiComponents.liveRow("MEASURED","x[n]",()->menu.snapshotReady()
+                                                 ? menu.input()+" / 15" : "NOT READY • input unsynchronized"),
+                                        RseLdUiComponents.liveRow("OUTPUT","y[n]",()->menu.snapshotReady()
+                                                 ? menu.output()+" / 15" : "NOT READY • output unsynchronized"),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->menu.snapshotReady()
+                                                 ? parameter(menu) : "NOT READY • parameter not synchronized"),
                                         runtime(menu)
                                 ),
                                 RseLdUiComponents.workspacePage(
@@ -40,14 +46,16 @@ public final class SignalProcessorLdUi {
                                                 "The HMI reads response, edge history or pulse state; it cannot manufacture input quality")
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("I/O","route",()->menu.inputDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()),
-                                        new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                                        RseLdUiComponents.liveRow("I/O","route",()->menu.snapshotReady()
+                                                 ? menu.inputDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()
+                                                 : "NOT READY • authoritative route pending"),
+                                        new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle RX ▶",menu::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",menu::cycleOutputForward)
                 )
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        new Label().setText(evidenceContract(menu.kind())),
+                                        RseLdUiComponents.note(evidenceContract(menu.kind())),
                                         RseLdUiComponents.authorityFooter()
                                 )
                         }
@@ -72,7 +80,7 @@ public final class SignalProcessorLdUi {
                 ()->Integer.toString(menu.parameter()),
                 v->{try{menu.setParameterFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}
         ).build());
-        return new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+        return new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                 new Label().setText("DIRECT ENTRY"),
                 field,
                 new Label().setText(menu.kind()==SignalProcessorMenu.KIND_FILTER?"r ∈ 1..4":"W ∈ 1..8 ticks")
@@ -83,17 +91,20 @@ public final class SignalProcessorLdUi {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         if(m.kind()==SignalProcessorMenu.KIND_FILTER){
             p.addChildren(
-                    RseLdUiComponents.liveRow("DERIVED","|x-y|",()->Integer.toString(m.runtimeA())),
-                    RseLdUiComponents.liveRow("EVIDENCE","response",()->m.runtimeB()==1
+                    RseLdUiComponents.liveRow("DERIVED","|x-y|",()->m.snapshotReady()
+                             ? Integer.toString(m.runtimeA()) : "NOT READY • server runtime pending"),
+                    RseLdUiComponents.liveRow("EVIDENCE","response",()->!m.snapshotReady()
+                             ? "NOT READY • no server response evidence" : m.runtimeB()==1
                             ? "ZERO NUMERICAL LAG • input presence unverified"
                             : "NONZERO LAG • response in progress"),
                     RseLdUiComponents.note("Equality x=y is not evidence that a sensor or input source is connected.")
             );
         }else if(m.kind()==SignalProcessorMenu.KIND_EDGE){
             p.addChildren(
-                    RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.runtimeA()+"t remaining"),
-                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.initialized()?"YES • baseline sampled":"NO • await first sample"),
-                    RseLdUiComponents.liveRow("EVIDENCE","edges",()->m.initialized()
+                    RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.snapshotReady()
+                             ? m.runtimeA()+"t remaining" : "NOT READY • runtime pending"),
+                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.snapshotReady() && m.initialized()?"YES • baseline sampled":"NO • await first sample"),
+                    RseLdUiComponents.liveRow("EVIDENCE","edges",()->m.snapshotReady() && m.initialized()
                             ? m.runtimeB()+" • last age "+(m.runtimeC()<0?"NONE":m.runtimeC()+"t")
                             : "NOT READY • no input baseline")
             );
@@ -101,7 +112,8 @@ public final class SignalProcessorLdUi {
             p.addChildren(
                     RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.runtimeA()+"t remaining"),
                     RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.initialized()?"YES • last input "+m.runtimeB():"NO"),
-                RseLdUiComponents.liveRow("MODEL","configured pulse width",()->m.parameter()+" ticks")
+                RseLdUiComponents.liveRow("MODEL","configured pulse width",()->m.snapshotReady()
+                             ? m.parameter()+" ticks" : "NOT READY • parameter pending")
             );
         }
         return p;
