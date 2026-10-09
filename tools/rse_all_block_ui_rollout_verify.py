@@ -563,6 +563,17 @@ for family in ("EnhancedFieldDevice", "OpticalSystem", "PneumaticSystem",
         if "flexDirection(YogaFlexDirection.ROW).gapAll(" in line:
             errors.append(f"{family}: unwrapped operator/control row can clip buttons")
 
+# The three high-density trace/controller canvases previously forced an
+# 840-950px worksheet even at normal 640-690px GUI width.
+for family, minimum_width in (("Oscilloscope", 520), ("LogicAnalyzer", 510), ("PidController", 540)):
+    code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    for token in (f".widthPercent(100).minWidth({minimum_width})",
+                  ".widthPercent(100).paddingAll(12).gapAll(10)"):
+        if token not in code:
+            errors.append(f"{family}: viewport-based graph/trace canvas lost {token!r}")
+    if "flexDirection(YogaFlexDirection.ROW).gapAll(" in code:
+        errors.append(f"{family}: operator row will clip at narrow GUI scales")
+
 # The standalone five instrument UIs do not use the shared tab strip.
 # Their navigation must wrap when GUI Scale reduces the available width.
 for name in ("UniversalFieldDevice", "SignalConditioner", "Oscilloscope", "PidController", "LogicAnalyzer"):
