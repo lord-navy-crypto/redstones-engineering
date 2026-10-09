@@ -115,7 +115,7 @@ public final class SignalConditionerLdUi {
         ).build());
 
         return new UIElement()
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6))
                 .addChildren(
                         new Label().bind(DataBindingBuilder.componentS2C(() ->
                                 Component.literal(parameterSymbol(menu.mode()) + "  " + parameterRange(menu.mode()))
@@ -130,7 +130,7 @@ public final class SignalConditionerLdUi {
 
     private static UIElement routeRow(SignalConditionerMenu menu) {
         return new UIElement()
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6))
                 .addChildren(
                         new Button()
                                 .setText("Cycle RX ▶")
