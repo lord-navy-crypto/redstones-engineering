@@ -47,17 +47,22 @@ public final class QuartzTimingLdUi {
             );
         } else if (m.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","T_in",()->m.primary()+" ticks"),
+                    RseLdUiComponents.liveRow("MEASURED","T_in",()->m.primary()>0?m.primary()+" ticks":"NOT READY • no valid input period"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","N",()->Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("DERIVED","T_out",()->m.secondary()+" ticks"),
-                    RseLdUiComponents.liveRow("EVIDENCE","expected",()->expectedDividerPeriod(m)+" ticks"),
-                    RseLdUiComponents.liveRow("EVIDENCE", "period limit", () -> dividerSaturated(m) ? "SATURATED @4096" : "IN RANGE")
+                    RseLdUiComponents.liveRow("DERIVED","T_out",()->m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                            ? m.secondary()+" ticks":"NOT READY • output clock unverified"),
+                    RseLdUiComponents.liveRow("EVIDENCE","expected",()->m.primary()>0
+                            ? expectedDividerPeriod(m)+" ticks (model)" : "NOT READY • input period unknown"),
+                    RseLdUiComponents.liveRow("EVIDENCE", "period limit", () -> m.primary()<=0
+                            ? "NOT READY • missing source period"
+                            : dividerSaturated(m) ? "SATURATED @4096" : "IN RANGE")
             );
         } else {
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","T_meas",()->m.primary()+" ticks"),
-                    RseLdUiComponents.liveRow("MEASURED","T_upstream",()->m.tertiary()+" ticks"),
-                    RseLdUiComponents.liveRow("DERIVED","|e_T|",()->m.secondary()+" ticks"),
+                    RseLdUiComponents.liveRow("MEASURED","T_meas",()->measurementPeriod(m)),
+                    RseLdUiComponents.liveRow("MEASURED","T_upstream",()->m.tertiary()>0
+                            ? m.tertiary()+" ticks":"NOT READY • upstream unavailable"),
+                    RseLdUiComponents.liveRow("DERIVED","|e_T|",()->measurementError(m)),
                     RseLdUiComponents.liveRow("EVIDENCE","current",()->m.runtimeC()==1?"YES":"NO"),
                     RseLdUiComponents.liveRow("EVIDENCE","initialized / first edge",()->m.runtimeA()+ " / "+m.runtimeB())
             );
@@ -114,18 +119,35 @@ public final class QuartzTimingLdUi {
             case QuartzTimingMenu.KIND_DIVIDER -> p.addChildren(
                     RseLdUiComponents.liveRow("MEASURED", "counted rising edges", () -> Integer.toString(m.runtimeA())),
                     RseLdUiComponents.liveRow("EVIDENCE", "divider initialized", () -> m.runtimeB()==1?"YES":"NO"),
-                    RseLdUiComponents.liveRow("MODEL", "ideal bounded period", () -> expectedDividerPeriod(m)+" ticks"),
-                    RseLdUiComponents.liveRow("LIMIT", "4096 tick saturation", () -> dividerSaturated(m)?"SATURATED":"IN RANGE"));
+                    RseLdUiComponents.liveRow("MODEL", "ideal bounded period", () -> m.primary()>0
+                            ? expectedDividerPeriod(m)+" ticks" : "NOT READY • source period absent"),
+                    RseLdUiComponents.liveRow("LIMIT", "4096 tick saturation", () -> m.primary()<=0
+                            ? "NOT READY" : dividerSaturated(m)?"SATURATED":"IN RANGE"));
             case QuartzTimingMenu.KIND_STABILITY -> p.addChildren(
                     RseLdUiComponents.liveRow("EVIDENCE", "measurement initialized", () -> m.runtimeA()==1?"YES":"NO"),
                     RseLdUiComponents.liveRow("EVIDENCE", "reference edge seen", () -> m.runtimeB()==1?"YES":"NO"),
                     RseLdUiComponents.liveRow("EVIDENCE", "current measurement", () -> m.runtimeC()==1?"YES":"NO"),
-                    RseLdUiComponents.liveRow("MEASURED", "T_meas / T_upstream", () -> m.primary()+" / "+m.tertiary()+" ticks"),
-                    RseLdUiComponents.liveRow("DERIVED", "absolute period error", () -> m.secondary()+" ticks"));
+                    RseLdUiComponents.liveRow("MEASURED", "T_meas / T_upstream", () ->
+                            measurementPeriod(m)+" / "+(m.tertiary()>0?m.tertiary()+" ticks":"NOT READY")),
+                    RseLdUiComponents.liveRow("DERIVED", "absolute period error", () -> measurementError(m)));
             default -> p.addChild(RseLdUiComponents.fixedRow("timing",()->"UNKNOWN",
                     "No runtime semantics inferred for an unidentified device"));
         }
         return p;
+    }
+
+    /** A previous measured period is useful history, not proof of a current clock. */
+    private static String measurementPeriod(QuartzTimingMenu m) {
+        if (m.runtimeC()==1 && m.primary()>0) return m.primary()+" ticks • CURRENT";
+        return m.primary()>0 ? m.primary()+" ticks • STALE" : "NOT READY • two rising edges required";
+    }
+
+    private static String measurementError(QuartzTimingMenu m) {
+        if (m.runtimeC()==1 && m.primary()>0 && m.tertiary()>0)
+            return m.secondary()+" ticks • CURRENT";
+        if (m.primary()>0 && m.tertiary()>0)
+            return m.secondary()+" ticks • STALE";
+        return "NOT READY • period or reference missing";
     }
 
     private static String deviceName(QuartzTimingMenu m){return switch(m.kind()){case QuartzTimingMenu.KIND_DIVIDER->"QUARTZ CLOCK DIVIDER";case QuartzTimingMenu.KIND_STABILITY->"QUARTZ STABILITY MONITOR";default->"QUARTZ OSCILLATOR";};}
