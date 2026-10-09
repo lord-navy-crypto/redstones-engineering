@@ -1016,6 +1016,14 @@ new_evidence_guards = {
                         "menu.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID"),
     "LapisLowPass": ("predictionReady(m)", "m.runtimePresent()",
                      "NOT READY • no retained state", "NOT READY • valid RX and initialized filter required"),
+    "EnhancedFieldDevice": ("qualifiedRawMetric(m", "m.evidenceQualityKnown()",
+                            "PORT QUALITY NOT REPORTED", "NOT READY • raw=",
+                            "CONFIG / TOPOLOGY • PORT QUALITY NOT REPORTED"),
+    "WorkcellController": ("m.inspectionReady()", "NOT READY • awaiting server workcell inspection",
+                           "NOT READY • no inspected decision", "NOT READY • input buffer/capacity evidence missing",
+                           "UNVERIFIED • no fault assessment"),
+    "ReliabilitySystem": ("primaryReadout(m)", "secondaryReadout(m)", "tertiaryReadout(m)",
+                          "evidenceInterpretation(m)", "raw/retained != current measured value"),
 }
 for family, evidence_tokens in new_evidence_guards.items():
     ui_code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
@@ -1029,6 +1037,16 @@ for family, menu_token in (
     menu_code = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
     if menu_token not in menu_code:
         errors.append(f"{family}: server-side evidence provenance not synchronized")
+
+field_device_server = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
+if 'return index >= 0 && index < values.length ? values[index] : PortQuality.NOT_READY;' not in field_device_server:
+    errors.append("Field Device invalid/unknown quality sentinel must not decode to VALID")
+if 'public boolean evidenceQualityKnown()' not in field_device_server:
+    errors.append("Field Device must differentiate absent quality from a measured port quality")
+workcell_server = read("src/main/java/dev/redstoneengineering/ui/menu/WorkcellControllerMenu.java")
+for token in ("inspectionReady.set(0)", "inspectionReady.set(1)", "public boolean inspectionReady()"):
+    if token not in workcell_server:
+        errors.append(f"Workcell Controller must synchronize authoritative inspection readiness: {token!r}")
 
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
