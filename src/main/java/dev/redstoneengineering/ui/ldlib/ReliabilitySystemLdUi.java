@@ -98,12 +98,13 @@ public final class ReliabilitySystemLdUi {
         p.addChildren(
                 RseLdUiComponents.liveRow("STATE", "quality", () -> m.quality().name()),
                 RseLdUiComponents.liveRow("STATE", "headline", () -> stateName(m)),
-                RseLdUiComponents.liveRow("MEASURED", primarySymbol(m.kind()), () -> Integer.toString(m.primary())),
-                RseLdUiComponents.liveRow("MEASURED", secondarySymbol(m.kind()), () -> Integer.toString(m.secondary())),
-                RseLdUiComponents.liveRow("DERIVED", tertiarySymbol(m.kind()), () -> Integer.toString(m.tertiary())),
+                RseLdUiComponents.liveRow("MEASURED", primarySymbol(m.kind()), () -> primaryReadout(m)),
+                RseLdUiComponents.liveRow("MEASURED", secondarySymbol(m.kind()), () -> secondaryReadout(m)),
+                RseLdUiComponents.liveRow("DERIVED", tertiarySymbol(m.kind()), () -> tertiaryReadout(m)),
                 RseLdUiComponents.liveRow("EVIDENCE", auxiliarySymbol(m.kind()), () -> Integer.toString(m.auxiliary())),
                 RseLdUiComponents.liveRow("EVIDENCE", "extra", () ->
                         m.extraA() + " / " + m.extraB() + " / " + m.extraC()),
+                RseLdUiComponents.liveRow("PROVENANCE", "measurement", () -> evidenceInterpretation(m)),
                 new Label().setText("Numerical zero and missing/invalid evidence remain distinct; safe-state logic is never inferred from UI presentation alone.")
         );
         return p;
@@ -147,7 +148,8 @@ public final class ReliabilitySystemLdUi {
                             "T_fault=" + m.secondary() + " / latched=" + (m.extraA() != 0);
                     default -> "UNSUPPORTED";
                 }),
-                RseLdUiComponents.liveRow("DECISION", "server evidence", () -> stateName(m))
+                RseLdUiComponents.liveRow("DECISION", "server evidence", () -> stateName(m)),
+                RseLdUiComponents.liveRow("EVIDENCE", "interpretation", () -> evidenceInterpretation(m))
         );
         return p;
     }
@@ -189,6 +191,45 @@ public final class ReliabilitySystemLdUi {
                 new Label().setText("Counts and flags are retained server evidence; zero is never treated as proof of sensor presence.")
         );
         return p;
+    }
+
+    /** Retained histories, operator thresholds, and current sensor measurements
+     * have distinct meanings. Do not convert a missing signal to a measured 0. */
+    private static boolean currentEvidenceValid(ReliabilitySystemMenu m) {
+        return m.quality() == PortQuality.VALID
+                && (m.kind() != ReliabilitySystemMenu.KIND_POSITION_SENSOR || m.tertiary() > 0);
+    }
+
+    private static String primaryReadout(ReliabilitySystemMenu m) {
+        if (currentEvidenceValid(m)) return Integer.toString(m.primary());
+        if (m.kind() == ReliabilitySystemMenu.KIND_WATCHDOG)
+            return m.primary() + " ticks • retained age, heartbeat unverified";
+        return "NOT READY • " + m.quality().name() + " (raw=" + m.primary() + ")";
+    }
+
+    private static String secondaryReadout(ReliabilitySystemMenu m) {
+        if (m.kind() == ReliabilitySystemMenu.KIND_WATCHDOG
+                || m.kind() == ReliabilitySystemMenu.KIND_FAULT_LATCH)
+            return m.secondary() + " • configured threshold";
+        if (m.kind() == ReliabilitySystemMenu.KIND_SERVO)
+            return m.secondary() + " • server command";
+        return currentEvidenceValid(m) ? Integer.toString(m.secondary())
+                : "NOT READY • " + m.quality().name() + " (raw=" + m.secondary() + ")";
+    }
+
+    private static String tertiaryReadout(ReliabilitySystemMenu m) {
+        if (m.kind() == ReliabilitySystemMenu.KIND_WATCHDOG
+                || m.kind() == ReliabilitySystemMenu.KIND_FAULT_LATCH
+                || m.kind() == ReliabilitySystemMenu.KIND_POSITION_SENSOR)
+            return m.tertiary() + " • retained count";
+        return currentEvidenceValid(m) ? Integer.toString(m.tertiary())
+                : "NOT READY • " + m.quality().name();
+    }
+
+    private static String evidenceInterpretation(ReliabilitySystemMenu m) {
+        if (!currentEvidenceValid(m))
+            return "NOT READY • raw/retained != current measured value";
+        return "CURRENT QUALITY VALID • retained counters are history, not live signals";
     }
 
     private static boolean adjustable(int kind) {
