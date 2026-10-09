@@ -57,6 +57,12 @@ public final class SignalProcessorLdUi {
     }
 
     private static UIElement control(SignalProcessorMenu menu){
+        if(menu.kind()!=SignalProcessorMenu.KIND_EDGE
+                && menu.kind()!=SignalProcessorMenu.KIND_FILTER
+                && menu.kind()!=SignalProcessorMenu.KIND_PULSE){
+            return RseLdUiComponents.fixedRow("control", () -> "UNAVAILABLE",
+                    "No server-side adjustable parameter exists for this device");
+        }
         if(menu.kind()==SignalProcessorMenu.KIND_EDGE){
             return RseLdUiComponents.serverAction("Cycle edge mode ▶",menu::cycleParameterForward);
         }
@@ -78,12 +84,18 @@ public final class SignalProcessorLdUi {
         if(m.kind()==SignalProcessorMenu.KIND_FILTER){
             p.addChildren(
                     RseLdUiComponents.liveRow("DERIVED","|x-y|",()->Integer.toString(m.runtimeA())),
-                    RseLdUiComponents.liveRow("EVIDENCE","response",()->m.runtimeB()==1?"SETTLED":"SETTLING")
+                    RseLdUiComponents.liveRow("EVIDENCE","response",()->m.runtimeB()==1
+                            ? "ZERO NUMERICAL LAG • input presence unverified"
+                            : "NONZERO LAG • response in progress"),
+                    new Label().setText("Equality x=y is not evidence that a sensor or input source is connected.")
             );
         }else if(m.kind()==SignalProcessorMenu.KIND_EDGE){
             p.addChildren(
                     RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.runtimeA()+"t remaining"),
-                    RseLdUiComponents.liveRow("EVIDENCE","edges",()->m.runtimeB()+" • last age "+(m.runtimeC()<0?"NONE":m.runtimeC()+"t"))
+                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.initialized()?"YES • baseline sampled":"NO • await first sample"),
+                    RseLdUiComponents.liveRow("EVIDENCE","edges",()->m.initialized()
+                            ? m.runtimeB()+" • last age "+(m.runtimeC()<0?"NONE":m.runtimeC()+"t")
+                            : "NOT READY • no input baseline")
             );
         }else{
             p.addChildren(
