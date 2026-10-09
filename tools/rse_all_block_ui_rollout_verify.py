@@ -1060,7 +1060,7 @@ new_evidence_guards = {
     "QuartzTiming": ("m.dividerInputValid()", "upstream clock",
                      "NOT READY • input clock unverified"),
     "IndustrialBuffer": ("m.snapshotPresent()", "NOT READY • buffer snapshot missing",
-                         "No lots in the bounded opening snapshot"),
+                         "NO LOT IDENTITIES IN OPENING SNAPSHOT"),
     "AmethystSystem": ("reliableResonance(m)", "NOT READY • spectrum evidence incomplete",
                        "UNVERIFIED • input evidence"),
     "OpticalSystem": ("opticalBudgetReady(m)", "hasDerivedPair(m.kind())",
