@@ -187,7 +187,7 @@ wave3 = {
     "ReliabilitySystemLdUi.java": (reliability, (
         "PIONEER PATTERN • RELIABILITY / SAFE STATE",
         "reliabilityEquation(m)",
-        "heartbeat seen ∧ age ≥ timeout",
+        "age ≥ timeout",
         "spread ≤ tolerance",
         "fault ≥ threshold",
     )),
@@ -201,7 +201,7 @@ wave3 = {
         "PIONEER PATTERN • METROLOGY / CALIBRATION",
         "x_cal = clamp(x_raw + b_cal, 0, 15)",
         '"b_cal","-2..+2 • direct entry"',
-        "Calibration changes only the displayed engineering reading",
+        "DISPLAY ONLY • calibrated reading does not drive INLINE",
         "client never samples the world",
     )),
     "IndustrialBufferLdUi.java": (buffer, (
