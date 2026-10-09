@@ -24,7 +24,7 @@ public final class CopperCircuitMeterLdUi {
                                         RseLdUiComponents.title("COPPER POWER / LOAD NETWORK"),
                                         RseLdUiComponents.title("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL"),
                                         RseLdUiComponents.formulaCard(()->"I = V / R_eq ; P = V · I"),
-                                        RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
+                                        RseLdUiComponents.liveRow("EVIDENCE","quality",()->qualityLabel(m)),
                                         RseLdUiComponents.liveRow("MEASURED","V",()->measured(m,m.voltage()+" V-eq")),
                                         RseLdUiComponents.liveRow("DERIVED","I",()->measured(m,String.format(java.util.Locale.ROOT,"%.3f I-eq",m.current()))),
                                         RseLdUiComponents.liveRow("DERIVED","P",()->measured(m,String.format(java.util.Locale.ROOT,"%.2f P-eq",m.power())))
@@ -37,16 +37,16 @@ public final class CopperCircuitMeterLdUi {
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.liveRow("DERIVED","P",()->measured(m,String.format(java.util.Locale.ROOT,"%.2f P-eq",m.power()))),
                                         RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
-                                        RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name())
+                                        RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.snapshotReady()?m.commissioningStatus().name():"NOT READY • awaiting server diagnostic")
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.fixedRow("authority",()->"SERVER-SYNCHRONIZED OBSERVER",
                         "server computes V, R_eq, I and P • readout variables: V, Req, I and P • observer-only • meter never drives Copper state"),
                                         RseLdUiComponents.serverAction("Cycle measurement face ▶",m::cycleFaceForward),
-                                        new Label().setText("OBSERVER ONLY • measurements are server-synchronized; this meter never drives the circuit")
+                                        RseLdUiComponents.note("OBSERVER ONLY • measurements are server-synchronized; this meter never drives the circuit")
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("EVIDENCE","measurement quality",()->m.quality().name()),
+                                        RseLdUiComponents.liveRow("EVIDENCE","measurement quality",()->qualityLabel(m)),
                                         new Label().setText("No fabricated history; missing input is NOT a measured zero."),
                                         RseLdUiComponents.authorityFooter()
                                 )
@@ -55,9 +55,13 @@ public final class CopperCircuitMeterLdUi {
         );
         return RseLdUiComponents.responsiveUi(root, player, 620, 440);
     }
+    private static String qualityLabel(CopperCircuitMeterMenu m) {
+        return m.snapshotReady() ? m.quality().name() : "NOT READY • first server snapshot pending";
+    }
+
     /** Electrical quantities have meaning only with a valid server observation. */
     private static String measured(CopperCircuitMeterMenu m, String reading) {
-        return m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+        return m.snapshotReady() && m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
                 ? reading : "NOT READY • "+m.quality().name();
     }
 
