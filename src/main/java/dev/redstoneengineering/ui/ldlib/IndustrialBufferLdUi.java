@@ -49,16 +49,18 @@ public final class IndustrialBufferLdUi {
                 RseLdUiComponents.liveRow("DERIVED", "free", () -> m.snapshotPresent()?m.availableUnits()+" units":"UNAVAILABLE"),
                 RseLdUiComponents.liveRow("DERIVED", "WIP PRESSURE", () -> m.snapshotPresent()?m.wipPressurePercent()+"% • "+fullnessState(m):"NOT READY • buffer snapshot missing"),
                 RseLdUiComponents.liveRow("DERIVED", "WIP signal", () -> m.snapshotPresent()?m.wipSignal()+" / 15":"UNVERIFIED"),
-                new Label().setText("FIXED PORT LAW • SOUTH=15 iff free capacity>0 • NORTH=15 iff free capacity=0")
+                RseLdUiComponents.note("FIXED PORT LAW • SOUTH=15 iff free capacity>0 • NORTH=15 iff free capacity=0")
         );
     }
 
     private static UIElement rolesPanel(IndustrialBufferMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("WORKCELL ROLES"),
-                RseLdUiComponents.liveRow("INPUT TO", "workcells", () -> Integer.toString(m.inputConsumerWorkcells())),
-                RseLdUiComponents.liveRow("OUTPUT FROM", "workcells", () -> Integer.toString(m.outputProducerWorkcells())),
-                new Label().setText("OUTPUT / JOB / LOT IDENTITY never enters BlockState or analog Redstone.")
+                RseLdUiComponents.liveRow("INPUT TO", "workcells", () -> m.snapshotPresent()
+                         ? Integer.toString(m.inputConsumerWorkcells()) : "NOT READY • buffer snapshot unavailable"),
+                RseLdUiComponents.liveRow("OUTPUT FROM", "workcells", () -> m.snapshotPresent()
+                         ? Integer.toString(m.outputProducerWorkcells()) : "NOT READY • buffer snapshot unavailable"),
+                RseLdUiComponents.note("OUTPUT / JOB / LOT IDENTITY never enters BlockState or analog Redstone.")
         );
     }
 
@@ -66,24 +68,28 @@ public final class IndustrialBufferLdUi {
         var panel = new UIElement().addClass("panel_bg");
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         panel.addChildren(
-                new Label().setText("LOT IDENTITY • exact bounded server snapshot"),
+                RseLdUiComponents.note("LOT IDENTITY • IMMUTABLE OPENING SNAPSHOT • output/job IDs are 64-bit and are not refreshed by 16-bit DataSlots"),
                 new Label().setText("OUTPUT        JOB          UNITS"),
-                RseLdUiComponents.liveRow("LOTS", "count", () -> m.snapshotPresent()?Integer.toString(m.totalLotCount()):"UNAVAILABLE")
+                RseLdUiComponents.liveRow("LOTS", "live count", () -> m.snapshotPresent()
+                        ? Integer.toString(m.totalLotCount()) : "NOT READY • live buffer evidence unavailable"),
+                RseLdUiComponents.fixedRow("opening count", m::openingLotCount,
+                        "identity list is frozen at menu open; reopen for new lot IDs")
         );
         if (m.visibleLots().isEmpty()) {
-            panel.addChild(new Label().setText("No lots in the bounded opening snapshot; if buffer evidence is missing, this is NOT proof of emptiness."));
+            panel.addChild(RseLdUiComponents.note("NO LOT IDENTITIES IN OPENING SNAPSHOT • this is NOT proof of an empty live buffer."));
         } else {
             int shown = 0;
             for (IndustrialBufferMenu.LotView lot : m.visibleLots()) {
                 if (shown++ >= 6) break;
-                panel.addChild(new Label().setText(
+                panel.addChild(RseLdUiComponents.note(
                         Long.toUnsignedString(lot.outputId()) + "   "
                                 + Long.toUnsignedString(lot.jobId()) + "   "
                                 + lot.units()));
             }
-            if (m.totalLotCount() > shown) {
-                int hidden = m.totalLotCount() - shown;
-                panel.addChild(new Label().setText("+ " + hidden + " more lot(s) • reopen to refresh identity window"));
+            if (m.openingLotCount() > shown) {
+                int hidden = m.openingLotCount() - shown;
+                panel.addChild(RseLdUiComponents.note("+ " + hidden
+                        + " more lot(s) in the OPENING snapshot • reopen to refresh identity window"));
             }
         }
         return panel;
@@ -92,9 +98,9 @@ public final class IndustrialBufferLdUi {
     private static UIElement persistencePanel() {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PERSISTED WIP"),
-                new Label().setText("Non-empty block removal does not silently erase logical WIP."),
-                new Label().setText("Replacing the buffer at the same position reattaches its deterministic identity."),
-                new Label().setText("Corrupt persisted lot evidence fails closed instead of loading as an empty buffer."),
+                RseLdUiComponents.note("Non-empty block removal does not silently erase logical WIP."),
+                RseLdUiComponents.note("Replacing the buffer at the same position reattaches its deterministic identity."),
+                RseLdUiComponents.note("Corrupt persisted lot evidence fails closed instead of loading as an empty buffer."),
                 new Label().setText("Downstream queue WAIT leaves the persisted lot untouched.")
         );
     }
