@@ -360,7 +360,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
 
 require("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
         "{20,40,80,160} ticks", "{0,1,2,4} spread", "{1,4,8,12} redstone",
-        "direct entry")
+        "DIRECT ENTRY", "NO EDITABLE PARAMETER")
 require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
         "BUTTON_PARAMETER_DIRECT_BASE = 10000", "value == 160 ? 3",
         "RedundantVoterBlock.TOLERANCE", "FaultLatchBlock.THRESHOLD",
