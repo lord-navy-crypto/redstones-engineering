@@ -50,15 +50,9 @@ public final class LogicAnalyzerLdUi {
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(510).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(capture, configure, channels, network, authority);
 
-        var tabs = new UIElement().addClass("panel_bg");
-        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
-        tabs.addChildren(
-                tabButton("Capture", workspace, capture, capture, configure, channels, network, authority),
-                tabButton("Configure", workspace, configure, capture, configure, channels, network, authority),
-                tabButton("Channels", workspace, channels, capture, configure, channels, network, authority),
-                tabButton("Network", workspace, network, capture, configure, channels, network, authority),
-                tabButton("Authority", workspace, authority, capture, configure, channels, network, authority)
-        );
+        var tabs = RseLdUiComponents.standaloneTabs(workspace,
+                new String[]{"Capture", "Configure", "Channels", "Network", "Authority"},
+                new UIElement[]{capture, configure, channels, network, authority});
 
         root.addChildren(
                 RseLdUiComponents.title("FOUR-CHANNEL LOGIC ANALYZER"),
@@ -71,14 +65,6 @@ public final class LogicAnalyzerLdUi {
 
     private static UIElement page(UIElement... children) {
         return new UIElement().layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10)).addChildren(children);
-    }
-
-    private static Button tabButton(String label, ScrollerView workspace, UIElement selected, UIElement... pages) {
-        return new Button().setText(label).setOnClick(event -> {
-            for (UIElement page : pages) page.setDisplay(page == selected);
-            workspace.horizontalScroller.setNormalizedValue(0);
-            workspace.verticalScroller.setNormalizedValue(0);
-        });
     }
 
     private static UIElement timingPanel(LogicAnalyzerMenu m){
