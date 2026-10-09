@@ -216,6 +216,19 @@ for token in (
     if token not in quartz_ld:
         errors.append(f"LDLib2 Quartz rollout missing {token!r}")
 
+# Distinguish zero measured period, stale measurement and unknown source period.
+for token in (
+    "measurementPeriod(m)",
+    "measurementError(m)",
+    "NOT READY • no valid input period",
+    "NOT READY • output clock unverified",
+    "NOT READY • missing source period",
+    "ticks • STALE",
+    "two rising edges required",
+):
+    if token not in quartz_ld:
+        errors.append(f"Quartz timing validity/freshness contract missing {token!r}")
+
 radio_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
 for token in ("PIONEER PATTERN • RADIO LINK BUDGET", "M_decode = Q_link - Q_min", "availability = 100 · validSamples / samples", "DataBindingBuilder.string"):
     if token not in radio_ld:
