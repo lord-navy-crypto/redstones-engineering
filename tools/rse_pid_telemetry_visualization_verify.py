@@ -72,6 +72,30 @@ screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.
 for token in ("authoritative samples", "2t/sample", "PidTrendPlotElement"):
     if screen and token not in screen:
         errors.append(f"PidControllerLdUi missing synchronized trend contract {token!r}")
+# Readback cannot present unset AUTO terms as a solved zero, or missing
+# commissioning inputs as valid live PV/SP. Historic plots remain distinct.
+for token in (
+    "runtimeTermsAvailable.set(terms.available() ? 1 : 0)",
+    "public boolean runtimeTermsAvailable()",
+):
+    if token not in menu:
+        errors.append(f"PidControllerMenu missing term provenance {token!r}")
+for token in (
+    "autoTermState(m)",
+    "m.runtimeTermsAvailable()",
+    "m.available()?m.setpoint()",
+    "m.available()?Integer.toString(m.error())",
+    "NOT READY • no AUTO solve",
+    "RETAINED LAST AUTO SOLVE",
+    "History samples remain retained after live inputs disappear",
+):
+    if token not in screen:
+        errors.append(f"PidControllerLdUi missing live-versus-retained evidence guard {token!r}")
+if "terms.available()" not in block:
+    # Availability is returned by the RuntimeTerms record; the menu owns the readback.
+    if "boolean available," not in block:
+        errors.append("PID runtime terms no longer expose availability")
+
 for body_name, body in (("PidTrendPlotElement", plot), ("PidControllerLdUi", screen)):
     for forbidden in ("RuntimeIntStore", "PidTelemetryStore", "getBlockState(", "scheduleTick(", "setBlock("):
         if body and forbidden in body:
