@@ -28,7 +28,7 @@ public final class SignalAnalyzerLdUi {
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref"),
+                                        RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref needs per-sample calibrated history (trial evidence)"),
                                         measurementPanel(m),
                                         new SignalAnalyzerPlotElement(m)
                                 ),
@@ -41,6 +41,7 @@ public final class SignalAnalyzerLdUi {
                                         trialPanel(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
+                                        historyEvidencePanel(m),
                                         RseLdUiComponents.authorityFooter()
                                 )
                         }
@@ -57,12 +58,14 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("MODEL","boundary",()->m.mode()==SignalAnalyzerBlock.TAP
                         ? "TAP • NON-INVASIVE • no output drive"
                         : "INLINE • explicit two-port boundary"),
-                RseLdUiComponents.liveRow("MEASURED","x_raw",()->m.raw()+" / 15"),
-                RseLdUiComponents.liveRow("DERIVED","x_cal",()->m.calibrated()+" / 15"),
+                RseLdUiComponents.liveRow("MEASURED","x_raw",()->m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                        ? m.raw()+" / 15" : "NO SIGNAL • measurement unverified"),
+                RseLdUiComponents.liveRow("DERIVED","x_cal",()->m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                        ? m.calibrated()+" / 15" : "NOT READY • valid raw input required"),
+                RseLdUiComponents.liveRow("MODEL","b_cal / x_ref",()->signed(m.calibrationOffset())+" / "+m.reference()),
                 RseLdUiComponents.liveRow("OUTPUT","inline",()->m.output()+" / 15 • raw pass-through semantics"),
                 RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.measurementQuality().name()+" • coverage="+m.coveragePercent()+"%"),
-                new Label().setText("Calibration is DISPLAY ONLY • INLINE output remains RAW."),
-                new Label().setText("Calibration changes only the displayed engineering reading; INLINE output remains RAW."),
+                new Label().setText("Calibration affects the displayed reading only; INLINE output is uncalibrated RAW."),
                 new Label().setText("Rolling statistics are synchronized server evidence; the client never samples the world."),
                 new Label().setText("μ=rounded mean • min/max guides bound the synchronized rolling window.")
         );
@@ -105,6 +108,31 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.fixedRow("calibration",()->"PER-SAMPLE CLAMP",
                         "A calibrated window residual cannot be recovered exactly from the raw mean alone"),
                 new Label().setText("Rolling statistics are synchronized server evidence; numeric zero remains distinct from missing evidence.")
+        );
+        return p;
+    }
+
+    private static UIElement historyEvidencePanel(SignalAnalyzerMenu m){
+        var p=new UIElement().addClass("panel_bg");
+        p.layout(l->l.paddingAll(5).gapAll(3));
+        p.addChildren(
+                new Label().setText("SERVER RETAINED HISTORY • NO CLIENT SAMPLING"),
+                RseLdUiComponents.liveRow("EVIDENCE","current quality",()->m.measurementQuality().name()),
+                RseLdUiComponents.liveRow("HISTORY","recorded samples",()->Integer.toString(m.totalSamples())),
+                RseLdUiComponents.liveRow("WINDOW","valid / total",()->m.validWindowCount()+"/"+m.windowCount()
+                        +" • "+m.coveragePercent()+"%"),
+                RseLdUiComponents.liveRow("FRESHNESS","last captured sample",()->m.sampleAgeTicks()<0
+                        ? "NOT CAPTURED" : m.sampleAgeTicks()+" game ticks ago"),
+                RseLdUiComponents.liveRow("WINDOW","readiness",()->completeValidWindow(m)
+                        ? "COMPLETE AND CURRENT" : "INCOMPLETE / UNVERIFIED"),
+                RseLdUiComponents.liveRow("EVENTS","mode / calibration / reference switches",()->
+                        m.modeSwitches()+" / "+m.calibrationSwitches()+" / "+m.referenceSwitches()),
+                RseLdUiComponents.liveRow("EDGES","rising / falling",()->m.rising()+" / "+m.falling()),
+                RseLdUiComponents.liveRow("TRIAL","baseline / candidate",()->(m.trialBaselineSequence()>0
+                        ? "#"+m.trialBaselineSequence() : "NONE")+" / "+(m.trialCandidateSequence()>0
+                        ? "#"+m.trialCandidateSequence() : "NONE")),
+                new Label().setText("History statistics are raw; clipping-aware calibrated residuals require a qualified server trial."),
+                new Label().setText("An empty or partially invalid rolling window is not evidence of a stable zero.")
         );
         return p;
     }
