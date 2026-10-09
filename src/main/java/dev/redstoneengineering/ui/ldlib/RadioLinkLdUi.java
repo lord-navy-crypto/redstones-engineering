@@ -24,15 +24,21 @@ public final class RadioLinkLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         new Label().setText("PIONEER PATTERN • RADIO LINK BUDGET"),
-                                        RseLdUiComponents.formulaCard(()->"M_decode = Q_link - Q_min; decode ⇔ coverage ∧ one driver ∧ M_decode ≥ 0; availability = 100 · validSamples / samples")
+                                        RseLdUiComponents.formulaCard(()->"M_decode = Q_link - Q_min; decode ⇔ coverage ∧ one driver ∧ M_decode ≥ 0; availability = 100 · validSamples / samples"),
+                                         RseLdUiComponents.liveRow("EVIDENCE","snapshot",()->m.snapshotReady()
+                                                 ? "SYNCED • radio source/reception inspected"
+                                                 : "NOT READY • awaiting radio inspection"),
+                                         RseLdUiComponents.note("Current reception evidence and retained receiver-tick counters are separate; a fresh reception does not invent historical samples.")
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         channelControl(m),
-                                        RseLdUiComponents.liveRow("MEASURED","payload",()->m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                        RseLdUiComponents.liveRow("MEASURED","payload",()->m.snapshotReady()
+                                                 && m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
                                                 ? Integer.toString(m.payload()) : "NOT READY • "+m.quality().name())
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
+                                        RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.snapshotReady()
+                                                 ? m.quality().name() : "NOT READY • awaiting radio quality"),
                                         receiverEvidence(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
@@ -47,9 +53,10 @@ public final class RadioLinkLdUi {
     private static UIElement channelControl(RadioLinkMenu m){
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(4));
         var f=new TextField().setNumbersOnlyInt(0,3); f.layout(l->l.width(100));
-        f.bind(DataBindingBuilder.string(()->Integer.toString(m.channel()),v->{try{m.setChannelFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}).build());
+        f.bind(DataBindingBuilder.string(()->m.snapshotReady()?Integer.toString(m.channel()):"",v->{try{m.setChannelFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}).build());
         p.addChildren(
-                RseLdUiComponents.liveRow("ADJUSTABLE","CH",()->m.channel()+" • 0..3"),
+                RseLdUiComponents.liveRow("ADJUSTABLE","CH",()->m.snapshotReady()
+                                                 ? m.channel()+" • 0..3" : "NOT READY • channel awaiting server"),
                 f
         );
         if(m.kind()==RadioLinkMenu.KIND_RECEIVER) p.addChild(RseLdUiComponents.serverAction("Cycle output direction ▶",m::cycleOutputForward));
@@ -60,26 +67,33 @@ public final class RadioLinkLdUi {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         if(m.kind()==RadioLinkMenu.KIND_TRANSMITTER){
             p.addChildren(
-                    RseLdUiComponents.liveRow("TX","drivers",()->Integer.toString(m.drivers())),
+                    RseLdUiComponents.liveRow("TX","drivers",()->m.snapshotReady()
+                                                 ? Integer.toString(m.drivers()) : "NOT READY • no server TX inspection"),
                     RseLdUiComponents.fixedRow("range",()->RadioLinkMenu.RANGE_BLOCKS+" blocks","radio kernel limit")
             );
         }else{
             p.addChildren(
-                    RseLdUiComponents.liveRow("RX","output",()->m.output()+" / 15"),
-                    RseLdUiComponents.liveRow("LINK","quality",()->m.samples()>0
-                            ? m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
-                                    ? m.linkQuality()+" • margin="+m.decodeMargin()
-                                    : "UNVERIFIED • "+m.quality().name()+" • margin evidence="+m.decodeMargin()
-                            : "NOT READY • no receiver observations"),
-                    RseLdUiComponents.liveRow("LINK","distance",()->m.samples()>0 && m.coverageComplete()
+                    RseLdUiComponents.liveRow("RX","output",()->m.snapshotReady()
+                                                 && m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                                 ? m.output()+" / 15" : "UNVERIFIED • decode not proven"),
+                    RseLdUiComponents.liveRow("LINK","quality",()->!m.snapshotReady()
+                            ? "NOT READY • awaiting current reception"
+                            : m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                    ? m.linkQuality()+" • margin="+m.decodeMargin()+" • CURRENT"
+                                    : "UNVERIFIED • "+m.quality().name()+" • margin="+m.decodeMargin()),
+                    RseLdUiComponents.liveRow("LINK","distance",()->m.snapshotReady() && m.coverageComplete()
                             && m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
                             ? m.distanceBlocks()+" blocks • latency="+m.latency()+"t"
                             : "UNVERIFIED • source path not established"),
-                    RseLdUiComponents.liveRow("INTERFERENCE","environment",()->"aggressors="+m.adjacentAggressors()+" • obstacles="+m.obstacleHits()+" • noise="+m.noise()+"%"),
-                    RseLdUiComponents.liveRow("HISTORY","availability",()->m.samples()>0
+                    RseLdUiComponents.liveRow("INTERFERENCE","environment",()->m.snapshotReady()
+                            ? "aggressors="+m.adjacentAggressors()+" • obstacles="+m.obstacleHits()+" • noise="+m.noise()+"%"
+                            : "NOT READY • current environment unsynchronized"),
+                    RseLdUiComponents.liveRow("HISTORY","availability",()->m.snapshotReady() && m.samples()>0
                             ? m.availabilityPercent()+"% • valid="+m.validSamples()+"/"+m.samples()
                             : "NOT READY • no receiver observations"),
-                    RseLdUiComponents.liveRow("HISTORY","faults",()->"collision="+m.collisions()+" • dropout="+m.dropouts()+" • handoff="+m.handoffs())
+                    RseLdUiComponents.liveRow("HISTORY","faults",()->m.snapshotReady() && m.samples()>0
+                            ? "collision="+m.collisions()+" • dropout="+m.dropouts()+" • handoff="+m.handoffs()
+                            : "NOT READY • no retained receiver observations")
             );
         }
         p.addChildren(
@@ -94,8 +108,10 @@ public final class RadioLinkLdUi {
     }
 
     private static String diagnosis(RadioLinkMenu m){
+        if(!m.snapshotReady()) return "NOT READY • AWAITING SERVER RADIO SNAPSHOT";
         if(m.kind()==RadioLinkMenu.KIND_TRANSMITTER) return m.quality().name();
-        if(m.samples()<=0) return "NOT READY • NO RECEIVER OBSERVATIONS";
+        // Diagnose the current server reception independently of the
+        // retained receiver-tick counters; empty history is not a lost frame.
         if(m.collision()) return "SAME-CHANNEL COLLISION";
         if(!m.coverageComplete()) return "STALE / INCOMPLETE COVERAGE";
         if(m.quality()==dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL)
