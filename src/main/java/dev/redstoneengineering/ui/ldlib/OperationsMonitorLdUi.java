@@ -55,17 +55,21 @@ public final class OperationsMonitorLdUi {
                 new Label().setText("PIONEER PATTERN • PLANT STATE / KPI AUTHORITY"),
                 RseLdUiComponents.formulaCard(() ->
                         "QUEUE = max(valid horizontal QUEUE/WIP sources); KPIs advance only when RUN + QUEUE are trustworthy"),
+                RseLdUiComponents.liveRow("EVIDENCE", "server snapshot", () ->
+                        m.snapshotReady() ? "SYNCED" : "NOT READY • waiting for server telemetry"),
                 RseLdUiComponents.liveRow("STATE", "operations", () ->
-                        m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
+                        m.snapshotReady() && m.snapshotReady() && m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
                 RseLdUiComponents.liveRow("EVIDENCE", "coverage", () ->
-                        evidenceConfidencePercent(m) + "% • " + evidenceCoverageText(m)),
-                RseLdUiComponents.liveRow("MEASURED", "queue", () -> m.queueEvidenceSources()>0 ? m.queue() + "/15" : "UNAVAILABLE • no valid queue evidence"),
-                RseLdUiComponents.liveRow("DERIVED", "queue pressure", () -> m.queueEvidenceSources()>0 ? m.queuePressurePercent() + "%" : "UNAVAILABLE • queue evidence missing"),
+                        m.snapshotReady() ? evidenceConfidencePercent(m) + "% • " + evidenceCoverageText(m)
+                                : "NOT READY • uninitialized evidence coverage"),
+                RseLdUiComponents.liveRow("MEASURED", "queue", () -> m.snapshotReady() && m.queueEvidenceSources()>0 ? m.queue() + "/15" : "UNAVAILABLE • no valid queue evidence"),
+                RseLdUiComponents.liveRow("DERIVED", "queue pressure", () -> m.snapshotReady() && m.queueEvidenceSources()>0 ? m.queuePressurePercent() + "%" : "UNAVAILABLE • queue evidence missing"),
                 RseLdUiComponents.fixedRow("KPI window", () -> "1200 ticks / 60 s", "server-owned throughput window"),
-                RseLdUiComponents.liveRow("MEASURED", "throughput", () -> m.telemetryReady() && m.cycleEvidenceValid() ? m.throughput() + " cycles/min last60s" : "NOT READY • RUN / QUEUE / CYCLE evidence incomplete"),
-                RseLdUiComponents.liveRow("MEASURED", "downtime", () -> formatTicks(m.downtimeTicks())),
+                RseLdUiComponents.liveRow("MEASURED", "throughput", () -> m.snapshotReady() && m.telemetryReady() && m.cycleEvidenceValid() ? m.throughput() + " cycles/min last60s" : "NOT READY • RUN / QUEUE / CYCLE evidence incomplete"),
+                RseLdUiComponents.liveRow("MEASURED", "downtime", () ->
+                        m.snapshotReady() ? formatTicks(m.downtimeTicks()) : "NOT READY • no server history"),
                 RseLdUiComponents.liveRow("DERIVED", "state", () -> m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
-                RseLdUiComponents.liveRow("DERIVED", "dominant constraint", () -> m.telemetryReady() ? m.dominantConstraint().name() : "UNVERIFIED • input evidence missing"),
+                RseLdUiComponents.liveRow("DERIVED", "dominant constraint", () -> m.snapshotReady() && m.telemetryReady() ? m.dominantConstraint().name() : "UNVERIFIED • input evidence missing"),
                 new Label().setText("FIXED STATE BANDS • queue≥13 OVERLOADED • queue≥9 CONGESTED • stopped+queued 600t ⇒ FAILED")
         );
     }
@@ -73,18 +77,27 @@ public final class OperationsMonitorLdUi {
     private static UIElement plantPanel(OperationsMonitorMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("WORLD PLANT STATE"),
-                RseLdUiComponents.liveRow("EVIDENCE COVERAGE", "world", () -> m.worldPlantCoverage().name()),
+                RseLdUiComponents.liveRow("EVIDENCE COVERAGE", "world", () ->
+                        m.snapshotReady() ? m.worldPlantCoverage().name() : "NOT READY • world snapshot pending"),
                 RseLdUiComponents.liveRow("CONFIGURATION", "Workcells configured", () ->
-                        m.worldPlantConfiguredWorkcells() + "/" + m.worldPlantWorkcells()
-                                + " • " + configurationPercent(m) + "%"),
+                        m.snapshotReady()
+                                ? m.worldPlantConfiguredWorkcells() + "/" + m.worldPlantWorkcells()
+                                        + " • " + (m.worldPlantWorkcells()>0 ? configurationPercent(m)+"%" : "NO WORKCELLS")
+                                : "NOT READY • world plant not inspected"),
                 RseLdUiComponents.liveRow("WIP PRESSURE", "Buffers / WIP", () ->
-                        m.worldPlantBuffers() + " buffers • "
-                                + m.worldPlantUsedBufferUnits() + "/" + m.worldPlantBufferCapacityUnits()
-                                + " units • " + m.worldPlantWipPressurePercent() + "%"),
+                        m.snapshotReady()
+                                ? (m.worldPlantBufferCapacityUnits()>0
+                                    ? m.worldPlantBuffers()+" buffers • "+m.worldPlantUsedBufferUnits()+"/"
+                                            +m.worldPlantBufferCapacityUnits()+" units • "
+                                            +m.worldPlantWipPressurePercent()+"%"
+                                    : m.worldPlantBuffers()+" buffers • NO CAPACITY EVIDENCE")
+                                : "NOT READY • world plant not inspected"),
                 RseLdUiComponents.liveRow("RESOURCE HEALTH", "Bound resources", () ->
-                        m.worldPlantValidResources() + "/" + m.worldPlantBoundResources()
-                                + " valid • faults " + m.worldPlantFaultResources()
-                                + " • " + resourceHealthPercent(m) + "%"),
+                        m.snapshotReady()
+                                ? m.worldPlantValidResources()+"/"+m.worldPlantBoundResources()
+                                        +" valid • faults "+m.worldPlantFaultResources()
+                                        +" • "+(m.worldPlantBoundResources()>0 ? resourceHealthPercent(m)+"%" : "NO BOUND RESOURCES")
+                                : "NOT READY • world plant not inspected"),
                 new Label().setText("WORLD PLANT STATE • PLANT KPIs • INCOMPLETE"),
                 new Label().setText("Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING"),
                 new Label().setText("FPY / reject / rework — / — / —"),
@@ -98,11 +111,12 @@ public final class OperationsMonitorLdUi {
                 RseLdUiComponents.liveRow("DIAGNOSIS", "system", () -> systemDiagnosis(m)),
                 RseLdUiComponents.liveRow("STATE", "System state", () -> m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
                 RseLdUiComponents.liveRow("INCIDENT", "Latest incident", () ->
-                        m.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE"),
+                        !m.snapshotReady() ? "NOT READY • awaiting server incident ledger"
+                                : m.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE"),
                 RseLdUiComponents.liveRow("INCIDENT", "First-out source", () ->
-                        m.incidentPresent() ? firstOutLocation(m) : "—"),
+                        m.snapshotReady() && m.incidentPresent() ? firstOutLocation(m) : "—"),
                 RseLdUiComponents.liveRow("INCIDENT", "Incident span", () ->
-                        m.incidentPresent() ? formatTicks(m.incidentDurationTicks()) : "—"),
+                        m.snapshotReady() && m.incidentPresent() ? formatTicks(m.incidentDurationTicks()) : "—"),
                 RseLdUiComponents.liveRow("INCIDENT", "Follow-up evidence", () ->
                         m.incidentPresent()
                                 ? m.downstreamObservations() + " downstream • "
@@ -119,7 +133,9 @@ public final class OperationsMonitorLdUi {
         panel.addChildren(
                 new Label().setText("PLANT EVENT TIMELINE • 8-EVENT TAIL"),
                 RseLdUiComponents.liveRow("EVENTS", "recent/retained", () ->
-                        m.recentEvents() + "/" + m.retainedEvents() + " • abnormal " + m.recentAbnormalEvents()),
+                        m.snapshotReady() ? m.recentEvents() + "/" + m.retainedEvents()
+                                + " • abnormal " + m.recentAbnormalEvents()
+                                : "NOT READY • no server event ledger"),
                 RseLdUiComponents.liveRow("FIRST OUT", "event", () -> firstOutText(m))
         );
         for (int slot = 0; slot < OperationsMonitorMenu.EVENT_SLOTS; slot++) {
@@ -200,6 +216,7 @@ public final class OperationsMonitorLdUi {
     }
 
     private static String eventText(OperationsMonitorMenu m, int slot) {
+        if (!m.snapshotReady()) return "NOT READY • server event tail pending";
         int kind = m.eventKindOrdinal(slot);
         if (kind < 0) return "—";
         return shortKind(kind) + " • S" + m.eventSeverity(slot) + " • "
@@ -208,6 +225,7 @@ public final class OperationsMonitorLdUi {
     }
 
     private static String firstOutText(OperationsMonitorMenu m) {
+        if (!m.snapshotReady()) return "NOT READY • server first-out pending";
         if (m.firstOutKindOrdinal() < 0) return "none";
         String visible = m.firstOutSlot() >= 0 ? "visible" : "before tail";
         return shortKind(m.firstOutKindOrdinal()) + " S" + m.firstOutSeverity()
@@ -220,6 +238,7 @@ public final class OperationsMonitorLdUi {
     }
 
     private static String systemDiagnosis(OperationsMonitorMenu m) {
+        if (!m.snapshotReady()) return "NOT READY • WAITING FOR SERVER SNAPSHOT";
         // Known active protection and electrical evidence faults have higher
         // priority than missing RUN/QUEUE witnesses. A disconnected KPI
         // source must never hide a retained active trip from the operator.
@@ -240,6 +259,7 @@ public final class OperationsMonitorLdUi {
     }
 
     private static String nextActionText(OperationsMonitorMenu m) {
+        if (!m.snapshotReady()) return "await synchronized plant and event evidence before diagnosing";
         if (m.electricalActiveTripCount() > 0) return "inspect protection first-out and downstream evidence before reset";
         if (m.copperEvidenceActiveFailedCount() > 0) return "repair Copper topology/domain evidence before using electrical measurements";
         if (m.copperEvidenceActiveDegradedCount() > 0) return "reacquire fresh Copper evidence; do not count degradation as protection downtime";
