@@ -28,7 +28,8 @@ public final class RadioLinkLdUi {
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         channelControl(m),
-                                        RseLdUiComponents.liveRow("MEASURED","payload",()->Integer.toString(m.payload()))
+                                        RseLdUiComponents.liveRow("MEASURED","payload",()->m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                                ? Integer.toString(m.payload()) : "NOT READY • "+m.quality().name())
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
@@ -66,14 +67,17 @@ public final class RadioLinkLdUi {
             p.addChildren(
                     RseLdUiComponents.liveRow("RX","output",()->m.output()+" / 15"),
                     RseLdUiComponents.liveRow("LINK","quality",()->m.samples()>0
-                            ? m.linkQuality()+" • margin="+m.decodeMargin()
+                            ? m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                    ? m.linkQuality()+" • margin="+m.decodeMargin()
+                                    : "UNVERIFIED • "+m.quality().name()+" • margin evidence="+m.decodeMargin()
                             : "NOT READY • no receiver observations"),
                     RseLdUiComponents.liveRow("LINK","distance",()->m.samples()>0 && m.coverageComplete()
+                            && m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
                             ? m.distanceBlocks()+" blocks • latency="+m.latency()+"t"
                             : "UNVERIFIED • source path not established"),
                     RseLdUiComponents.liveRow("INTERFERENCE","environment",()->"aggressors="+m.adjacentAggressors()+" • obstacles="+m.obstacleHits()+" • noise="+m.noise()+"%"),
                     RseLdUiComponents.liveRow("HISTORY","availability",()->m.samples()>0
-                            ? m.availabilityPercent()+"% • samples="+m.samples()
+                            ? m.availabilityPercent()+"% • valid="+m.validSamples()+"/"+m.samples()
                             : "NOT READY • no receiver observations"),
                     RseLdUiComponents.liveRow("HISTORY","faults",()->"collision="+m.collisions()+" • dropout="+m.dropouts()+" • handoff="+m.handoffs())
             );
@@ -83,7 +87,7 @@ public final class RadioLinkLdUi {
                 RseLdUiComponents.liveRow("NEXT","action",()->nextAction(m)),
                 RseLdUiComponents.fixedRow("history",()->"receiver-tick counters",
                         "Counters are receiver-tick evidence; the client does not fabricate packet history."),
-                RseLdUiComponents.fixedRow("payload 0",()->"VALID DATA",
+                RseLdUiComponents.fixedRow("payload 0",()->"VALID ONLY WITH SOURCE EVIDENCE",
                         "Payload 0 is a valid frame when source evidence is VALID.")
         );
         return p;
