@@ -39,6 +39,8 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot queuePressure = trackedInt();
     private final DataSlot dominantConstraint = trackedInt();
     private final DataSlot telemetryReady = trackedInt();
+    /** The initial zero-filled DataSlots are not an inspected plant snapshot. */
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot runEvidenceValid = trackedInt();
     private final DataSlot queueEvidenceSources = trackedInt();
     private final DataSlot cycleEvidenceValid = trackedInt();
@@ -114,6 +116,14 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public OperationsMonitorMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), containerId, inventory, pos,
                 RedstoneEngineering.OPERATIONS_MONITOR.get());
+        snapshotReady.set(0);
+        firstOutKind.set(-1);
+        firstOutSlot.set(-1);
+        for (int i = 0; i < EVENT_SLOTS; i++) {
+            eventKinds[i].set(-1);
+            eventSeverities[i].set(-1);
+            eventAges[i].set(-1);
+        }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(OperationsMonitorLdUi.create(this, inventory.player));
@@ -122,6 +132,7 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState blockState = level.getBlockState(blockPos);
         if (!(blockState.getBlock() instanceof OperationsMonitorBlock)) return;
 
@@ -236,12 +247,14 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
             firstOutSeverity.set(-1);
             firstOutAge.set(-1);
         }
+        snapshotReady.set(1);
     }
 
     private int ageTicks(long eventTick) { return syncTicks(Math.max(0L, level.getGameTime() - eventTick)); }
     private static int syncTicks(long ticks) { return (int) Math.min(MAX_SYNC_AGE_TICKS, Math.max(0L, ticks)); }
     private static int syncOptionalTicks(long ticks) { return ticks < 0 ? -1 : syncTicks(ticks); }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int queue() { return queue.get(); }
     public int throughput() { return throughput.get(); }
     public int lastCycleTicks() { return lastCycleTicks.get(); }
