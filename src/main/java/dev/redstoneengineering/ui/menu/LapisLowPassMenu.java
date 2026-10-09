@@ -43,6 +43,8 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot runtimePresent = trackedInt();
+    /** Configuration can be displayed only after an authoritative device snapshot. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public LapisLowPassMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -56,6 +58,9 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
         // as evidence of a real sampled source during that bootstrap frame.
         inputQuality.set(PortQuality.NOT_READY.ordinal());
         outputQuality.set(PortQuality.NOT_READY.ordinal());
+        snapshotReady.set(0);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(LapisLowPassLdUi.create(this, inventory.player));
@@ -64,6 +69,7 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof LapisLowPassFilterBlock filter)) {
             alphaIndex.set(0);
@@ -107,6 +113,7 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
         double alpha = EngineeringParameterProfile.lapisFilterAlpha(state.getValue(LapisLowPassFilterBlock.ALPHA));
         predictedOutput.set(Math.max(0, Math.min(100,
                 (int) Math.round(previous + alpha * (inputValue.get() - previous)))));
+        snapshotReady.set(1);
     }
 
     @Override
@@ -159,6 +166,7 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
         return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int alphaIndex() { return alphaIndex.get(); }
     public int inputValue() { return inputValue.get(); }
     public int outputValue() { return outputValue.get(); }
