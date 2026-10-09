@@ -24,24 +24,34 @@ public final class RangeSensorLdUi {
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.formulaCard(() -> equation(menu.responseMode())),
-                                        RseLdUiComponents.liveRow("MEASURED","d",()->menu.scanStatusOrdinal()==1 || menu.scanStatusOrdinal()==2
-                                                ? menu.distance()+" blocks" : "NOT READY • incomplete scan"),
-                                        RseLdUiComponents.liveRow("ADJUSTABLE","R",()->menu.configuredRange()+" blocks • {4,8,15}")
+                                        RseLdUiComponents.formulaCard(() -> menu.snapshotReady()
+                                                 ? equation(menu.responseMode()) : "NOT READY • awaiting server response configuration"),
+                                        RseLdUiComponents.liveRow("EVIDENCE","server snapshot",()->menu.snapshotReady()?"SYNCED":"NOT READY • awaiting server data"),
+                                         RseLdUiComponents.liveRow("MEASURED","d",()->distanceReadout(menu)),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE","R",()->menu.snapshotReady()
+                                                 ? menu.configuredRange()+" blocks • {4,8,15}" : "NOT READY • range not synchronized")
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("ADJUSTABLE","detect",()->detect(menu.detectMode())),
-                                        RseLdUiComponents.liveRow("ADJUSTABLE","response",()->response(menu.responseMode())),
-                                        RseLdUiComponents.liveRow("DERIVED","y",()->menu.scanStatusOrdinal()==1 || menu.scanStatusOrdinal()==2
-                                                ? menu.output()+" / 15" : "UNVERIFIED • scan incomplete")
+                                        RseLdUiComponents.liveRow("ADJUSTABLE","detect",()->menu.snapshotReady()?detect(menu.detectMode()):"NOT READY"),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE","response",()->menu.snapshotReady()?response(menu.responseMode()):"NOT READY"),
+                                        RseLdUiComponents.liveRow("DERIVED","y",()->menu.snapshotReady() && menu.evidenceValid()
+                                                 ? menu.output()+" / 15 • verified "+scan(menu.scanStatusOrdinal())
+                                                 : "UNVERIFIED • no complete scan")
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("EVIDENCE","scan",()->scan(menu.scanStatusOrdinal())+" • "+menu.scannedCells()+"/"+menu.configuredRange()),
+                                        RseLdUiComponents.liveRow("EVIDENCE","scan",()->menu.snapshotReady()
+                                                 ? scan(menu.scanStatusOrdinal())+" • "+menu.scannedCells()+"/"+menu.configuredRange()
+                                                 : "NOT READY • awaiting server scan"),
+                                         RseLdUiComponents.liveRow("EVIDENCE","complete",()->menu.snapshotReady()
+                                                 ? (menu.evidenceValid()?"VERIFIED • TARGET or CLEAR":"NOT READY • partial/uninitialized")
+                                                 : "NOT READY • snapshot pending"),
                                         controls(menu),
-                                        RseLdUiComponents.liveRow("I/O","route",()->menu.sensingDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase())
+                                        RseLdUiComponents.liveRow("I/O","route",()->menu.snapshotReady()
+                                                 ? menu.sensingDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()
+                                                 : "NOT READY • route awaiting server")
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        new Label().setText("A complete CLEAR scan with d=0 is valid evidence. The client never infers validity from d>0."),
+                                        RseLdUiComponents.note("A complete CLEAR scan with d=0 is valid evidence of an empty scan; it is not an object detected at distance zero."),
                                         RseLdUiComponents.authorityFooter()
                                 )
                         }
@@ -57,12 +67,24 @@ public final class RangeSensorLdUi {
                 ()->Integer.toString(menu.configuredRange()),
                 v->{ try{ menu.setRangeFromUi(Integer.parseInt(v)); }catch(NumberFormatException ignored){} }
         ).build());
-        return new UIElement().addClass("panel_bg").layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6).paddingAll(5)).addChildren(
+        return new UIElement().addClass("panel_bg").layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6).paddingAll(5)).addChildren(
                 r,
                 RseLdUiComponents.serverAction("Cycle detect ▶",menu::cycleDetectForward),
                 RseLdUiComponents.serverAction("Cycle response ▶",menu::cycleResponseForward),
                 RseLdUiComponents.serverAction("Cycle direction ▶",menu::cycleDirectionForward)
         );
+    }
+
+    private static String distanceReadout(RangeSensorMenu menu) {
+        if (!menu.snapshotReady()) return "NOT READY • awaiting server snapshot";
+        if (!menu.evidenceValid()) return "NOT READY • incomplete or uninitialized scan";
+        return switch (menu.scanStatusOrdinal()) {
+            case 1 -> menu.distance() > 0
+                    ? menu.distance()+" blocks • TARGET"
+                    : "NOT READY • target evidence inconsistent";
+            case 2 -> "CLEAR • no target within "+menu.configuredRange()+" blocks";
+            default -> "NOT READY • status does not confirm a complete scan";
+        };
     }
 
     private static String equation(int mode){
