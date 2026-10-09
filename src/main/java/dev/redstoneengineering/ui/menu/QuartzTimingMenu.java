@@ -52,6 +52,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot quality = trackedInt();
+    private final DataSlot dividerInputValid = trackedInt();
 
     public QuartzTimingMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -88,6 +89,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         inputFacing.set(-1);
         outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
+        dividerInputValid.set(0);
 
         if (block instanceof QuartzOscillatorBlock) {
             kind.set(KIND_OSCILLATOR);
@@ -107,6 +109,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
             DomainNetwork.QuartzSample inputSample = DomainNetwork.sampleQuartz(level, blockPos.relative(in));
             DomainNetwork.QuartzSample result = DomainNetwork.sampleQuartz(level, blockPos.relative(out));
             primary.set(inputSample.periodTicks());
+            dividerInputValid.set(inputSample.valid() ? 1 : 0);
             secondary.set(result.periodTicks());
             tertiary.set(QuartzClockDividerBlock.division(state.getValue(QuartzClockDividerBlock.DIV_INDEX)));
             runtimeA.set(QuartzClockDividerBlock.countedEdges(level, blockPos));
@@ -206,6 +209,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
 
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }
+    public boolean dividerInputValid() { return dividerInputValid.get() != 0; }
     public int secondary() { return secondary.get(); }
     public int tertiary() { return tertiary.get(); }
     public int runtimeA() { return runtimeA.get(); }
