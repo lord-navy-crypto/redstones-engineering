@@ -47,13 +47,13 @@ public final class QuartzTimingLdUi {
             );
         } else if (m.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","T_in",()->m.primary()>0?m.primary()+" ticks":"NOT READY • no valid input period"),
+                    RseLdUiComponents.liveRow("MEASURED","T_in",()->m.dividerInputValid() && m.primary()>0?m.primary()+" ticks":"NOT READY • input clock unverified"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","N",()->Integer.toString(m.tertiary())),
                     RseLdUiComponents.liveRow("DERIVED","T_out",()->m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
                             ? m.secondary()+" ticks":"NOT READY • output clock unverified"),
-                    RseLdUiComponents.liveRow("EVIDENCE","expected",()->m.primary()>0
+                    RseLdUiComponents.liveRow("EVIDENCE","expected",()->m.dividerInputValid() && m.primary()>0
                             ? expectedDividerPeriod(m)+" ticks (model)" : "NOT READY • input period unknown"),
-                    RseLdUiComponents.liveRow("EVIDENCE", "period limit", () -> m.primary()<=0
+                    RseLdUiComponents.liveRow("EVIDENCE", "period limit", () -> !m.dividerInputValid() || m.primary()<=0
                             ? "NOT READY • missing source period"
                             : dividerSaturated(m) ? "SATURATED @4096" : "IN RANGE")
             );
@@ -117,11 +117,12 @@ public final class QuartzTimingLdUi {
                     RseLdUiComponents.fixedRow("history",()->"NOT RETAINED",
                             "This oscillator has no historical edge or jitter trace in the menu snapshot"));
             case QuartzTimingMenu.KIND_DIVIDER -> p.addChildren(
+                    RseLdUiComponents.liveRow("EVIDENCE", "upstream clock", () -> m.dividerInputValid()?"VALID":"NOT READY • upstream unverified"),
                     RseLdUiComponents.liveRow("MEASURED", "counted rising edges", () -> Integer.toString(m.runtimeA())),
                     RseLdUiComponents.liveRow("EVIDENCE", "divider initialized", () -> m.runtimeB()==1?"YES":"NO"),
-                    RseLdUiComponents.liveRow("MODEL", "ideal bounded period", () -> m.primary()>0
+                    RseLdUiComponents.liveRow("MODEL", "ideal bounded period", () -> m.dividerInputValid() && m.primary()>0
                             ? expectedDividerPeriod(m)+" ticks" : "NOT READY • source period absent"),
-                    RseLdUiComponents.liveRow("LIMIT", "4096 tick saturation", () -> m.primary()<=0
+                    RseLdUiComponents.liveRow("LIMIT", "4096 tick saturation", () -> !m.dividerInputValid() || m.primary()<=0
                             ? "NOT READY" : dividerSaturated(m)?"SATURATED":"IN RANGE"));
             case QuartzTimingMenu.KIND_STABILITY -> p.addChildren(
                     RseLdUiComponents.liveRow("EVIDENCE", "measurement initialized", () -> m.runtimeA()==1?"YES":"NO"),
@@ -152,11 +153,11 @@ public final class QuartzTimingLdUi {
 
     private static String deviceName(QuartzTimingMenu m){return switch(m.kind()){case QuartzTimingMenu.KIND_DIVIDER->"QUARTZ CLOCK DIVIDER";case QuartzTimingMenu.KIND_STABILITY->"QUARTZ STABILITY MONITOR";default->"QUARTZ OSCILLATOR";};}
     private static int expectedDividerPeriod(QuartzTimingMenu m){
-        if(m.primary()<=0) return 0;
+        if(!m.dividerInputValid() || m.primary()<=0) return 0;
         return Math.min(4096,Math.max(1,m.primary())*Math.max(1,m.tertiary()));
     }
     private static boolean dividerSaturated(QuartzTimingMenu m){
-        return m.primary()>0 && (long)Math.max(1,m.primary())*Math.max(1,m.tertiary())>4096L;
+        return m.dividerInputValid() && m.primary()>0 && (long)Math.max(1,m.primary())*Math.max(1,m.tertiary())>4096L;
     }
     private static String equation(QuartzTimingMenu m){return switch(m.kind()){case QuartzTimingMenu.KIND_DIVIDER->"valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks";case QuartzTimingMenu.KIND_STABILITY->"|e_T| = |T_meas - T_upstream|";default->"f_nom = 20 / T Hz";};}
 }
