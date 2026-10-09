@@ -37,6 +37,9 @@ public final class OscilloscopePlotElement extends UIElement {
         int height = allocatedHeight - 2 * inset;
 
         EngineeringPlot.analogFrame(g.graphics, x, y, width, height);
+        // Tracked DataSlots default to zero before synchronization. A zero
+        // capture count must render an empty grid, not two invented traces.
+        if (menu.sampleCount() <= 0) return;
         plotChannel(g, 0, CHANNEL_A, x, y, width, height);
         plotChannel(g, 1, CHANNEL_B, x, y, width, height);
         EngineeringPlot.horizontalMarker(g.graphics, menu.triggerLevel(), 0, 15, x, y, width, height, TRIGGER);
