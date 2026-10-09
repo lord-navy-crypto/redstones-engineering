@@ -114,7 +114,7 @@ public final class RseLdUiComponents {
 
     public static UIElement fixedRow(String symbol, Supplier<String> value, String reason) {
         return new UIElement()
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(9).paddingAll(2))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(9).paddingAll(2))
                 .addChildren(
                         new Label().setText("FIXED").layout(l -> l.width(92)),
                         wrappedLabel(symbol).layout(l -> l.width(90)),
@@ -135,8 +135,8 @@ public final class RseLdUiComponents {
     /**
      * Shared viewport for all RSE block-facing HMI families. Pages remain in one
      * UI tree, but only the selected page participates in layout.
-     * Content dimensions deliberately exceed the visible frame: this avoids
-     * compressing long equations, trace data, or server-backed controls.
+     * Layouts follow the viewport when possible, wrapping long formulas
+     * and retaining two-axis scroll when narrow Minecraft windows require it.
      */
     public static UIElement tabbedWorkspace(int width, int height, int contentWidth,
                                              String[] labels, UIElement[] pages) {
