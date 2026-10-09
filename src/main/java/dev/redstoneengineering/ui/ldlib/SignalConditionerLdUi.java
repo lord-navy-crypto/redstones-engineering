@@ -66,13 +66,9 @@ public final class SignalConditionerLdUi {
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(410).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(overview, configure, authority);
 
-        var tabs = new UIElement().addClass("panel_bg")
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6).paddingAll(5))
-                .addChildren(
-                        tabButton("Overview", workspace, overview, overview, configure, authority),
-                        tabButton("Configure", workspace, configure, overview, configure, authority),
-                        tabButton("Authority", workspace, authority, overview, configure, authority)
-                );
+        var tabs = RseLdUiComponents.standaloneTabs(workspace,
+                new String[]{"Overview", "Configure", "Authority"},
+                new UIElement[]{overview, configure, authority});
 
         root.addChildren(
                 RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
@@ -88,19 +84,6 @@ public final class SignalConditionerLdUi {
         return new UIElement()
                 .layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10))
                 .addChildren(children);
-    }
-
-    private static Button tabButton(
-            String label,
-            ScrollerView workspace,
-            UIElement selected,
-            UIElement... pages
-    ) {
-        return new Button().setText(label).setOnClick(event -> {
-            for (UIElement page : pages) page.setDisplay(page == selected);
-            workspace.horizontalScroller.setNormalizedValue(0);
-            workspace.verticalScroller.setNormalizedValue(0);
-        });
     }
 
     private static UIElement parameterControl(SignalConditionerMenu menu) {
