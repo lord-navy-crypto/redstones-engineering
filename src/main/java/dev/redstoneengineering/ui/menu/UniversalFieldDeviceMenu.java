@@ -153,6 +153,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot[] minimums = trackedInts(FACE_COUNT);
     private final DataSlot[] maximums = trackedInts(FACE_COUNT);
     private final DataSlot[] qualities = trackedInts(FACE_COUNT);
+    /** Client port-shape priming is not a synchronized world observation. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public UniversalFieldDeviceMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -161,6 +163,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public UniversalFieldDeviceMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.UNIVERSAL_FIELD_DEVICE.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        snapshotReady.set(0);
+        for (DataSlot quality : qualities) quality.set(PortQuality.NOT_READY.ordinal());
+        pioneerEvidenceQuality.set(-1);
+        pioneerProcessEvidenceQuality.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         else primeClientUiShape(level.getBlockState(blockPos));
         if ((Object) this instanceof IModularUIHolderMenu holder) {
@@ -175,6 +181,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
      * The authoritative server snapshot subsequently syncs all runtime values.
      */
     private void primeClientUiShape(BlockState state) {
+        snapshotReady.set(0);
         Block block = state.getBlock();
         facing.set(directionOrdinal(state));
         routeKind.set(routeKind(block));
@@ -277,6 +284,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         facing.set(directionOrdinal(state));
@@ -405,7 +413,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             maximums[i].set(0);
             qualities[i].set(-1);
         }
-        if (!(block instanceof EngineeringPortProvider provider)) return;
+        if (!(block instanceof EngineeringPortProvider provider)) {
+            snapshotReady.set(1);
+            return;
+        }
 
         int declared = 0;
         int inputs = 0;
@@ -434,6 +445,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         inputMask.set(inputs);
         outputMask.set(outputs);
         bidirectionalMask.set(bidirectional);
+        snapshotReady.set(1);
     }
 
     private void fillPioneerMeasurementSnapshot(Block block, BlockState state) {
@@ -1180,6 +1192,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         return clickMenuButton(playerInventory.player, BUTTON_CONFIG_SECONDARY_DIRECT_BASE + target);
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int facingOrdinal() { return facing.get(); }
     public int routeKind() { return routeKind.get(); }
     /** Safe presentation adapter; only the menu layer consults SensorModel's profile table. */
@@ -1243,6 +1256,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     public PortQuality quality(Direction side) {
+        if (!snapshotReady()) return PortQuality.NOT_READY;
         int ordinal = qualities[side.ordinal()].get();
         PortQuality[] all = PortQuality.values();
         return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
