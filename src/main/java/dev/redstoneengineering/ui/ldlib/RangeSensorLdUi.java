@@ -67,11 +67,23 @@ public final class RangeSensorLdUi {
                 ()->Integer.toString(menu.configuredRange()),
                 v->{ try{ menu.setRangeFromUi(Integer.parseInt(v)); }catch(NumberFormatException ignored){} }
         ).build());
-        return new UIElement().addClass("panel_bg").layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6).paddingAll(5)).addChildren(
+        var wrapRow = new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW)
+                .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6));
+        wrapRow.addChildren(
                 r,
-                RseLdUiComponents.serverAction("Cycle detect ▶",menu::cycleDetectForward),
-                RseLdUiComponents.serverAction("Cycle response ▶",menu::cycleResponseForward),
-                RseLdUiComponents.serverAction("Cycle direction ▶",menu::cycleDirectionForward)
+                RseLdUiComponents.serverAction("Range 4", () -> { menu.setRangeFromUi(4); }),
+                RseLdUiComponents.serverAction("Range 8", () -> { menu.setRangeFromUi(8); }),
+                RseLdUiComponents.serverAction("Range 15", () -> { menu.setRangeFromUi(15); })
+        );
+        return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(5)).addChildren(
+                RseLdUiComponents.note("R is discrete: only 4, 8 or 15 blocks. Other typed values are rejected by the server."),
+                wrapRow,
+                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW)
+                        .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
+                        RseLdUiComponents.serverAction("Cycle detect ▶",menu::cycleDetectForward),
+                        RseLdUiComponents.serverAction("Cycle response ▶",menu::cycleResponseForward),
+                        RseLdUiComponents.serverAction("Cycle direction ▶",menu::cycleDirectionForward)
+                )
         );
     }
 
