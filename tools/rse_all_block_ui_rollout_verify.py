@@ -956,7 +956,7 @@ instrument_reveals = {
     ),
     "LogicAnalyzer": (
         ('captureState(m.captureState())', "m.bounded()",
-         "m.coverage(c)>0", "m.duty(c)", "m.rising(c)", "m.falling(c)",
+         "m.validSamples(c)>0", "m.validSamples(c)>1", "m.duty(c)", "m.rising(c)", "m.falling(c)",
          "m.probeCount(c)", "m.shieldedCableNodes()"),
         ("duty[channel].set(analyzer.dutyPercent(channel))",
          "transitionRate[channel].set(analyzer.transitionRatePercent(channel))",
