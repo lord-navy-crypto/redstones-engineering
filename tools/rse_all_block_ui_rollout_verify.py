@@ -1103,6 +1103,35 @@ for token in ("inspectionReady.set(0)", "inspectionReady.set(1)", "public boolea
     if token not in workcell_server:
         errors.append(f"Workcell Controller must synchronize authoritative inspection readiness: {token!r}")
 
+# Shared plot rendering regression: sample points and markers must stay
+# inside the half-open LDLib2 draw rectangle. A sample at the maximum
+# signal value, a LOW digital edge, or a rightmost cursor cannot bleed into
+# the neighboring tab or control.
+plot = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringPlot.java")
+for token in (
+    "width < 3 || height < 3",
+    "slot * (width - 1)",
+    "height - 1",
+    "boundedPoint(graphics, px, py, x, y, width, height, color)",
+    "Math.max(x, px - 2)",
+    "Math.min(x + width, px + 3)",
+    "slot < 0 || slot >= sampleCount",
+    "Math.min(y + height, py + 2)",
+):
+    if token not in plot:
+        errors.append(f"EngineeringPlot half-open draw safety regression: {token!r}")
+if "slot * width / (float) denominator" in plot or "y + height - Math.round" in plot:
+    errors.append("EngineeringPlot still uses inclusive far-edge coordinate")
+signal_plot = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerPlotElement.java")
+if "if(menu.validWindowCount()>0)" not in signal_plot:
+    errors.append("Signal Analyzer invalid-only rolling window draws fabricated mean marker")
+signal_hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
+for token in ("m.mode()==SignalAnalyzerBlock.TAP", "TAP mode never drives Redstone",
+              "m.validWindowCount()>0", "no valid rolling samples",
+              "need ≥2 valid samples"):
+    if token not in signal_hmi:
+        errors.append(f"Signal Analyzer TAP/statistics evidence regression: {token!r}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
