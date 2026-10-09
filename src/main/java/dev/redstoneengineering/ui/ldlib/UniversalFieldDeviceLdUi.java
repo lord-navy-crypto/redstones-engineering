@@ -131,6 +131,10 @@ public final class UniversalFieldDeviceLdUi {
         } else {
             panel.addChild(RseLdUiComponents.formulaCard(universalContract(menu.configKind())));
         }
+        // The old Overview showed the equation but concealed its live operands
+        // behind the Pioneer tab. Preview actual synchronized process/metrology
+        // values here for every supported Universal device family.
+        appendPioneerLivePreview(menu, panel);
         if (primaryDirectKind(kind) || primaryCycleKind(kind)) {
             panel.addChild(RseLdUiComponents.liveRow(
                     "ADJUSTABLE", primarySymbol(kind),
@@ -152,6 +156,46 @@ public final class UniversalFieldDeviceLdUi {
         panel.addChild(new Label().setText(
                 "Configure → validated server parameters / actions; Pioneer → physical variables and evidence."));
         return panel;
+    }
+
+    private static void appendPioneerLivePreview(UniversalFieldDeviceMenu menu, UIElement panel) {
+        int process = menu.pioneerProcessKind();
+        int measurement = menu.pioneerMeasurementKind();
+        if (process != UniversalFieldDeviceMenu.PIONEER_PROCESS_NONE) {
+            String[] labels = processLabels(process);
+            String[] units = processUnits(process);
+            String[] roles = processRoles(process);
+            for (int i=0, shown=0; i<labels.length && shown<3; i++) {
+                if (labels[i].isBlank()) continue;
+                final int slot=i;
+                final String unit=units[i];
+                panel.addChild(RseLdUiComponents.liveRow(
+                        roles[i], labels[i],
+                        () -> processValue(menu, process, slot)+(unit.isBlank()?"":" "+unit)));
+                shown++;
+            }
+            panel.addChild(RseLdUiComponents.liveRow(
+                    "EVIDENCE", "Pioneer process quality",
+                    () -> menu.pioneerProcessEvidenceQuality().name()));
+        } else if (measurement != UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_NONE) {
+            String[] labels=measurementLabels(measurement);
+            String[] units=measurementUnits(measurement);
+            String[] roles=measurementRoles(measurement);
+            for (int i=0, shown=0; i<labels.length && shown<3; i++) {
+                if (labels[i].isBlank()) continue;
+                final int slot=i;
+                final String unit=units[i];
+                panel.addChild(RseLdUiComponents.liveRow(
+                        roles[i], labels[i],
+                        () -> measurementValue(menu, measurement, slot)+(unit.isBlank()?"":" "+unit)));
+                shown++;
+            }
+            panel.addChild(RseLdUiComponents.liveRow(
+                    "EVIDENCE", "Pioneer measurement quality",
+                    () -> menu.pioneerEvidenceQuality().name()));
+        }
+        // Only a concise preview lives on Overview. The full six-slot
+        // contract, authority, coverage and interpretation remain on Pioneer.
     }
 
     private static UIElement portsPanel(UniversalFieldDeviceMenu menu) {
