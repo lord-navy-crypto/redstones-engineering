@@ -43,11 +43,12 @@ public final class IndustrialBufferLdUi {
                 new Label().setText("PIONEER PATTERN • OPERATIONS / WIP MODEL"),
                 RseLdUiComponents.formulaCard(() ->
                         "WIP% = 100·used/capacity ; signal = (used=0)?0:clamp(round(15·used/capacity),1,15)"),
-                RseLdUiComponents.liveRow("MEASURED", "used", () -> m.usedUnits() + " units"),
-                RseLdUiComponents.fixedRow("capacity", () -> m.capacityUnits() + " units", "server-owned buffer capacity"),
-                RseLdUiComponents.liveRow("DERIVED", "free", () -> m.availableUnits() + " units"),
-                RseLdUiComponents.liveRow("DERIVED", "WIP PRESSURE", () -> m.wipPressurePercent() + "% • " + fullnessState(m)),
-                RseLdUiComponents.liveRow("DERIVED", "WIP signal", () -> m.wipSignal() + " / 15"),
+                RseLdUiComponents.liveRow("EVIDENCE", "persisted buffer", () -> m.snapshotPresent()?"AVAILABLE":"NOT READY • no persisted snapshot"),
+                RseLdUiComponents.liveRow("MEASURED", "used", () -> m.snapshotPresent()?m.usedUnits()+" units":"UNAVAILABLE"),
+                RseLdUiComponents.fixedRow("capacity", () -> m.snapshotPresent()?m.capacityUnits()+" units":"UNAVAILABLE", "server-owned buffer capacity"),
+                RseLdUiComponents.liveRow("DERIVED", "free", () -> m.snapshotPresent()?m.availableUnits()+" units":"UNAVAILABLE"),
+                RseLdUiComponents.liveRow("DERIVED", "WIP PRESSURE", () -> m.snapshotPresent()?m.wipPressurePercent()+"% • "+fullnessState(m):"NOT READY • buffer snapshot missing"),
+                RseLdUiComponents.liveRow("DERIVED", "WIP signal", () -> m.snapshotPresent()?m.wipSignal()+" / 15":"UNVERIFIED"),
                 new Label().setText("FIXED PORT LAW • SOUTH=15 iff free capacity>0 • NORTH=15 iff free capacity=0")
         );
     }
@@ -67,10 +68,10 @@ public final class IndustrialBufferLdUi {
         panel.addChildren(
                 new Label().setText("LOT IDENTITY • exact bounded server snapshot"),
                 new Label().setText("OUTPUT        JOB          UNITS"),
-                RseLdUiComponents.liveRow("LOTS", "count", () -> Integer.toString(m.totalLotCount()))
+                RseLdUiComponents.liveRow("LOTS", "count", () -> m.snapshotPresent()?Integer.toString(m.totalLotCount()):"UNAVAILABLE")
         );
         if (m.visibleLots().isEmpty()) {
-            panel.addChild(new Label().setText("No retained lots in the server snapshot."));
+            panel.addChild(new Label().setText("No lots in the bounded opening snapshot; if buffer evidence is missing, this is NOT proof of emptiness."));
         } else {
             int shown = 0;
             for (IndustrialBufferMenu.LotView lot : m.visibleLots()) {
@@ -99,7 +100,7 @@ public final class IndustrialBufferLdUi {
     }
 
     private static String fullnessState(IndustrialBufferMenu m) {
-        if (m.capacityUnits() <= 0) return "UNAVAILABLE";
+        if (!m.snapshotPresent() || m.capacityUnits() <= 0) return "UNAVAILABLE";
         if (m.availableUnits() == 0) return "FULL";
         if (m.wipPressurePercent() >= 80) return "NEAR FULL";
         return "AVAILABLE";
