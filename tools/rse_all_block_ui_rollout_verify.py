@@ -1317,6 +1317,57 @@ for token in ("menu.setRangeFromUi(4)", "menu.setRangeFromUi(8)",
     if token not in range_hmi:
         errors.append(f"Range Sensor discrete preset evidence missing: {token!r}")
 
+# Cross-medium instrument audit: the initial client DataSlots cannot be
+# presented as actual transfer coefficients, connection maps, measured
+# quality margins or commissioning verdicts. They are initially all zero.
+for family, tokens in {
+    "MediaConversion": (
+        "snapshotReady.set(0)", "snapshotReady.set(1)",
+        "public boolean snapshotReady()", "inputFace.set(-1)",
+        "commissioningStatus.set(CommissioningStatus.NOT_READY.code())",
+        "input == PortQuality.NOT_READY", "output == PortQuality.NOT_READY",
+    ),
+    "LapisLowPass": (
+        "snapshotReady.set(0)", "snapshotReady.set(1)",
+        "public boolean snapshotReady()", "cycleAlphaPrevious()",
+        "cycleAlphaNext()",
+    ),
+    "RadioLink": (
+        "snapshotReady.set(0)", "snapshotReady.set(1)",
+        "public boolean snapshotReady()", "facing.set(-1)",
+    ),
+    "DigitalCommunication": (
+        "snapshotReady.set(0)", "snapshotReady.set(1)",
+        "public boolean snapshotReady()", "mediumAgeTicks.set(-1)",
+    ),
+}.items():
+    menu_src = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
+    for token in tokens:
+        if token not in menu_src:
+            errors.append(f"{family}: unsynchronized server evidence/control regression: {token!r}")
+for family, tokens in {
+    "MediaConversion": ("menu.snapshotReady()", "NOT READY • route awaiting server",
+                        "NOT READY • awaiting port inspection", "code spacing"),
+    "LapisLowPass": ("m.snapshotReady()", "α previous ◀", "α next ▶",
+                     "α not synchronized", "route pending"),
+    "RadioLink": ("m.snapshotReady()", "CURRENT", "receiver-tick counters",
+                  "no retained receiver observations", "m.samples()>0"),
+    "DigitalCommunication": ("m.snapshotReady()", "Q_min 20%", "Q_min 40%",
+                             "Q_min 60%", "if (m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR)",
+                             "medium inspection pending", "route pending"),
+}.items():
+    hmi_src = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    for token in tokens:
+        if token not in hmi_src:
+            errors.append(f"{family}: unsynchronized or unsupported UI control regression: {token!r}")
+# A receiver can have a current valid packet before counters have retained
+# a sample. Only the HISTORY rows, not live link diagnosis, require samples.
+radio_hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
+diagnosis_src = radio_hmi.split("private static String diagnosis(", 1)[1].split(
+    "private static String nextAction(", 1)[0]
+if 'if(m.samples()<=0) return "NOT READY' in diagnosis_src:
+    errors.append("RadioLink: valid current reception still incorrectly gated by empty historical counters")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
