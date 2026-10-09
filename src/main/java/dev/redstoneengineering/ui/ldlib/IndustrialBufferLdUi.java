@@ -68,7 +68,7 @@ public final class IndustrialBufferLdUi {
         var panel = new UIElement().addClass("panel_bg");
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         panel.addChildren(
-                RseLdUiComponents.note("LOT IDENTITY • IMMUTABLE OPENING SNAPSHOT • output/job IDs are 64-bit and are not refreshed by 16-bit DataSlots"),
+                RseLdUiComponents.note("LOT IDENTITY • immutable opening server snapshot • output/job IDs are 64-bit and are not refreshed by 16-bit DataSlots"),
                 new Label().setText("OUTPUT        JOB          UNITS"),
                 RseLdUiComponents.liveRow("LOTS", "live count", () -> m.snapshotPresent()
                         ? Integer.toString(m.totalLotCount()) : "NOT READY • live buffer evidence unavailable"),
