@@ -40,16 +40,10 @@ public final class PidControllerLdUi {
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(540).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(page0, page1, page2, page3, page4, page5);
-        var tabs = new UIElement().addClass("panel_bg");
-        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
-        tabs.addChildren(
-                tabButton("Model", workspace, page0, page0, page1, page2, page3, page4, page5),
-                tabButton("Configure", workspace, page1, page0, page1, page2, page3, page4, page5),
-                tabButton("Plant", workspace, page2, page0, page1, page2, page3, page4, page5),
-                tabButton("Acceptance", workspace, page3, page0, page1, page2, page3, page4, page5),
-                tabButton("Trial", workspace, page4, page0, page1, page2, page3, page4, page5),
-                tabButton("Authority", workspace, page5, page0, page1, page2, page3, page4, page5)
-        );
+        var tabs = RseLdUiComponents.standaloneTabs(workspace,
+                new String[]{"Model", "Configure", "Plant", "Acceptance", "Trial", "Authority"},
+                new UIElement[]{page0, page1, page2, page3, page4, page5});
+
         root.addChildren(
                 RseLdUiComponents.title("PID CLOSED-LOOP ENGINEERING WORKBENCH"),
                 tabs,
@@ -61,14 +55,6 @@ public final class PidControllerLdUi {
 
     private static UIElement page(UIElement... children) {
         return new UIElement().layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10)).addChildren(children);
-    }
-
-    private static Button tabButton(String label, ScrollerView workspace, UIElement selected, UIElement... pages) {
-        return new Button().setText(label).setOnClick(event -> {
-            for (UIElement page : pages) page.setDisplay(page == selected);
-            workspace.horizontalScroller.setNormalizedValue(0);
-            workspace.verticalScroller.setNormalizedValue(0);
-        });
     }
 
     /**
