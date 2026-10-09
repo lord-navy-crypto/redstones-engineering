@@ -100,7 +100,7 @@ public final class LapisLowPassLdUi {
                         new Label().setText(alphaSet()).layout(l -> l.flex(1))
                 ),
                 RseLdUiComponents.serverAction("Restore default α", m::restoreDefaultAlpha),
-                new Label().setText("PROFILE RESPONSE TABLE • exact supported α values only; invalid off-grid entry is rejected")
+                RseLdUiComponents.note("PROFILE RESPONSE TABLE • exact supported α values only; invalid off-grid entry is rejected")
         );
     }
 
@@ -123,7 +123,7 @@ public final class LapisLowPassLdUi {
                 RseLdUiComponents.liveRow("OUTPUT", "quality", () -> m.outputQuality().name()),
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", m::operationalHealthLabel),
                 RseLdUiComponents.liveRow("I/O", "route", m::portRouteLabel),
-                new Label().setText("observer-neutral evidence • client never mutates filter runtime or recomputes world physics")
+                RseLdUiComponents.note("observer-neutral evidence • client never mutates filter runtime or recomputes world physics")
         );
     }
 
