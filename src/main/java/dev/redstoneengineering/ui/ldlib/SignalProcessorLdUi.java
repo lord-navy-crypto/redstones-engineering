@@ -25,15 +25,19 @@ public final class SignalProcessorLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(()->processorEquation(menu.kind())),
-                                        RseLdUiComponents.liveRow("MEASURED","x[n]",()->menu.input()+" / 15")
-                                ),
-                                RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("DERIVED","y[n]",()->menu.output()+" / 15"),
-                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu))
-                                ),
-                                RseLdUiComponents.workspacePage(
-                                        control(menu),
+                                        RseLdUiComponents.liveRow("MEASURED","x[n]",()->menu.input()+" / 15"),
+                                        RseLdUiComponents.liveRow("OUTPUT","y[n]",()->menu.output()+" / 15"),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu)),
                                         runtime(menu)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu)),
+                                        control(menu)
+                                ),
+                                RseLdUiComponents.workspacePage(
+                                        runtime(menu),
+                                        RseLdUiComponents.fixedRow("evidence authority",()->"SERVER RETAINED",
+                                                "The HMI reads response, edge history or pulse state; it cannot manufacture input quality")
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.liveRow("I/O","route",()->menu.inputDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()),
@@ -84,7 +88,8 @@ public final class SignalProcessorLdUi {
         }else{
             p.addChildren(
                     RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.runtimeA()+"t remaining"),
-                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.initialized()?"YES • last input "+m.runtimeB():"NO")
+                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.initialized()?"YES • last input "+m.runtimeB():"NO"),
+                RseLdUiComponents.liveRow("MODEL","configured pulse width",()->m.parameter()+" ticks")
             );
         }
         return p;
