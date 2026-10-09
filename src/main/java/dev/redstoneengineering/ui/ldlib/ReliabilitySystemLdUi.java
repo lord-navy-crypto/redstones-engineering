@@ -76,7 +76,7 @@ public final class ReliabilitySystemLdUi {
                     }
             ).build());
             p.addChild(new UIElement()
-                    .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6))
+                    .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6))
                     .addChildren(
                             new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
                             field));
@@ -116,7 +116,7 @@ public final class ReliabilitySystemLdUi {
         p.addChildren(
                 new Label().setText("PHYSICAL ROUTE • SERVER OWNED"),
                 RseLdUiComponents.liveRow("ROUTE", "facing", () -> m.facing().getName().toUpperCase()),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle direction ▶", m::cycleWholeRouteForward),
                         RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶", m::cycleOutputForward)
