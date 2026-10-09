@@ -146,6 +146,22 @@ for token in (
     if token not in menu:
         errors.append(f"SignalAnalyzerMenu missing Wave-12 LDLib2 intent token {token!r}")
 
+# Evidence must stay visible and reject invalid or stale measurement substitution.
+for token in (
+    "historyEvidencePanel(m)",
+    "SERVER RETAINED HISTORY",
+    "m.totalSamples()",
+    "m.modeSwitches()",
+    "m.calibrationSwitches()",
+    "m.referenceSwitches()",
+    "m.sampleAgeTicks()>=0 && m.sampleAgeTicks()<=4",
+    "NO SIGNAL • measurement unverified",
+    "NOT READY • valid raw input required",
+    "per-sample calibrated history",
+):
+    if token not in screen:
+        errors.append(f"SignalAnalyzerLdUi missing synchronized history/freshness token {token!r}")
+
 if "dev.redstoneengineering.physics" in screen:
     errors.append("SignalAnalyzerLdUi must remain presentation-only")
 
