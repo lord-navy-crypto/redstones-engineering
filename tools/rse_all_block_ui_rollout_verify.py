@@ -526,6 +526,33 @@ for token in (
     if token not in components:
         errors.append(f"shared LDLib2 viewport / text contract missing {token!r}")
 
+# Dense engineering HMI usability: a shared 850px logical content pane must
+# not demand horizontal scrolling in an ordinary 500-620px Minecraft window.
+# Both columns and readouts must wrap, with scroll retained for truly narrow GUIs.
+for token in (
+    "public static Label note(String text)",
+    ".widthPercent(100).minWidth(readableMinWidth)",
+    "page.layout(l -> l.widthPercent(100).paddingAll(12)",
+    "flexWrap(FlexWrap.WRAP).gapAll(9)",
+    "liveText(value).layout(l -> l.flex(1).minWidth(165))",
+    'i == 0 ? "▶ " + labels[i] : labels[i]',
+    "tabButtons.get(j).setText(j == selectedIndex",
+):
+    if token not in components:
+        errors.append(f"Shared viewport/active tab readability regressed: {token!r}")
+for family, minimum_width in (("UniversalFieldDevice", 440), ("SignalConditioner", 410)):
+    text = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    for token in (".widthPercent(100).minWidth(" + str(minimum_width) + ")",
+                  ".widthPercent(100).paddingAll(12).gapAll(10)"):
+        if token not in text:
+            errors.append(f"{family}: fixed width horizontal-scroll regression {token!r}")
+for family in ("OpticalSystem", "DigitalCommunication", "LapisLowPass",
+               "MediaConversion", "ReliabilitySystem", "EnhancedFieldDevice",
+               "WorkcellController", "SignalProcessor"):
+    text = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    if "RseLdUiComponents.note(" not in text:
+        errors.append(f"{family}: long unwrapped engineering notes reintroduced")
+
 # The standalone five instrument UIs do not use the shared tab strip.
 # Their navigation must wrap when GUI Scale reduces the available width.
 for name in ("UniversalFieldDevice", "SignalConditioner", "Oscilloscope", "PidController", "LogicAnalyzer"):
