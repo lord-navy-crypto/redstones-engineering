@@ -38,7 +38,7 @@ public final class PidControllerLdUi {
                 .minScrollPixel(8).maxScrollPixel(72));
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
-        workspace.viewContainer(view -> view.layout(l -> l.width(950).paddingAll(8).gapAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(540).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(page0, page1, page2, page3, page4, page5);
         var tabs = new UIElement().addClass("panel_bg");
         tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
@@ -60,7 +60,7 @@ public final class PidControllerLdUi {
     }
 
     private static UIElement page(UIElement... children) {
-        return new UIElement().layout(l -> l.width(920).paddingAll(12).gapAll(10)).addChildren(children);
+        return new UIElement().layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10)).addChildren(children);
     }
 
     private static Button tabButton(String label, ScrollerView workspace, UIElement selected, UIElement... pages) {
@@ -99,7 +99,7 @@ public final class PidControllerLdUi {
                 RseLdUiComponents.liveRow("STATE","controller mode",()->m.inhibited()?"INHIBITED":m.manualMode()?"MANUAL":"AUTOMATIC"),
                 RseLdUiComponents.liveRow("EVIDENCE","controller / plant status",()->m.controllerStatus().name()+" / "+
                         (m.plantDetected()?m.plantStatus().name():"NO PNEUMATIC PLANT")),
-                new Label().setText("Preset-dependent coefficients are not individual editable knobs; change preset in Configure.")
+                RseLdUiComponents.note("Preset-dependent coefficients are not individual editable knobs; change preset in Configure.")
         );
     }
 
@@ -128,30 +128,30 @@ public final class PidControllerLdUi {
                         ? m.antiWindupHolding()?"HOLDING INTEGRAL":"INTEGRATING" : "NOT READY • no AUTO solve"),
                 RseLdUiComponents.liveRow("EVIDENCE","controller / plant",
                         ()->m.controllerStatus().name()+" / "+(m.plantDetected()?m.plantStatus().name():"NOT DETECTED")),
-                new Label().setText("Server-owned PID and plant evidence: HMI never re-solves the controller."));
+                RseLdUiComponents.note("Server-owned PID and plant evidence: HMI never re-solves the controller."));
     }
 
     private static UIElement trendPanel(PidControllerMenu m){
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
-                new Label().setText("AUTHORITATIVE TREND • SP / PV / OUT • 2t/sample • 32-sample bounded ring"),
+                RseLdUiComponents.note("AUTHORITATIVE TREND • SP / PV / OUT • 2t/sample • 32-sample bounded ring"),
                 new PidTrendPlotElement(m),
                 RseLdUiComponents.liveRow("LIVE","SP/PV/OUT",()->m.available()
                         ? m.setpoint()+" / "+m.processValue()+" / "+m.controlOutput()
                         : "UNAVAILABLE • current commissioning inputs"),
                 RseLdUiComponents.liveRow("LIVE","error",()->m.available()?Integer.toString(m.error()):"NOT READY"),
                 RseLdUiComponents.liveRow("EVIDENCE","authoritative samples",()->m.trendCount()+" / "+PidControllerMenu.TREND_SAMPLES),
-                new Label().setText("History samples remain retained after live inputs disappear; the live reading is withheld independently.")
+                RseLdUiComponents.note("History samples remain retained after live inputs disappear; the live reading is withheld independently.")
         );
     }
 
     private static UIElement controls(PidControllerMenu m){
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(4)).addChildren(
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle tuning preset ▶",m::cycleTuningForward),
                         RseLdUiComponents.serverAction("Cycle RX ▶",m::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",m::cycleOutputForward)
                 ),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Capture acceptance",m::captureAcceptance),
                         RseLdUiComponents.serverAction("Reset runtime + trend",m::resetRuntimeTrend),
                         RseLdUiComponents.serverAction("Trial baseline",m::captureTrialBaseline),
@@ -224,8 +224,8 @@ public final class PidControllerLdUi {
     private static UIElement trialPanel(PidControllerMenu m){
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL"),
-                new Label().setText("START WITH BASELINE • BASELINE READY • settle, then candidate"),
-                new Label().setText("Captures require settled PASS / MARGINAL / FAIL evidence"),
+                RseLdUiComponents.note("START WITH BASELINE • BASELINE READY • settle, then candidate"),
+                RseLdUiComponents.note("Captures require settled PASS / MARGINAL / FAIL evidence"),
                 RseLdUiComponents.liveRow("TRIAL","baseline/candidate",()->seq(m.trialBaselineSequence())+" / "+seq(m.trialCandidateSequence())),
                 RseLdUiComponents.liveRow("TRIAL","comparison",()->m.trialTrend()==null?"INCOMPLETE":m.trialTrend().name()+" • "+(m.trialRobust()?"ROBUST":"CHECK")),
                 RseLdUiComponents.liveRow("DELTA","Δscore",()->signed(m.trialScoreDelta())),
