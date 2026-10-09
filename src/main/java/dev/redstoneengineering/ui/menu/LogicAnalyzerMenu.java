@@ -40,6 +40,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot cursorB = trackedInt();
 
     private final DataSlot[] coverage = new DataSlot[4];
+    private final DataSlot[] validSamples = new DataSlot[4];
     private final DataSlot[] duty = new DataSlot[4];
     private final DataSlot[] transitionRate = new DataSlot[4];
     private final DataSlot[] rising = new DataSlot[4];
@@ -70,7 +71,8 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.LOGIC_ANALYZER.get(), containerId, inventory, pos,
                 RedstoneEngineering.LOGIC_ANALYZER.get());
         for (int channel = 0; channel < 4; channel++) {
-            coverage[channel] = trackedInt(); duty[channel] = trackedInt(); transitionRate[channel] = trackedInt();
+            coverage[channel] = trackedInt(); validSamples[channel] = trackedInt();
+            duty[channel] = trackedInt(); transitionRate[channel] = trackedInt();
             rising[channel] = trackedInt(); falling[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
@@ -91,7 +93,9 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         captureState.set(analyzer.armed() ? 1 : analyzer.triggered() ? 2 : 0);
         cursorA.set(analyzer.cursorA()); cursorB.set(analyzer.cursorB());
         for (int channel = 0; channel < 4; channel++) {
-            coverage[channel].set(analyzer.coveragePercent(channel)); duty[channel].set(analyzer.dutyPercent(channel));
+            coverage[channel].set(analyzer.coveragePercent(channel));
+            validSamples[channel].set(analyzer.validSamples(channel));
+            duty[channel].set(analyzer.dutyPercent(channel));
             transitionRate[channel].set(analyzer.transitionRatePercent(channel)); rising[channel].set(analyzer.rising(channel));
             falling[channel].set(analyzer.falling(channel));
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot].set(analyzer.displayState(channel, slot));
@@ -173,6 +177,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public int cursorA() { return cursorA.get(); }
     public int cursorB() { return cursorB.get(); }
     public int coverage(int channel) { return coverage[channel].get(); }
+    public int validSamples(int channel) { return validSamples[channel].get(); }
     public int duty(int channel) { return duty[channel].get(); }
     public int transitionRate(int channel) { return transitionRate[channel].get(); }
     public int rising(int channel) { return rising[channel].get(); }
