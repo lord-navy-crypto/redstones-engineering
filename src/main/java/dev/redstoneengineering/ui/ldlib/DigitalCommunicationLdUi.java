@@ -52,8 +52,8 @@ public final class DigitalCommunicationLdUi {
         p.addChildren(
                 new Label().setText("PIONEER PATTERN • COMMUNICATION MODEL"),
                 RseLdUiComponents.liveRow("DEVICE", "type", () -> deviceName(m.kind())),
-                RseLdUiComponents.liveRow("INPUT", m.inputDomain().label(), () -> valueText(m.inputValue(), m.inputDomain()) + " • " + m.inputQuality().name()),
-                RseLdUiComponents.liveRow("OUTPUT", m.outputDomain().label(), () -> valueText(m.outputValue(), m.outputDomain()) + " • " + m.outputQuality().name()),
+                RseLdUiComponents.liveRow("INPUT", m.inputDomain().label(), () -> verifiedValue(m.inputValue(), m.inputDomain(), m.inputQuality())),
+                RseLdUiComponents.liveRow("OUTPUT", m.outputDomain().label(), () -> verifiedValue(m.outputValue(), m.outputDomain(), m.outputQuality())),
                 RseLdUiComponents.liveRow("CONTRACT", "transform", () -> m.inputDomain().label() + " → " + m.outputDomain().label()),
                 new Label().setText("The screen presents server-synchronized link evidence only; it does not recalculate bus/serial/differential physics on the client.")
         );
@@ -67,7 +67,7 @@ public final class DigitalCommunicationLdUi {
                 RseLdUiComponents.liveRow("MEDIUM", "identity", () -> mediumName(m.mediumDomain())),
                 RseLdUiComponents.liveRow("MEASURED", "Q_link", () -> mediumQualityText(m)),
                 RseLdUiComponents.liveRow("MEASURED", "age", () -> mediumAgeText(m)),
-                RseLdUiComponents.liveRow("MEASURED", "drivers", () -> Integer.toString(m.mediumDriverCount())),
+                RseLdUiComponents.liveRow("TOPOLOGY", "drivers", () -> m.mediumDriverCount()+" observed • "+(m.mediumAgeTicks()<0?"NO MEDIUM SAMPLE":"medium sample available")),
                 RseLdUiComponents.liveRow("METRIC", mediumMetricLabel(m), () -> mediumMetricValue(m)),
                 RseLdUiComponents.liveRow("TRADE-OFF", "medium", () -> mediumTradeoff(m)),
                 new Label().setText("Quality and freshness remain independent synchronized evidence.")
@@ -164,6 +164,10 @@ public final class DigitalCommunicationLdUi {
         if (m.inputQuality() == PortQuality.STALE) return "STALE INPUT LINK EVIDENCE";
         if (m.outputQuality() == PortQuality.NO_SIGNAL) return "NO VALID OUTPUT AFTER TRANSFORM";
         if (m.outputQuality() == PortQuality.STALE) return "STALE OUTPUT LINK EVIDENCE";
+        // A valid converter port alone does not certify that the adjacent
+        // bus/serial/differential medium has produced any timed observation.
+        if (m.mediumDomain() != EngineeringDomain.GENERIC && m.mediumAgeTicks() < 0)
+            return "MEDIUM NOT READY • NO TIMED SAMPLE";
 
         if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8) {
             if (m.mediumMetricC() > 0) return "8-BIT BUS DRIVER CONFLICT OBSERVED";
@@ -218,6 +222,7 @@ public final class DigitalCommunicationLdUi {
     }
 
     private static String mediumMetricValue(DigitalCommunicationMenu m) {
+        if (m.mediumAgeTicks() < 0) return "NOT READY • no synchronized medium sample";
         if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
             return m.mediumMetricB() + " / " + m.mediumMetricC() + " frames";
         if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA)
@@ -256,6 +261,12 @@ public final class DigitalCommunicationLdUi {
 
     private static int thresholdPercent(DigitalCommunicationMenu m) {
         return switch (m.parameter()) { case 0 -> 20; case 1 -> 40; default -> 60; };
+    }
+
+    private static String verifiedValue(int value, EngineeringDomain domain, PortQuality quality) {
+        if (quality != PortQuality.VALID && quality != PortQuality.SATURATED)
+            return "NOT READY • " + quality.name() + " (value withheld)";
+        return valueText(value, domain) + " • " + quality.name();
     }
 
     private static String valueText(int value, EngineeringDomain domain) {
