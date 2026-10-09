@@ -134,7 +134,7 @@ public final class EnhancedFieldDeviceLdUi {
             ).build());
             panel.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE", formulaSymbol(m.kind()), () -> Integer.toString(controlValue(m))),
-                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("Exact engineering value").layout(l -> l.width(140)),
                             input,
                             new Label().setText(directRangeLabel(m.kind())).layout(l -> l.flex(1))
@@ -153,7 +153,7 @@ public final class EnhancedFieldDeviceLdUi {
                     m::toggleFromUi));
         }
         if (m.kind() == FieldDeviceMenu.KIND_REFERENCE || m.kind() == FieldDeviceMenu.KIND_OPTICAL_EMITTER) {
-            panel.addChild(new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5)).addChildren(
+            panel.addChild(new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(5)).addChildren(
                     RseLdUiComponents.serverAction("Preset 0", () -> m.presetFromUi(0)),
                     RseLdUiComponents.serverAction("Preset 5", () -> m.presetFromUi(5)),
                     RseLdUiComponents.serverAction("Preset 10", () -> m.presetFromUi(10)),
@@ -187,7 +187,7 @@ public final class EnhancedFieldDeviceLdUi {
                                 + " • series=" + m.seriesConfigurable())
         );
         var buttons = new UIElement();
-        buttons.layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(5));
+        buttons.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(5));
         if (m.seriesConfigurable()) buttons.addChild(RseLdUiComponents.serverAction("Cycle direction ▶", m::cycleDirectionForward));
         if (m.hasInputEndpoint()) buttons.addChild(RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleInputForward));
         if (m.hasOutputEndpoint()) buttons.addChild(RseLdUiComponents.serverAction("Cycle TX ▶", m::cycleOutputForward));
