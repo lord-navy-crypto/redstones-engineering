@@ -220,7 +220,7 @@ for token in (
 for token in (
     "measurementPeriod(m)",
     "measurementError(m)",
-    "NOT READY • no valid input period",
+    "NOT READY • input clock unverified",
     "NOT READY • output clock unverified",
     "NOT READY • missing source period",
     "ticks • STALE",
