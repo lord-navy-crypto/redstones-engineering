@@ -47,7 +47,7 @@ public final class LogicAnalyzerLdUi {
                 .minScrollPixel(8).maxScrollPixel(72));
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
-        workspace.viewContainer(view -> view.layout(l -> l.width(870).paddingAll(8).gapAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(510).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(capture, configure, channels, network, authority);
 
         var tabs = new UIElement().addClass("panel_bg");
@@ -70,7 +70,7 @@ public final class LogicAnalyzerLdUi {
     }
 
     private static UIElement page(UIElement... children) {
-        return new UIElement().layout(l -> l.width(840).paddingAll(12).gapAll(10)).addChildren(children);
+        return new UIElement().layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10)).addChildren(children);
     }
 
     private static Button tabButton(String label, ScrollerView workspace, UIElement selected, UIElement... pages) {
@@ -97,8 +97,8 @@ public final class LogicAnalyzerLdUi {
                 RseLdUiComponents.liveRow("EVIDENCE","connected/valid channels",()->m.activeChannels()+" / "+m.validChannels()),
                 RseLdUiComponents.liveRow("EVIDENCE","duplicate assignments",()->Integer.toString(m.duplicateChannels())),
                 RseLdUiComponents.liveRow("DERIVED","Cursor Δ (valid channels)",()->cursorDelta(m)),
-                new Label().setText("Cursor time Δ requires real, valid server-captured samples at BOTH positions; an empty/invalid slot is not LOW."),
-                new Label().setText("Threshold/cursors/trigger remain server-authoritative; retained capture evidence is synchronized only.")
+                RseLdUiComponents.note("Cursor time Δ requires real, valid server-captured samples at BOTH positions; an empty/invalid slot is not LOW."),
+                RseLdUiComponents.note("Threshold/cursors/trigger remain server-authoritative; retained capture evidence is synchronized only.")
         );
         return p;
     }
@@ -110,7 +110,7 @@ public final class LogicAnalyzerLdUi {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(4));
         p.addChildren(
                 row("T 1..15",t), row("cursor A 0..15",a), row("cursor B 0..15",b),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Arm / Hold",m::armOrHold),
                         RseLdUiComponents.serverAction("Trigger CH ▶",m::cycleTriggerChannel),
                         RseLdUiComponents.serverAction("Trigger edge ▶",m::cycleTriggerEdge),
@@ -164,7 +164,7 @@ public final class LogicAnalyzerLdUi {
     }
 
     private static UIElement row(String label, TextField f){
-        var r=new UIElement(); r.layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6));
+        var r=new UIElement(); r.layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6));
         r.addChildren(new Label().setText(label).layout(l->l.width(120)),f);
         return r;
     }
