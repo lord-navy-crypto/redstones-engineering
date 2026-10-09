@@ -29,6 +29,9 @@ public final class PidTrendPlotElement extends UIElement {
         int w = allocatedWidth - 2 * inset;
         int h = allocatedHeight - 2 * inset;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
+        // The retained trend must exist before packed default slots become
+        // meaningful; do not present the initial zeros as an observed trace.
+        if (menu.trendCount() <= 0) return;
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendSetpoint,0,15,x,y,w,h,SP);
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendProcessValue,0,15,x,y,w,h,PV);
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendControlOutput,0,15,x,y,w,h,OUT);
