@@ -34,10 +34,16 @@ public final class SignalConditionerLdUi {
 
         var overview = page(
                 new Label().setText("FORMULA-FIRST SERVER CONTROL"),
-                RseLdUiComponents.formulaCard(() -> governingEquation(menu.mode())),
-                RseLdUiComponents.liveRow("MEASURED", "x", () -> menu.input() + " / 15"),
-                RseLdUiComponents.liveRow("STATE", "mode", () -> modeName(menu.mode())),
-                RseLdUiComponents.liveRow("DERIVED", "y", () -> menu.output() + " / 15"),
+                RseLdUiComponents.formulaCard(() -> menu.snapshotReady()
+                         ? governingEquation(menu.mode()) : "NOT READY • awaiting server transfer mode"),
+                RseLdUiComponents.liveRow("EVIDENCE", "server snapshot", () ->
+                         menu.snapshotReady() ? "SYNCED • Redstone zero is a valid level" : "NOT READY • first server snapshot pending"),
+                 RseLdUiComponents.liveRow("MEASURED", "x", () ->
+                         menu.snapshotReady() ? menu.input() + " / 15" : "NOT READY • input awaiting snapshot"),
+                RseLdUiComponents.liveRow("STATE", "mode", () ->
+                         menu.snapshotReady() ? modeName(menu.mode()) : "NOT READY"),
+                RseLdUiComponents.liveRow("DERIVED", "y", () ->
+                         menu.snapshotReady() ? menu.output() + " / 15" : "NOT READY • output awaiting snapshot"),
                 RseLdUiComponents.liveRow("EVIDENCE", "boundary", () -> boundaryInterpretation(menu))
         );
         var configure = page(
@@ -102,7 +108,8 @@ public final class SignalConditionerLdUi {
         parameter.layout(l -> l.flex(1));
 
         parameter.bind(DataBindingBuilder.string(
-                () -> Integer.toString(visibleFormulaParameter(menu.mode(), menu.parameter())),
+                () -> menu.snapshotReady()
+                         ? Integer.toString(visibleFormulaParameter(menu.mode(), menu.parameter())) : "",
                 value -> {
                     try {
                         int parsed = Integer.parseInt(value);
@@ -159,6 +166,7 @@ public final class SignalConditionerLdUi {
     /** Threshold/deadband suppress or retain deliberately; they do not hit
      * an analog 0..15 saturation boundary, unlike gain/offset/clamp. */
     private static String boundaryInterpretation(SignalConditionerMenu menu) {
+        if (!menu.snapshotReady()) return "NOT READY • no synchronized boundary result";
         return switch (menu.mode()) {
             case 0, 1, 2 -> menu.limiting() ? "SATURATED • 0..15 transfer limit" : "IN RANGE • static transfer";
             case 3 -> "NOT APPLICABLE • threshold gate, not saturation";
