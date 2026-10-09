@@ -49,8 +49,10 @@ public final class LapisLowPassLdUi {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("GOVERNING EQUATION"),
                 RseLdUiComponents.formulaCard(() -> "y[n] = y[n-1] + α · (x[n] - y[n-1])"),
-                RseLdUiComponents.liveRow("MEASURED", "x[n]", () -> m.inputValue() + " precision units"),
-                RseLdUiComponents.liveRow("SOLVER", "y[n-1]", () -> m.previousOutput() + " precision units"),
+                RseLdUiComponents.liveRow("MEASURED", "x[n]", () -> m.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                        ? m.inputValue()+" precision units" : "NOT READY • input unverified"),
+                RseLdUiComponents.liveRow("SOLVER", "y[n-1]", () -> m.runtimePresent()
+                        ? m.previousOutput()+" precision units" : "NOT READY • no retained state"),
                 RseLdUiComponents.liveRow("ADJUSTABLE", "α", () -> formatAlpha(m.alphaIndex())),
                 RseLdUiComponents.fixedRow("profile", () -> LapisLowPassMenu.profileId(),
                         "central EngineeringParameterProfile provenance"),
@@ -62,18 +64,22 @@ public final class LapisLowPassLdUi {
                         String.format(Locale.ROOT, "%.3f Hz", LapisLowPassMenu.cutoffHzForIndex(m.alphaIndex()))),
                 new Label().setText("LIVE SUBSTITUTION"),
                 RseLdUiComponents.liveRow("MODEL", "substitute", () ->
-                        m.previousOutput() + " + " + formatAlpha(m.alphaIndex()) + "·(" + m.inputValue()
-                                + " - " + m.previousOutput() + ") → predicted " + m.predictedOutput())
+                        predictionReady(m)
+                                ? m.previousOutput() + " + " + formatAlpha(m.alphaIndex()) + "·(" + m.inputValue()
+                                        + " - " + m.previousOutput() + ") → predicted " + m.predictedOutput()
+                                : "NOT READY • valid RX and initialized filter required")
         );
     }
 
     private static UIElement livePanel(LapisLowPassMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("LIVE FILTER STATE"),
-                RseLdUiComponents.liveRow("RX", "input", () -> m.inputValue() + " • " + m.inputQuality().name()),
-                RseLdUiComponents.liveRow("STATE", "previous", () -> Integer.toString(m.previousOutput())),
-                RseLdUiComponents.liveRow("MODEL", "predicted", () -> Integer.toString(m.predictedOutput())),
-                RseLdUiComponents.liveRow("TX", "output", () -> m.outputValue() + " • " + m.outputQuality().name()),
+                RseLdUiComponents.liveRow("RX", "input", () -> m.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                        ? m.inputValue()+" • VALID" : "NOT READY • "+m.inputQuality().name()),
+                RseLdUiComponents.liveRow("STATE", "previous", () -> m.runtimePresent()?Integer.toString(m.previousOutput()):"NOT READY • uninitialized"),
+                RseLdUiComponents.liveRow("MODEL", "predicted", () -> predictionReady(m)?Integer.toString(m.predictedOutput()):"NOT READY • no usable model input"),
+                RseLdUiComponents.liveRow("TX", "output", () -> m.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                        ? m.outputValue()+" • VALID" : "NOT READY • "+m.outputQuality().name()),
                 RseLdUiComponents.liveRow("STATE", "runtime", () -> m.runtimePresent() ? "INITIALIZED" : "NOT_READY")
         );
     }
@@ -119,6 +125,12 @@ public final class LapisLowPassLdUi {
                 RseLdUiComponents.liveRow("I/O", "route", m::portRouteLabel),
                 new Label().setText("observer-neutral evidence • client never mutates filter runtime or recomputes world physics")
         );
+    }
+
+    /** The retained y[n-1] and actual server input are independent prerequisites. */
+    private static boolean predictionReady(LapisLowPassMenu m) {
+        return m.runtimePresent()
+                && m.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID;
     }
 
     private static String formatAlpha(int index) {
