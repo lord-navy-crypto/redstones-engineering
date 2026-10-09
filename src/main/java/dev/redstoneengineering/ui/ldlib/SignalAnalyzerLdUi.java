@@ -65,7 +65,7 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("MODEL","b_cal / x_ref",()->signed(m.calibrationOffset())+" / "+m.reference()),
                 RseLdUiComponents.liveRow("OUTPUT","inline",()->m.output()+" / 15 • raw pass-through semantics"),
                 RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.measurementQuality().name()+" • coverage="+m.coveragePercent()+"%"),
-                new Label().setText("Calibration affects the displayed reading only; INLINE output is uncalibrated RAW."),
+                new Label().setText("DISPLAY ONLY • calibrated reading does not drive INLINE; physical output remains RAW."),
                 new Label().setText("Rolling statistics are synchronized server evidence; the client never samples the world."),
                 new Label().setText("μ=rounded mean • min/max guides bound the synchronized rolling window.")
         );
