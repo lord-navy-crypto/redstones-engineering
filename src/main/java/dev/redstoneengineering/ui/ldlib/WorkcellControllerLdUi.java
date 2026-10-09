@@ -102,17 +102,17 @@ public final class WorkcellControllerLdUi {
                 RseLdUiComponents.liveRow("UP", "QUEUE PRESSURE", () ->
                         !m.inspectionReady() || !m.capacityEvidenceAvailable() || m.queuePressure() < 0
                                 ? "UNAVAILABLE • no verified buffer capacity" : m.queuePressure() + " / 15"),
-                new Label().setText("Job/resource/lot identities never travel through analog redstone.")
+                RseLdUiComponents.note("Job/resource/lot identities never travel through analog redstone.")
         );
     }
 
     private static UIElement authorityPanel() {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("AUTHORITY BOUNDARY"),
-                new Label().setText("Binding is external server authority: this HMI cannot rewrite resources, buffers, lot identity, scheduling, setup or maintenance state."),
-                new Label().setText("Controller stores no duplicate scheduler or bottleneck ranking."),
-                new Label().setText("Admission is delegated to OperationWorkcellAdmissionAssessment."),
-                new Label().setText("Missing setup, maintenance, or buffer evidence remains unavailable.")
+                RseLdUiComponents.note("Binding is external server authority: this HMI cannot rewrite resources, buffers, lot identity, scheduling, setup or maintenance state."),
+                RseLdUiComponents.note("Controller stores no duplicate scheduler or bottleneck ranking."),
+                RseLdUiComponents.note("Admission is delegated to OperationWorkcellAdmissionAssessment."),
+                RseLdUiComponents.note("Missing setup, maintenance, or buffer evidence remains unavailable.")
         );
     }
 
