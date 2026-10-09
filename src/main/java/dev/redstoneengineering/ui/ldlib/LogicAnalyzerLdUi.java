@@ -170,7 +170,7 @@ public final class LogicAnalyzerLdUi {
     }
 
     private static String captureState(int state){
-        return switch(state){case 1->"ARMED";case 2->"TRIGGERED";default->"HOLD";}
+        return switch(state){case 1->"ARMED";case 2->"TRIGGERED";default->"HOLD";};
     }
 
     private static int captureCoverage(LogicAnalyzerMenu m){
