@@ -188,6 +188,38 @@ public final class RseLdUiComponents {
         return root;
     }
 
+    /**
+     * Standalone instrument HMIs (PID, scope, logic analyzer, conditioner)
+     * keep a persistent selected-tab indicator without inventing UI state.
+     * The first tab corresponds to the only initially visible page.
+     */
+    public static UIElement standaloneTabs(ScrollerView scroller, String[] labels, UIElement[] pages) {
+        if (labels.length != pages.length || pages.length == 0) {
+            throw new IllegalArgumentException("Standalone tab labels and pages must match");
+        }
+        var tabs = new UIElement().addClass("panel_bg");
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                .flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
+        var buttons = new java.util.ArrayList<Button>(labels.length);
+        for (int i = 0; i < pages.length; i++) {
+            final int selected = i;
+            var button = new Button()
+                    .setText(i == 0 ? "▶ " + labels[i] : labels[i])
+                    .setOnClick(event -> {
+                        for (int j = 0; j < pages.length; j++) {
+                            pages[j].setDisplay(j == selected);
+                            buttons.get(j).setText(j == selected ? "▶ " + labels[j] : labels[j]);
+                        }
+                        scroller.horizontalScroller.setNormalizedValue(0);
+                        scroller.verticalScroller.setNormalizedValue(0);
+                    });
+            button.layout(l -> l.height(20).minWidth(82).paddingAll(4));
+            buttons.add(button);
+            tabs.addChild(button);
+        }
+        return tabs;
+    }
+
     public static UIElement workspacePage(UIElement... contents) {
         return new UIElement().addChildren(contents);
     }
