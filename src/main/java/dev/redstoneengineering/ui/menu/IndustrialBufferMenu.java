@@ -38,6 +38,9 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
     private final DataSlot inputConsumerWorkcells = trackedInt();
     private final DataSlot outputProducerWorkcells = trackedInt();
     private final List<LotView> visibleLots;
+    /** Exact count accompanying the immutable 64-bit identity payload at open time.
+     * The synchronized DataSlot count below may change while the menu remains open. */
+    private final int openingLotCount;
 
     public IndustrialBufferMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, readPayload(data));
@@ -54,6 +57,7 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
         capacityUnits.set(Math.max(0, payload.capacityUnits()));
         usedUnits.set(Math.max(0, payload.usedUnits()));
         totalLotCount.set(Math.max(0, payload.totalLotCount()));
+        openingLotCount = Math.max(0, payload.totalLotCount());
         visibleLots = List.copyOf(payload.visibleLots());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         if ((Object) this instanceof IModularUIHolderMenu holder) {
@@ -98,6 +102,7 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
     public int availableUnits() { return Math.max(0, capacityUnits() - usedUnits()); }
     public int totalLotCount() { return totalLotCount.get(); }
     public List<LotView> visibleLots() { return visibleLots; }
+    public int openingLotCount() { return openingLotCount; }
     public int inputConsumerWorkcells() { return inputConsumerWorkcells.get(); }
     public int outputProducerWorkcells() { return outputProducerWorkcells.get(); }
     public int wipPressurePercent() {
