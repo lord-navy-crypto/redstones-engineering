@@ -27,10 +27,10 @@ public final class ReliabilitySystemLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(() -> reliabilityEquation(m)),
-                                        parameterPanel(m)
+                                        statePanel(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        statePanel(m),
+                                        parameterPanel(m),
                                         routePanel(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
@@ -44,17 +44,6 @@ public final class ReliabilitySystemLdUi {
     }
 
     private static UIElement parameterPanel(ReliabilitySystemMenu m) {
-        var field = new TextField().setNumbersOnlyInt(0, 160);
-        field.layout(l -> l.width(110));
-        field.bind(DataBindingBuilder.string(
-                () -> adjustable(m.kind()) ? Integer.toString(parameterValue(m)) : "",
-                value -> {
-                    if (!adjustable(m.kind())) return;
-                    try { m.applyParameterFromUi(Integer.parseInt(value)); }
-                    catch (NumberFormatException ignored) {}
-                }
-        ).build());
-
         var p = new UIElement().addClass("panel_bg");
         p.layout(l -> l.paddingAll(5).gapAll(4));
         p.addChildren(
@@ -63,16 +52,42 @@ public final class ReliabilitySystemLdUi {
                 RseLdUiComponents.liveRow(adjustable(m.kind()) ? "ADJUSTABLE" : "FIXED",
                         parameterSymbol(m.kind()),
                         () -> adjustable(m.kind())
-                                ? parameterValue(m) + " • " + parameterRange(m.kind()) + " • direct entry"
-                                : "observer-only / read only"),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
-                        new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
-                        field,
-                        RseLdUiComponents.serverAction("Maintenance action", m::runMaintenance)
-                ),
-                RseLdUiComponents.liveRow("ACTION","maintenance",()->maintenanceName(m.kind())),
-                new Label().setText("Maintenance is an explicit server action, not a hidden state edit.")
+                                ? parameterValue(m) + " • " + parameterRange(m.kind())
+                                : "observer-only / read only")
         );
+        // A position sensor is an observer, not a configurator. Do not create
+        // an inert editable field for a device that the server cannot tune.
+        if (adjustable(m.kind())) {
+            int limit = switch (m.kind()) {
+                case ReliabilitySystemMenu.KIND_WATCHDOG -> 160;
+                case ReliabilitySystemMenu.KIND_SERVO -> 3;
+                case ReliabilitySystemMenu.KIND_VOTER -> 4;
+                case ReliabilitySystemMenu.KIND_FAULT_LATCH -> 12;
+                default -> 0;
+            };
+            var field = new TextField().setNumbersOnlyInt(0, limit);
+            field.layout(l -> l.width(110));
+            field.bind(DataBindingBuilder.string(
+                    () -> Integer.toString(parameterValue(m)),
+                    value -> {
+                        try { m.applyParameterFromUi(Integer.parseInt(value)); }
+                        catch (NumberFormatException ignored) {}
+                    }
+            ).build());
+            p.addChild(new UIElement()
+                    .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6))
+                    .addChildren(
+                            new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
+                            field));
+        } else {
+            p.addChild(RseLdUiComponents.fixedRow("operator setpoint",
+                    () -> "NO EDITABLE PARAMETER",
+                    "The servo position sensor only reports measured mechanical state"));
+        }
+        p.addChildren(
+                RseLdUiComponents.serverAction("Maintenance action", m::runMaintenance),
+                RseLdUiComponents.liveRow("ACTION","maintenance",()->maintenanceName(m.kind())),
+                new Label().setText("Maintenance is an explicit server action, not a hidden state edit."));
         return p;
     }
 
