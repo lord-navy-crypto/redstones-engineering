@@ -46,24 +46,24 @@ public final class PneumaticSystemLdUi {
     private static UIElement overview(PneumaticSystemMenu m){
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         p.addChildren(
-                RseLdUiComponents.liveRow("MEASURED",primaryMetric(m.kind()),()->Integer.toString(m.primary())),
+                RseLdUiComponents.liveRow("MEASURED",primaryMetric(m.kind()),()->primaryReadout(m)),
                 RseLdUiComponents.liveRow(secondaryRole(m.kind()),secondaryMetric(m.kind()),()->secondarySnapshot(m)),
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.inputQuality().name()+" → "+m.outputQuality().name())
         );
         if(m.kind()==PneumaticSystemMenu.KIND_FLOW_METER){
             p.addChildren(
                     RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()),
-                    RseLdUiComponents.liveRow("WITNESS","up/down",()->m.upstreamQuality().name()+":"+m.upstreamPressure()+" / "+m.downstreamQuality().name()+":"+m.downstreamPressure())
+                    RseLdUiComponents.liveRow("WITNESS","up/down",()->witnessReadout(m))
             );
         }
         if(m.kind()==PneumaticSystemMenu.KIND_CYLINDER){
             p.addChildren(
-                    RseLdUiComponents.liveRow("ACTUATOR","position/target",()->m.secondary()+" / "+m.tertiary()),
-                    RseLdUiComponents.liveRow("PATH","Supply / cylinder P",()->m.cylinderSupply()+" / "+m.primary()),
-                    RseLdUiComponents.liveRow("PATH","Path loss",()->m.cylinderObservedLoss()+" = line "+m.cylinderLineLoss()+" + restriction "+m.cylinderRestrictionLoss()),
+                    RseLdUiComponents.liveRow("ACTUATOR","position/target",()->cylinderReady(m)?m.secondary()+" / "+m.tertiary():"NOT READY • actuator response unverified"),
+                    RseLdUiComponents.liveRow("PATH","Supply / cylinder P",()->cylinderReady(m)?m.cylinderSupply()+" / "+m.primary():"NOT READY • actuator path unverified"),
+                    RseLdUiComponents.liveRow("PATH","Path loss",()->cylinderReady(m)?m.cylinderObservedLoss()+" = line "+m.cylinderLineLoss()+" + restriction "+m.cylinderRestrictionLoss():"NOT READY • no verified path"),
                     RseLdUiComponents.liveRow("PATH","winning path edges",()->Integer.toString(m.cylinderPathEdges())),
                     RseLdUiComponents.liveRow("RESPONSE","Response / remaining",()->m.cylinderResponsePeriod()+"t / "+m.cylinderRemainingTicks()+"t"),
-                    RseLdUiComponents.liveRow("RESPONSE","velocity/error",()->m.cylinderVelocity()+" / "+m.cylinderError()),
+                    RseLdUiComponents.liveRow("RESPONSE","velocity/error",()->cylinderReady(m)?m.cylinderVelocity()+" / "+m.cylinderError():"NOT READY • no valid actuator response"),
                     RseLdUiComponents.liveRow("HISTORY","stall/reversal/samples",()->m.cylinderStallTicks()+" / "+m.cylinderReversals()+" / "+m.cylinderSamples())
             );
         }
@@ -106,8 +106,43 @@ public final class PneumaticSystemLdUi {
     }
 
     private static String secondarySnapshot(PneumaticSystemMenu m) {
-        return m.kind() == PneumaticSystemMenu.KIND_PIPE
-                ? "N/A • node pressure is shown above" : Integer.toString(m.secondary());
+        if (m.kind() == PneumaticSystemMenu.KIND_PIPE)
+            return "N/A • node pressure is shown above";
+        if (m.kind() == PneumaticSystemMenu.KIND_COMPRESSOR || m.kind() == PneumaticSystemMenu.KIND_REGULATOR)
+            return Integer.toString(m.secondary()) + " • commanded/configured";
+        if (m.kind() == PneumaticSystemMenu.KIND_CYLINDER && !cylinderReady(m))
+            return "NOT READY • no valid actuator response";
+        return m.outputQuality() == PortQuality.VALID
+                ? Integer.toString(m.secondary()) : "NOT READY • " + m.outputQuality().name();
+    }
+
+    private static boolean cylinderReady(PneumaticSystemMenu m) {
+        return m.inputQuality() == PortQuality.VALID && m.cylinderSamples() > 0;
+    }
+
+    private static boolean flowMeterReady(PneumaticSystemMenu m) {
+        return m.stateFlag() > 0 && m.inputQuality() == PortQuality.VALID
+                && m.outputQuality() == PortQuality.VALID
+                && m.upstreamQuality() == PortQuality.VALID
+                && m.downstreamQuality() == PortQuality.VALID;
+    }
+
+    private static String primaryReadout(PneumaticSystemMenu m) {
+        if (m.kind() == PneumaticSystemMenu.KIND_COMPRESSOR)
+            return m.primary() + " • Redstone command";
+        boolean ready = m.inputQuality() == PortQuality.VALID;
+        if (m.kind() == PneumaticSystemMenu.KIND_FLOW_METER) ready = flowMeterReady(m);
+        if (m.kind() == PneumaticSystemMenu.KIND_CYLINDER) ready = cylinderReady(m);
+        return ready ? Integer.toString(m.primary()) : "NOT READY • input evidence incomplete";
+    }
+
+    private static String witnessReadout(PneumaticSystemMenu m) {
+        String up = m.upstreamQuality() == PortQuality.VALID
+                ? Integer.toString(m.upstreamPressure()) : "NOT READY";
+        String down = m.downstreamQuality() == PortQuality.VALID
+                ? Integer.toString(m.downstreamPressure()) : "NOT READY";
+        return m.upstreamQuality().name() + ":" + up
+                + " / " + m.downstreamQuality().name() + ":" + down;
     }
 
     private static UIElement pneumaticMechanism(PneumaticSystemMenu m) {
@@ -124,14 +159,15 @@ public final class PneumaticSystemLdUi {
                     RseLdUiComponents.liveRow("MODEL","setpoint index",()->Integer.toString(m.tertiary())),
                     RseLdUiComponents.liveRow("SOLVER","network pressure",()->m.primary()+" / 100"));
             case PneumaticSystemMenu.KIND_FLOW_METER -> p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","flow proxy",()->Integer.toString(m.primary())),
-                    RseLdUiComponents.liveRow("MEASURED","meter ΔP",()->Integer.toString(m.secondary())),
-                    RseLdUiComponents.liveRow("MEASURED","inlet / outlet pressure",()->m.tertiary()+" / "+m.auxiliary()),
+                    RseLdUiComponents.liveRow("MEASURED","flow proxy",()->flowMeterReady(m)?Integer.toString(m.primary()):"NOT READY • sample/witness evidence incomplete"),
+                    RseLdUiComponents.liveRow("MEASURED","meter ΔP",()->flowMeterReady(m)?Integer.toString(m.secondary()):"NOT READY • sample/witness evidence incomplete"),
+                    RseLdUiComponents.liveRow("MEASURED","inlet / outlet pressure",()->flowMeterReady(m)?m.tertiary()+" / "+m.auxiliary():"NOT READY • sample/witness evidence incomplete"),
                     RseLdUiComponents.liveRow("EVIDENCE","meter samples",()->Integer.toString(m.stateFlag())),
-                    RseLdUiComponents.liveRow("EVIDENCE","up / down witness",()->m.upstreamQuality().name()+" / "+m.downstreamQuality().name()));
+                    RseLdUiComponents.liveRow("EVIDENCE","up / down witness",()->witnessReadout(m)));
             case PneumaticSystemMenu.KIND_PROPORTIONAL -> p.addChildren(
                     RseLdUiComponents.liveRow("CONTROL","external opening index",()->m.tertiary()+" / 15"),
-                    RseLdUiComponents.liveRow("MODEL","local pressure drop",()->Math.max(0,m.primary()-m.secondary())+" pressure units"),
+                    RseLdUiComponents.liveRow("MODEL","local pressure drop",()->m.inputQuality()==PortQuality.VALID && m.outputQuality()==PortQuality.VALID
+                            ? Math.max(0,m.primary()-m.secondary())+" pressure units":"NOT READY • inlet/outlet evidence incomplete"),
                     RseLdUiComponents.liveRow("SOLVER","network node pressure",()->m.auxiliary()+" / 100"));
             case PneumaticSystemMenu.KIND_RELIEF -> p.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE","vent threshold P_set",()->m.tertiary()+" / 100"),
@@ -141,11 +177,12 @@ public final class PneumaticSystemLdUi {
                     RseLdUiComponents.liveRow("PATH","source pressure",()->m.cylinderSupply()+" / 100"),
                     RseLdUiComponents.liveRow("PATH","physical path edges",()->Integer.toString(m.cylinderPathEdges())),
                     RseLdUiComponents.liveRow("PATH","loss (line + restriction)",()->m.cylinderLineLoss()+" + "+m.cylinderRestrictionLoss()),
-                    RseLdUiComponents.liveRow("ACTUATOR","target / position",()->m.tertiary()+" / "+m.secondary()),
-                    RseLdUiComponents.liveRow("ACTUATOR","velocity / error",()->m.cylinderVelocity()+" / "+m.cylinderError()),
+                    RseLdUiComponents.liveRow("ACTUATOR","target / position",()->cylinderReady(m)?m.tertiary()+" / "+m.secondary():"NOT READY • no valid actuator response"),
+                    RseLdUiComponents.liveRow("ACTUATOR","velocity / error",()->cylinderReady(m)?m.cylinderVelocity()+" / "+m.cylinderError():"NOT READY • no valid actuator response"),
                     RseLdUiComponents.liveRow("EVIDENCE","retained samples",()->Integer.toString(m.cylinderSamples())));
             case PneumaticSystemMenu.KIND_RESERVOIR -> p.addChildren(
-                    RseLdUiComponents.liveRow("STORAGE","P_stored / P_line",()->m.primary()+" / "+m.secondary()),
+                    RseLdUiComponents.liveRow("STORAGE","P_stored / P_line",()->m.inputQuality()==PortQuality.VALID
+                            ? m.primary()+" / "+m.secondary():"NOT READY • storage / network pressure unverified"),
                     RseLdUiComponents.fixedRow("rate",()->"5 charge / 10t; 1 leak / 10t",
                             "Server-discrete storage model, not continuous fluid dynamics"));
             default -> p.addChild(RseLdUiComponents.fixedRow("mechanism",()->"SERVER PRESSURE / ROUTE",
@@ -199,7 +236,8 @@ public final class PneumaticSystemLdUi {
                     "finite-rate retained state; no continuous CFD or random leak history is fabricated"));
         }
         if(m.kind()==PneumaticSystemMenu.KIND_PROPORTIONAL){
-            p.addChild(RseLdUiComponents.liveRow("DERIVED","Local ΔP",()->Integer.toString(Math.max(0,m.primary()-m.secondary()))));
+            p.addChild(RseLdUiComponents.liveRow("DERIVED","Local ΔP",()->m.inputQuality()==PortQuality.VALID && m.outputQuality()==PortQuality.VALID
+                        ? Integer.toString(Math.max(0,m.primary()-m.secondary())):"NOT READY • pressure evidence incomplete"));
         }
         if(m.kind()==PneumaticSystemMenu.KIND_FLOW_METER){
             p.addChild(RseLdUiComponents.liveRow("COMMISSIONING","evidence",()->switch(m.commissioningStatus()){
@@ -257,10 +295,20 @@ public final class PneumaticSystemLdUi {
             if(drop<=2)return "LOW LOCAL RESTRICTION";
             return "VALVE PRESSURE TRANSFORM ACTIVE";
         }
-        if(m.kind()==PneumaticSystemMenu.KIND_RELIEF) return m.stateFlag()==1?"VENTING":"ARMED";
-        if(m.kind()==PneumaticSystemMenu.KIND_VALVE) return m.stateFlag()==1?"OPEN":"CLOSED";
+        if(m.kind()==PneumaticSystemMenu.KIND_RELIEF || m.kind()==PneumaticSystemMenu.KIND_VALVE) {
+            String configured = m.kind()==PneumaticSystemMenu.KIND_RELIEF
+                    ? (m.stateFlag()==1?"VENTING":"ARMED")
+                    : (m.stateFlag()==1?"OPEN":"CLOSED");
+            if(hard(m.inputQuality()) || hard(m.outputQuality())) return "VALVE EVIDENCE FAULT • "+configured;
+            if(!trustworthy(m.inputQuality()) || !trustworthy(m.outputQuality()))
+                return "CONFIG "+configured+" • PRESSURE UNVERIFIED";
+            return configured+" • PRESSURE EVIDENCE VALID";
+        }
         if(m.kind()==PneumaticSystemMenu.KIND_FLOW_METER) return "FLOW METER • "+m.commissioningStatus().name();
-        return (m.inputQuality()==PortQuality.VALID||m.outputQuality()==PortQuality.VALID)?"NOMINAL":"IDLE / NO SIGNAL";
+        if(hard(m.inputQuality()) || hard(m.outputQuality())) return "PNEUMATIC EVIDENCE FAULT";
+        if(m.inputQuality()!=PortQuality.VALID || m.outputQuality()!=PortQuality.VALID)
+            return "NOT READY • INCOMPLETE PNEUMATIC EVIDENCE";
+        return "NOMINAL • INPUT / OUTPUT VERIFIED";
     }
 
     private static String nextAction(PneumaticSystemMenu m){
