@@ -23,15 +23,19 @@ public final class CopperCircuitMeterLdUi {
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.title("COPPER POWER / LOAD NETWORK"),
                                         RseLdUiComponents.title("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL"),
-                                        RseLdUiComponents.formulaCard(()->"I = V / R_eq ; P = V · I")
+                                        RseLdUiComponents.formulaCard(()->"I = V / R_eq ; P = V · I"),
+                                        RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
+                                        RseLdUiComponents.liveRow("MEASURED","V",()->measured(m,m.voltage()+" V-eq")),
+                                        RseLdUiComponents.liveRow("DERIVED","I",()->measured(m,String.format(java.util.Locale.ROOT,"%.3f I-eq",m.current()))),
+                                        RseLdUiComponents.liveRow("DERIVED","P",()->measured(m,String.format(java.util.Locale.ROOT,"%.2f P-eq",m.power())))
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("MEASURED","V",()->m.voltage()+" V-eq"),
-                                        RseLdUiComponents.liveRow("DERIVED","R_eq",()->String.format(java.util.Locale.ROOT,"%.2f R-eq",m.resistance())),
-                                        RseLdUiComponents.liveRow("DERIVED","I",()->String.format(java.util.Locale.ROOT,"%.3f I-eq",m.current()))
+                                        RseLdUiComponents.liveRow("MEASURED","V",()->measured(m,m.voltage()+" V-eq")),
+                                        RseLdUiComponents.liveRow("DERIVED","R_eq",()->measured(m,String.format(java.util.Locale.ROOT,"%.2f R-eq",m.resistance()))),
+                                        RseLdUiComponents.liveRow("DERIVED","I",()->measured(m,String.format(java.util.Locale.ROOT,"%.3f I-eq",m.current())))
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("DERIVED","P",()->String.format(java.util.Locale.ROOT,"%.2f P-eq",m.power())),
+                                        RseLdUiComponents.liveRow("DERIVED","P",()->measured(m,String.format(java.util.Locale.ROOT,"%.2f P-eq",m.power()))),
                                         RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
                                         RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name())
                                 ),
@@ -42,6 +46,8 @@ public final class CopperCircuitMeterLdUi {
                                         new Label().setText("OBSERVER ONLY • measurements are server-synchronized; this meter never drives the circuit")
                                 ),
                                 RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.liveRow("EVIDENCE","measurement quality",()->m.quality().name()),
+                                        new Label().setText("No fabricated history; missing input is NOT a measured zero."),
                                         RseLdUiComponents.authorityFooter()
                                 )
                         }
@@ -49,4 +55,10 @@ public final class CopperCircuitMeterLdUi {
         );
         return RseLdUiComponents.responsiveUi(root, player, 620, 440);
     }
+    /** Electrical quantities have meaning only with a valid server observation. */
+    private static String measured(CopperCircuitMeterMenu m, String reading) {
+        return m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                ? reading : "NOT READY • "+m.quality().name();
+    }
+
 }
