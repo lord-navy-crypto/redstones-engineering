@@ -43,6 +43,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     private final DataSlot runtimeB = trackedInt();
     private final DataSlot runtimeC = trackedInt();
     private final DataSlot initialized = trackedInt();
+    /** Client kind is a shape hint; physical readings await the first server snapshot. */
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
 
@@ -53,6 +55,10 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public SignalProcessorMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.SIGNAL_PROCESSOR.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        snapshotReady.set(0);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
+        initialized.set(0);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
@@ -70,6 +76,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         input.set(0);
@@ -118,6 +125,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         } else {
             kind.set(-1);
         }
+        snapshotReady.set(kind.get() >= 0 ? 1 : 0);
     }
 
     @Override
@@ -196,6 +204,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int input() { return input.get(); }
     public int output() { return output.get(); }
