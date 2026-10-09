@@ -51,6 +51,11 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     public LapisLowPassMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.LAPIS_LOW_PASS.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        inputQuality.set(PortQuality.NOT_READY.ordinal());
+        outputQuality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(LapisLowPassLdUi.create(this, inventory.player));
