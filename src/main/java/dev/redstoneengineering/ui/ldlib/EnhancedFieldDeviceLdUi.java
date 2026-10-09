@@ -53,7 +53,8 @@ public final class EnhancedFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("FAMILY", "domain", () -> family(m.kind())),
                 RseLdUiComponents.liveRow("CONTROLS", "operator", () -> operatorMode(m.kind())),
                 RseLdUiComponents.liveRow("HEALTH", "state", () ->
-                        !m.topologyValid() ? "FAIL-CLOSED TOPOLOGY"
+                        !m.snapshotReady() ? "NOT READY • awaiting server snapshot"
+                                : !m.topologyValid() ? "FAIL-CLOSED TOPOLOGY"
                                 : !m.dataValid() ? "NO / INVALID EVIDENCE"
                                 : m.evidenceQualityKnown()
                                     ? (m.evidenceQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
@@ -87,10 +88,10 @@ public final class EnhancedFieldDeviceLdUi {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("LIVE MECHANISM / EVIDENCE"),
                 RseLdUiComponents.liveRow("EVIDENCE", "PortQuality", () ->
-                        m.evidenceQualityKnown() ? m.evidenceQuality().name()
+                        m.snapshotReady() && m.evidenceQualityKnown() ? m.evidenceQuality().name()
                                 : "NOT REPORTED • not equivalent to VALID"),
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", () ->
-                        m.evidenceQualityKnown() && m.topologyValid() && m.dataValid()
+                        m.snapshotReady() && m.evidenceQualityKnown() && m.topologyValid() && m.dataValid()
                                 ? m.qualityPercent()+"%" : "UNVERIFIED • score not qualified"),
                 RseLdUiComponents.liveRow("EVIDENCE", "sources / drivers", () -> Integer.toString(m.driverCount())),
                 RseLdUiComponents.liveRow("TOPOLOGY", "ports / links", () ->
@@ -105,6 +106,7 @@ public final class EnhancedFieldDeviceLdUi {
     /** Preserve server-owned raw values for engineering diagnostics, but do not
      * misrepresent a default 0 as an authoritative physical measurement. */
     private static String qualifiedRawMetric(FieldDeviceMenu m, int raw) {
+        if (!m.snapshotReady()) return "NOT READY • awaiting server snapshot";
         if (!m.topologyValid() || !m.dataValid()) return "NOT READY • raw=" + raw + " (unverified)";
         if (!m.evidenceQualityKnown()) return raw + " • PORT QUALITY NOT REPORTED";
         return m.evidenceQuality() == dev.redstoneengineering.core.port.PortQuality.VALID
