@@ -154,6 +154,14 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
         return false;
     }
 
+    public boolean cycleAlphaPrevious() {
+        return clickMenuButton(playerInventory.player, BUTTON_ALPHA_PREVIOUS);
+    }
+
+    public boolean cycleAlphaNext() {
+        return clickMenuButton(playerInventory.player, BUTTON_ALPHA_NEXT);
+    }
+
     public boolean restoreDefaultAlpha() {
         return clickMenuButton(playerInventory.player, BUTTON_ALPHA_DEFAULT);
     }
