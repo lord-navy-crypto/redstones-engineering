@@ -47,7 +47,7 @@ public final class PneumaticSystemLdUi {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         p.addChildren(
                 RseLdUiComponents.liveRow("MEASURED",primaryMetric(m.kind()),()->Integer.toString(m.primary())),
-                RseLdUiComponents.liveRow("MEASURED",secondaryMetric(m.kind()),()->secondarySnapshot(m)),
+                RseLdUiComponents.liveRow(secondaryRole(m.kind()),secondaryMetric(m.kind()),()->secondarySnapshot(m)),
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.inputQuality().name()+" → "+m.outputQuality().name())
         );
         if(m.kind()==PneumaticSystemMenu.KIND_FLOW_METER){
@@ -79,6 +79,16 @@ public final class PneumaticSystemLdUi {
             case PneumaticSystemMenu.KIND_FLOW_METER -> "flow proxy";
             case PneumaticSystemMenu.KIND_CYLINDER -> "P_cylinder";
             default -> "P_in";
+        };
+    }
+
+    private static String secondaryRole(int kind) {
+        return switch (kind) {
+            case PneumaticSystemMenu.KIND_COMPRESSOR,
+                 PneumaticSystemMenu.KIND_RECEIVER -> "DERIVED";
+            case PneumaticSystemMenu.KIND_REGULATOR -> "ADJUSTABLE";
+            case PneumaticSystemMenu.KIND_PIPE -> "N/A";
+            default -> "MEASURED";
         };
     }
 
