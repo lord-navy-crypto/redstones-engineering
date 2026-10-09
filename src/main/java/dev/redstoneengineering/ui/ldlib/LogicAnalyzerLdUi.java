@@ -92,8 +92,14 @@ public final class LogicAnalyzerLdUi {
                 RseLdUiComponents.liveRow("ADJUSTABLE","cursor A/B",()->m.cursorA()+" / "+m.cursorB()),
                 RseLdUiComponents.liveRow("DERIVED","Δt_cursor",()->Math.abs(m.cursorB()-m.cursorA())*LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS+" ticks"),
                 RseLdUiComponents.liveRow("EVIDENCE","Capture",()->m.sampleCount()+"/32 • coverage="+captureCoverage(m)+"%"),
-                RseLdUiComponents.liveRow("DERIVED","Cursor Δ",()->Math.abs(m.cursorB()-m.cursorA())+" samples / "
-                        + Math.abs(m.cursorB()-m.cursorA())*LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS+" ticks"),
+                RseLdUiComponents.liveRow("STATE","trigger / buffer",()->captureState(m.captureState())
+                        +" • "+(m.bounded()?"bounded probes":"incomplete network scan")),
+                RseLdUiComponents.liveRow("EVIDENCE","connected/valid channels",()->m.activeChannels()+" / "+m.validChannels()),
+                RseLdUiComponents.liveRow("EVIDENCE","duplicate assignments",()->Integer.toString(m.duplicateChannels())),
+                RseLdUiComponents.liveRow("DERIVED","Cursor Δ",()->m.sampleCount()>0
+                        ? Math.abs(m.cursorB()-m.cursorA())+" samples / "
+                            +Math.abs(m.cursorB()-m.cursorA())*LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS+" ticks"
+                        : "NOT READY • capture waveform first"),
                 new Label().setText("Threshold/cursors/trigger remain server-authoritative; retained capture evidence is synchronized only.")
         );
         return p;
@@ -118,11 +124,19 @@ public final class LogicAnalyzerLdUi {
 
     private static UIElement channelPanel(LogicAnalyzerMenu m){
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
+        p.addChild(RseLdUiComponents.liveRow("EVIDENCE","network scan",
+                ()->m.bounded()?"COMPLETE":"UNVERIFIED • INCOMPLETE"));
         for(int ch=0;ch<4;ch++){
             final int c=ch;
-            p.addChild(RseLdUiComponents.liveRow("CHANNEL",channelName(c),()->
-                    "coverage="+m.coverage(c)+"% • transition="+m.transitionRate(c)+"% • duty="+m.duty(c)
-                            +"% • edges ↑"+m.rising(c)+" ↓"+m.falling(c)+" • probes="+m.probeCount(c)));
+            p.addChild(new Label().setText("CHANNEL "+channelName(c)+" • EDGE TIMING"));
+            p.addChild(RseLdUiComponents.liveRow("PORT","probe count",
+                    ()->Integer.toString(m.probeCount(c))));
+            p.addChild(RseLdUiComponents.liveRow("MEASURED","HIGH duty / transitions",
+                    ()->m.coverage(c)>0?m.duty(c)+"% / "+m.transitionRate(c)+"%":"NOT READY"));
+            p.addChild(RseLdUiComponents.liveRow("EVENTS","rising / falling",
+                    ()->m.coverage(c)>0?m.rising(c)+" / "+m.falling(c):"NOT READY"));
+            p.addChild(RseLdUiComponents.liveRow("EVIDENCE","valid coverage",
+                    ()->m.coverage(c)+"%"+(m.probeCount(c)==0?" • NO PROBE":"")));
         }
         return p;
     }
@@ -132,6 +146,10 @@ public final class LogicAnalyzerLdUi {
         p.addChildren(
                 RseLdUiComponents.liveRow("NETWORK","nodes",()->"cable="+m.cableNodes()+" • probes="+m.probeNodes()),
                 RseLdUiComponents.liveRow("NETWORK","channels",()->"valid="+m.validChannels()+" • active="+m.activeChannels()+" • duplicate="+m.duplicateChannels()),
+                RseLdUiComponents.liveRow("EVIDENCE","topology complete",
+                        ()->m.bounded()?"BOUNDED":"INCOMPLETE • NOT VERIFIED"),
+                RseLdUiComponents.liveRow("SHIELDING","shielded/unshielded cables",
+                        ()->m.shieldedCableNodes()+" / "+m.unshieldedCableNodes()),
                 RseLdUiComponents.liveRow("EVIDENCE","Bus interference",()->"exposure="+m.interferenceExposure()+"% • confidence="+m.interferenceConfidence()+"%"),
                 RseLdUiComponents.liveRow("EVIDENCE","shielding",()->m.shieldingCoverage()+"%"),
                 RseLdUiComponents.liveRow("NEXT","mitigation",()->m.unshieldedExposedNodes()>0?"shield exposed instrument segments first":"instrument routing evidence coherent")
@@ -149,6 +167,10 @@ public final class LogicAnalyzerLdUi {
         var f=new TextField().setNumbersOnlyInt(min,max); f.layout(l->l.width(90));
         f.bind(DataBindingBuilder.string(()->Integer.toString(getter.getAsInt()),v->{try{setter.test(Integer.parseInt(v));}catch(NumberFormatException ignored){}}).build());
         return f;
+    }
+
+    private static String captureState(int state){
+        return switch(state){case 1->"ARMED";case 2->"TRIGGERED";default->"HOLD";}
     }
 
     private static int captureCoverage(LogicAnalyzerMenu m){
