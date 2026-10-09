@@ -205,6 +205,8 @@ public final class DigitalCommunicationLdUi {
     }
 
     private static String mediumHeadline(DigitalCommunicationMenu m) {
+        if (m.mediumDomain() != EngineeringDomain.GENERIC && m.mediumAgeTicks() < 0)
+            return "NOT READY • no synchronized timed-medium evidence";
         if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
             return "8-bit parallel • nodes=" + m.mediumMetricA() + " • drivers=" + m.mediumDriverCount();
         if (m.mediumDomain() == EngineeringDomain.SERIAL_DATA)
