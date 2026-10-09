@@ -165,6 +165,20 @@ for token in (
     if token not in hmi:
         errors.append(f"oscilloscope LDLib2 HMI missing direct trigger/cursor token {token!r}")
 
+# A nonempty capture may contain only one valid sample, with other slots
+# left-padded with -1. Both cursor samples must be valid on each channel.
+for token in (
+    'cursorEvidence(menu, 0)',
+    'cursorEvidence(menu, 1)',
+    'menu.displaySample(channel, menu.cursorA())',
+    'menu.displaySample(channel, menu.cursorB())',
+    'menu.sampleCount() <= 0 || a < 0 || b < 0',
+    'NOT READY • cursor points to uncaptured data',
+    'triggerMode(menu.triggerMode())',
+):
+    if token not in hmi:
+        errors.append(f"oscilloscope cursor evidence guard missing {token!r}")
+
 client_surface = "\n".join((screen, hmi, plot, host))
 for forbidden in (
     "dev.redstoneengineering.physics",
