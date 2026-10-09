@@ -26,6 +26,8 @@ public final class LogicAnalyzerPlotElement extends UIElement {
         int w = allocatedWidth - 2 * inset;
         int h = allocatedHeight - 2 * inset;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
+        // A fresh GUI has zero-filled slots until the server capture arrives.
+        if (menu.sampleCount() <= 0) return;
         int laneH=Math.max(12,(h-16)/4);
         for(int ch=0;ch<4;ch++){
             final int c=ch;
