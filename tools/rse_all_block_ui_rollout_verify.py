@@ -888,6 +888,27 @@ quartz_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdU
 if '"RUNTIME","A/B/C"' in quartz_ui:
     errors.append("Quartz runtime A/B/C is not a meaningful experiment variable")
 
+# Broad shared-device home-page reveal. A generic contract page must
+# actually display server-provided operands and PortQuality before a user digs
+# through tabs; keep the full six-slot Pioneer inspector intact as well.
+universal_preview = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+overview_fragment = universal_preview.split("private static UIElement modelPreviewPanel(",1)[-1].split(
+    "private static UIElement portsPanel(",1)[0]
+for token in (
+    "appendPioneerLivePreview(menu, panel)",
+    "processLabels(process)", "processUnits(process)", "processRoles(process)",
+    "measurementLabels(measurement)", "measurementUnits(measurement)",
+    "measurementRoles(measurement)", "processValue(menu, process, slot)",
+    "measurementValue(menu, measurement, slot)",
+    "menu.pioneerProcessEvidenceQuality().name()",
+    "menu.pioneerEvidenceQuality().name()", "shown<3",
+):
+    if token not in overview_fragment:
+        errors.append(f"Universal Pioneer Overview hides a live variable/quality field: {token}")
+for token in ("private static UIElement processPioneerPanel(", "private static UIElement measurementPioneerPanel("):
+    if token not in universal_preview:
+        errors.append(f"Universal Pioneer deep evidence/variables page missing: {token}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -933,3 +954,4 @@ print(" Reliability/Pneumatic/Optical fail-closed high-risk commissioning: PASS"
 print(" Radio collision precedence and no-frame diagnosis: PASS")
 print(" Operations protection priority / digital link fail-closed evidence: PASS")
 print(" Pioneer physical mechanisms / server slot provenance in five device families: PASS")
+print(" Universal all-family Overview live-variable previews and authority evidence: PASS")
