@@ -185,7 +185,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.jav
         "extends LdlibEngineeringHostScreen<PidControllerMenu>")
 require("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java",
         "PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL",
-        "e[n]=SP[n]-PV[n]", "saturation may hold integral",
+        "e=SP−PV; P=Kp·e", "anti-windup", "m.unsaturatedOutput()",
         "PidTrendPlotElement", "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
         "Capture acceptance", "Trial baseline", "Trial candidate",
         "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL",
