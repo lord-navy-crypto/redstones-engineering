@@ -106,18 +106,24 @@ public final class DigitalCommunicationLdUi {
                                     ? thresholdPercent(m) + "% • {20,40,60}% • direct entry"
                                     : "NOT READY • threshold awaiting server"
                 ),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
-                        new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
-                        q
-                ),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
-                        .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
-                        RseLdUiComponents.serverAction("Q_min 20%", () -> { m.setRegeneratorThresholdFromUi(20); }),
-                        RseLdUiComponents.serverAction("Q_min 40%", () -> { m.setRegeneratorThresholdFromUi(40); }),
-                        RseLdUiComponents.serverAction("Q_min 60%", () -> { m.setRegeneratorThresholdFromUi(60); })
-                ),
-                RseLdUiComponents.note("Only 20%, 40% and 60% are supported; each selection is validated by the server.")
+                RseLdUiComponents.note(m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR
+                        ? "Only 20%, 40% and 60% are supported; selection is validated by the server."
+                        : "Fixed converter: no adjustable regeneration threshold.")
         );
+        if (m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
+            p.addChildren(
+                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                            .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
+                            new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)), q
+                    ),
+                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                            .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
+                            RseLdUiComponents.serverAction("Q_min 20%", () -> { m.setRegeneratorThresholdFromUi(20); }),
+                            RseLdUiComponents.serverAction("Q_min 40%", () -> { m.setRegeneratorThresholdFromUi(40); }),
+                            RseLdUiComponents.serverAction("Q_min 60%", () -> { m.setRegeneratorThresholdFromUi(60); })
+                    )
+            );
+        }
         return p;
     }
 
