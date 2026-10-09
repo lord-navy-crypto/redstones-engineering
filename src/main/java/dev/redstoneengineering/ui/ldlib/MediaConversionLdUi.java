@@ -22,7 +22,7 @@ public final class MediaConversionLdUi {
                         new String[]{"Overview", "Details", "Controls", "Evidence"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
-                                        new Label().setText("FORMULA-FIRST MEDIA BOUNDARY • SERVER-SYNCHRONIZED OBSERVER"),
+                                        RseLdUiComponents.note("FORMULA-FIRST MEDIA BOUNDARY • SERVER-SYNCHRONIZED OBSERVER"),
                                         RseLdUiComponents.formulaCard(()->menu.redstoneToLapis()
                         ? "y_L = round(100 · x_R / 15)"
                         : "y_R = round(15 · x_L / 100)"),
@@ -45,7 +45,7 @@ public final class MediaConversionLdUi {
                         RseLdUiComponents.serverAction("Cycle RX ▶",menu::cycleRxForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",menu::cycleTxForward)
                 ),
-                                        new Label().setText("NO NEW SOURCE PRECISION • conversion changes representation, not information content."),
+                                        RseLdUiComponents.note("NO NEW SOURCE PRECISION • conversion changes representation, not information content."),
                                         RseLdUiComponents.authorityFooter()
                                 )
                         }
@@ -65,13 +65,13 @@ public final class MediaConversionLdUi {
             p.addChildren(
                     RseLdUiComponents.liveRow("FIXED","code spacing",()->Integer.toString(menu.sourceSpacing())),
                     new Label().setText("UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION"),
-                    new Label().setText("Redstone→Lapis expands representation only; source code spacing remains visible.")
+                    RseLdUiComponents.note("Redstone→Lapis expands representation only; source code spacing remains visible.")
             );
         }else{
             p.addChildren(
                     RseLdUiComponents.liveRow("DERIVED","x_reconstructed",()->conversionReady(menu)?Integer.toString(menu.reconstructedLapis()):"NOT READY • valid RX/TX required"),
                     RseLdUiComponents.liveRow("EVIDENCE","Quantization loss |e_q|",()->conversionReady(menu)?Integer.toString(menu.quantizationLoss()):"NOT READY • no verified quantization pair"),
-                    new Label().setText("Quantization error is explicit evidence at the Lapis→Redstone boundary.")
+                    RseLdUiComponents.note("Quantization error is explicit evidence at the Lapis→Redstone boundary.")
             );
         }
         return p;
