@@ -57,6 +57,8 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     private final DataSlot obstacleHits = trackedInt();
     private final DataSlot distanceBlocks = trackedInt();
     private final DataSlot decodeMargin = trackedInt();
+    /** A primed transmitter/receiver kind is not yet an inspected radio link. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public RadioLinkMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -69,6 +71,8 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         // PortQuality ordinal zero is VALID, so never use the zero-filled slots
         // as evidence of a real sampled source during that bootstrap frame.
         quality.set(PortQuality.NOT_READY.ordinal());
+        snapshotReady.set(0);
+        facing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
@@ -85,6 +89,7 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         payload.set(0);
@@ -116,6 +121,7 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
             channel.set(state.getValue(RadioTransmitterBlock.CHANNEL));
             quality.set(observation.quality().ordinal());
             drivers.set(observation.valid() ? 1 : 0);
+            snapshotReady.set(1);
             return;
         }
 
@@ -150,6 +156,7 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
             } else {
                 noise.set(Math.min(100, reception.interference() * 8 + reception.obstacles() * 2));
             }
+            snapshotReady.set(1);
             return;
         }
 
@@ -238,6 +245,7 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     }
     public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int payload() { return payload.get(); }
     public int channel() { return channel.get(); }
