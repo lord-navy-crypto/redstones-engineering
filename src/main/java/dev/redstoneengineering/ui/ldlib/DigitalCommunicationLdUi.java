@@ -55,7 +55,7 @@ public final class DigitalCommunicationLdUi {
                 RseLdUiComponents.liveRow("INPUT", m.inputDomain().label(), () -> verifiedValue(m.inputValue(), m.inputDomain(), m.inputQuality())),
                 RseLdUiComponents.liveRow("OUTPUT", m.outputDomain().label(), () -> verifiedValue(m.outputValue(), m.outputDomain(), m.outputQuality())),
                 RseLdUiComponents.liveRow("CONTRACT", "transform", () -> m.inputDomain().label() + " → " + m.outputDomain().label()),
-                new Label().setText("The screen presents server-synchronized link evidence only; it does not recalculate bus/serial/differential physics on the client.")
+                RseLdUiComponents.note("The screen presents server-synchronized link evidence only; it does not recalculate bus/serial/differential physics on the client.")
         );
         return p;
     }
@@ -70,7 +70,7 @@ public final class DigitalCommunicationLdUi {
                 RseLdUiComponents.liveRow("TOPOLOGY", "drivers", () -> m.mediumDriverCount()+" observed • "+(m.mediumAgeTicks()<0?"NO MEDIUM SAMPLE":"medium sample available")),
                 RseLdUiComponents.liveRow("METRIC", mediumMetricLabel(m), () -> mediumMetricValue(m)),
                 RseLdUiComponents.liveRow("TRADE-OFF", "medium", () -> mediumTradeoff(m)),
-                new Label().setText("Quality and freshness remain independent synchronized evidence.")
+                RseLdUiComponents.note("Quality and freshness remain independent synchronized evidence.")
         );
         return p;
     }
@@ -117,7 +117,7 @@ public final class DigitalCommunicationLdUi {
                         RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleRxForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶", m::cycleTxForward)
                 ),
-                new Label().setText("Route owns physical RX/TX direction; Configure does not duplicate orientation authority.")
+                RseLdUiComponents.note("Route owns physical RX/TX direction; Configure does not duplicate orientation authority.")
         );
         return p;
     }
@@ -129,8 +129,8 @@ public final class DigitalCommunicationLdUi {
                 RseLdUiComponents.liveRow("DIAGNOSIS", "link", () -> diagnosis(m)),
                 RseLdUiComponents.liveRow("NEXT", "action", () -> nextAction(m)),
                 RseLdUiComponents.liveRow("EVIDENCE", "current", () -> mediumHeadline(m)),
-                new Label().setText("This directional communication HMI exposes authoritative current evidence."),
-                new Label().setText("It does not synthesize packet history that the server does not retain.")
+                RseLdUiComponents.note("This directional communication HMI exposes authoritative current evidence."),
+                RseLdUiComponents.note("It does not synthesize packet history that the server does not retain.")
         );
         return p;
     }
