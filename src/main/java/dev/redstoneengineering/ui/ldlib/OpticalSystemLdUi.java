@@ -46,12 +46,15 @@ public final class OpticalSystemLdUi {
         p.addChildren(
                 new Label().setText("PIONEER PATTERN • OPTICAL MODEL"),
                 RseLdUiComponents.liveRow("DEVICE","type",()->name(m.kind())),
-                RseLdUiComponents.liveRow(m.kind()==OpticalSystemMenu.KIND_EMITTER?"ADJUSTABLE":"MEASURED", primaryMetric(m.kind()),()->measurement(m,m.primary()+" / 15")),
+                RseLdUiComponents.liveRow(m.kind()==OpticalSystemMenu.KIND_EMITTER?"ADJUSTABLE":"MEASURED", primaryMetric(m.kind()),()->m.kind()==OpticalSystemMenu.KIND_EMITTER
+                        ? m.primary()+" / 15 • configured" : measurement(m,m.primary()+" / 15")),
                 RseLdUiComponents.liveRow(secondaryIsConfiguration(m.kind())?"ADJUSTABLE":"MEASURED", secondaryMetric(m.kind()),()->
                         secondaryIsConfiguration(m.kind()) ? Integer.toString(m.secondary())
                                 : measurement(m,Integer.toString(m.secondary()))),
                 RseLdUiComponents.liveRow("EVIDENCE","input / source quality",()->m.quality().name()),
-                RseLdUiComponents.liveRow("DERIVED",tertiaryMetric(m.kind()),()->measurement(m,m.tertiary()+" / "+m.auxiliary())),
+                RseLdUiComponents.liveRow("DERIVED",tertiaryMetric(m.kind()),()->
+                        hasDerivedPair(m.kind()) ? measurement(m,m.tertiary()+" / "+m.auxiliary())
+                                : "NOT APPLICABLE • no paired derived operands"),
                 new Label().setText("Optical controls remain server-authoritative; the client never performs a second optical propagation solve."),
                 new Label().setText("Missing optical source evidence is not a measured zero; configuration remains independently readable.")
         );
@@ -144,9 +147,10 @@ public final class OpticalSystemLdUi {
         p.addChild(RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()));
         if (m.kind()==OpticalSystemMenu.KIND_RECEIVER) {
             p.addChildren(
-                    RseLdUiComponents.liveRow("SEGMENT","TX / RX",()->m.budgetSourceIntensity()+"/15 → "+m.primary()+"/15"),
-                    RseLdUiComponents.liveRow("DERIVED","Observed segment loss",()->Integer.toString(m.budgetObservedLoss())),
-                    RseLdUiComponents.liveRow("DERIVED","Receiver headroom",()->m.budgetReceiverHeadroom()+" above I=1"),
+                    RseLdUiComponents.liveRow("EVIDENCE","bounded source path",()->opticalBudgetReady(m)?"VERIFIED":"NOT READY • segment budget unverified"),
+                    RseLdUiComponents.liveRow("SEGMENT","TX / RX",()->opticalBudgetReady(m)?m.budgetSourceIntensity()+"/15 → "+m.primary()+"/15":"UNVERIFIED • source / receiver path"),
+                    RseLdUiComponents.liveRow("DERIVED","Observed segment loss",()->opticalBudgetReady(m)?Integer.toString(m.budgetObservedLoss()):"NOT READY"),
+                    RseLdUiComponents.liveRow("DERIVED","Receiver headroom",()->opticalBudgetReady(m)?m.budgetReceiverHeadroom()+" above I=1":"NOT READY"),
                     RseLdUiComponents.liveRow("TOPOLOGY","Passive nodes / hops",()->m.budgetPassiveNodes()+" / "+m.budgetPassiveHops()),
                     RseLdUiComponents.liveRow("TOPOLOGY","source / channel",()->m.budgetSourceCount()+" / "+m.budgetSourceChannel())
             );
@@ -155,11 +159,25 @@ public final class OpticalSystemLdUi {
             p.addChildren(
                     RseLdUiComponents.liveRow("METER","connected / same CH",()->m.meterConnectedNeighbors()+" / "+m.meterSameChannelNeighbors()),
                     RseLdUiComponents.liveRow("METER","mismatches",()->Integer.toString(m.meterChannelMismatches())),
-                    RseLdUiComponents.liveRow("METER","strongest / weakest neighbor",()->m.meterStrongestNeighbor()+" / "+m.meterWeakestNeighbor())
+                    RseLdUiComponents.liveRow("METER","strongest / weakest neighbor",()->m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID && m.meterSameChannelNeighbors()>0
+                            ? m.meterStrongestNeighbor()+" / "+m.meterWeakestNeighbor()
+                            : "NOT READY • no valid same-channel neighbors")
             );
         }
         p.addChild(new Label().setText("Observer-only commissioning evidence does not mutate or re-solve the optical network."));
         return p;
+    }
+
+    /** Receiver segment budget is meaningful only for a bounded, single-source optical path. */
+    private static boolean opticalBudgetReady(OpticalSystemMenu m) {
+        return m.budgetBounded() && m.budgetSourceCount() == 1
+                && m.quality() == dev.redstoneengineering.core.port.PortQuality.VALID;
+    }
+
+    private static boolean hasDerivedPair(int kind) {
+        return kind == OpticalSystemMenu.KIND_SPLITTER || kind == OpticalSystemMenu.KIND_FILTER
+                || kind == OpticalSystemMenu.KIND_ATTENUATOR
+                || kind == OpticalSystemMenu.KIND_RECEIVER;
     }
 
     private static String opticalEquation(OpticalSystemMenu m) {
