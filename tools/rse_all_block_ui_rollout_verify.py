@@ -553,6 +553,16 @@ for family in ("OpticalSystem", "DigitalCommunication", "LapisLowPass",
     if "RseLdUiComponents.note(" not in text:
         errors.append(f"{family}: long unwrapped engineering notes reintroduced")
 
+# Narrow panels must allow real server-bound controls to break onto the
+# next line; otherwise the right-most route or preset button is unclickable.
+for family in ("EnhancedFieldDevice", "OpticalSystem", "PneumaticSystem",
+               "ReliabilitySystem", "DigitalCommunication", "MagneticSystem",
+               "UniversalFieldDevice", "SignalConditioner"):
+    code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    for line in code.splitlines():
+        if "flexDirection(YogaFlexDirection.ROW).gapAll(" in line:
+            errors.append(f"{family}: unwrapped operator/control row can clip buttons")
+
 # The standalone five instrument UIs do not use the shared tab strip.
 # Their navigation must wrap when GUI Scale reduces the available width.
 for name in ("UniversalFieldDevice", "SignalConditioner", "Oscilloscope", "PidController", "LogicAnalyzer"):
