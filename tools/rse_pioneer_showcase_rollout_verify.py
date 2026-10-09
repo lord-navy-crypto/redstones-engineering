@@ -226,7 +226,7 @@ wave4 = {
         "PIONEER PATTERN • DIGITAL TIMING MODEL",
         "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW",
         '"Δt_sample"',
-        '"Δt_cursor"',
+        "cursorDelta(m)", "cursorValidity(m)",
         "server-authoritative",
     )),
     "CopperCircuitMeterLdUi.java": (copper, (
