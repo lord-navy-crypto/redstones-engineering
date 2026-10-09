@@ -34,7 +34,21 @@ public final class LogicAnalyzerPlotElement extends UIElement {
             int laneY=y+6+ch*laneH;
             EngineeringPlot.digitalTrace(g.graphics,16,slot->menu.displayState(c,slot),x+8,laneY,w-16,laneH-2,COLORS[ch]);
         }
-        EngineeringPlot.verticalMarker(g.graphics,menu.cursorA(),16,x+8,y,w-16,h,0xFF68D391);
-        EngineeringPlot.verticalMarker(g.graphics,menu.cursorB(),16,x+8,y,w-16,h,0xFFC084FC);
+        // Do not draw a cursor interval across unloaded or invalid slots.
+        if (validCursorPair()) {
+            EngineeringPlot.verticalMarker(g.graphics,menu.cursorA(),16,x+8,y,w-16,h,0xFF68D391);
+            EngineeringPlot.verticalMarker(g.graphics,menu.cursorB(),16,x+8,y,w-16,h,0xFFC084FC);
+        }
+    }
+    private boolean validCursorPair() {
+        int a = menu.cursorA();
+        int b = menu.cursorB();
+        if (a < 0 || a >= 16 || b < 0 || b >= 16) return false;
+        for (int channel = 0; channel < 4; channel++) {
+            if (menu.displayState(channel, a) >= 0 && menu.displayState(channel, b) >= 0) {
+                return true;
+            }
+        }
+        return false;
     }
 }
