@@ -24,11 +24,12 @@ public final class MagneticSystemLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.title("PIONEER PATTERN • MAGNETIC MODEL"),
-                                        RseLdUiComponents.formulaCard(()->equation(m))
+                                        RseLdUiComponents.formulaCard(()->equation(m)),
+                                        overview(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        overview(m),
-                                        controls(m)
+                                        controls(m),
+                                        mechanismPanel(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         evidence(m),
@@ -91,12 +92,57 @@ public final class MagneticSystemLdUi {
         return p;
     }
 
+    /**
+     * All rows consume already synchronized server snapshots. In particular,
+     * a partial field scan is not a valid zero gradient or an accurate map.
+     */
+    private static UIElement mechanismPanel(MagneticSystemMenu m) {
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.paddingAll(5).gapAll(3));
+        panel.addChild(RseLdUiComponents.title("INTERNAL MECHANISM • SERVER OBSERVATIONS"));
+        switch (m.kind()) {
+            case MagneticSystemMenu.KIND_ELECTROMAGNET -> panel.addChildren(
+                    RseLdUiComponents.liveRow("INPUT", "connected Copper feeds", () -> Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("PHYSICAL", "coil potential", () -> m.secondary() + " / 15"),
+                    RseLdUiComponents.liveRow("SOURCE", "generated field strength", () -> m.primary() + " / 15"));
+            case MagneticSystemMenu.KIND_PERMANENT -> panel.addChildren(
+                    RseLdUiComponents.liveRow("FIXED MODEL", "source strength", () -> m.primary() + " / 15"),
+                    RseLdUiComponents.liveRow("ORIENTATION", "north marker", () -> m.facing().getName().toUpperCase()));
+            case MagneticSystemMenu.KIND_COIL -> panel.addChildren(
+                    RseLdUiComponents.liveRow("INPUT", "sampled magnetic field", () -> m.primary() + " / 15"),
+                    RseLdUiComponents.liveRow("ADJUSTABLE", "coil turns N", () -> Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("OUTPUT", "induced voltage", () -> m.secondary() + " / 15"),
+                    RseLdUiComponents.fixedRow("ΔB", () -> "NOT RETAINED IN HMI",
+                            "Induction uses server state; no fictitious prior-field sample is reconstructed"));
+            case MagneticSystemMenu.KIND_FIELD_SENSOR -> panel.addChildren(
+                    RseLdUiComponents.liveRow("METROLOGY", "scanned / expected cells", () -> m.secondary() + " / " + m.tertiary()),
+                    RseLdUiComponents.liveRow("MEASURED", "field B", () -> m.primary() + " / 15"));
+            case MagneticSystemMenu.KIND_GRADIENT -> panel.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED", "∂B along X", () -> Integer.toString(m.primary())),
+                    RseLdUiComponents.liveRow("MEASURED", "∂B along Y", () -> Integer.toString(m.secondary())),
+                    RseLdUiComponents.liveRow("MEASURED", "∂B along Z", () -> Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("MEASURED", "local field B", () -> Integer.toString(m.auxiliary())),
+                    RseLdUiComponents.liveRow("EVIDENCE", "total scanned cells (X+Y+Z)", () -> Integer.toString(m.extra())));
+            default -> panel.addChild(RseLdUiComponents.fixedRow("mechanism", () -> "UNCLASSIFIED",
+                    "Unknown magnetic device, no fabricated field output"));
+        }
+        return panel;
+    }
+
     private static UIElement evidence(MagneticSystemMenu m){
-        return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
+        var panel = new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
-                RseLdUiComponents.liveRow("EVIDENCE","coverage",()->m.complete()?"COMPLETE":"INCOMPLETE / STALE"),
+                RseLdUiComponents.liveRow("EVIDENCE","scan / topology",()->m.complete()?"COMPLETE":"INCOMPLETE / UNVERIFIED"),
                 RseLdUiComponents.fixedRow("field law",()->"bounded inverse-square-style accumulation","server magnetic model")
         );
+        if (m.kind()==MagneticSystemMenu.KIND_GRADIENT) {
+            panel.addChild(RseLdUiComponents.liveRow("COVERAGE", "sum scanned cells", () -> Integer.toString(m.extra())));
+            panel.addChild(RseLdUiComponents.fixedRow("completeness",()->"ALL THREE AXES",
+                    "Only the server's per-axis complete flags can certify this three-axis result"));
+        } else if (m.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR) {
+            panel.addChild(RseLdUiComponents.liveRow("COVERAGE", "scanned / expected", () -> m.secondary()+" / "+m.tertiary()));
+        }
+        return panel;
     }
 
     private static String deviceName(MagneticSystemMenu m){return switch(m.kind()){case MagneticSystemMenu.KIND_ELECTROMAGNET->"ELECTROMAGNET";case MagneticSystemMenu.KIND_PERMANENT->"PERMANENT MAGNET";case MagneticSystemMenu.KIND_COIL->"INDUCTION COIL";case MagneticSystemMenu.KIND_FIELD_SENSOR->"MAGNETIC FIELD SENSOR";default->"MAGNETIC GRADIENT METER";};}
