@@ -505,7 +505,10 @@ for hmi in ldlib_hmis:
         errors.append(f"{hmi.name}: no dual-axis tabbed workspace")
     if has_shared_workspace and source.count("RseLdUiComponents.tabbedWorkspace(") != 1:
         errors.append(f"{hmi.name}: repeated/nested tabbed workspace")
-    if has_native_workspace and not ("horizontalScroller" in source and "verticalScroller" in source):
+    if has_native_workspace and not (
+        "RseLdUiComponents.standaloneTabs(workspace," in source
+        or ("horizontalScroller" in source and "verticalScroller" in source)
+    ):
         errors.append(f"{hmi.name}: native workspace does not reset both axes on page changes")
 
 for token in (
@@ -574,12 +577,20 @@ for family, minimum_width in (("Oscilloscope", 520), ("LogicAnalyzer", 510), ("P
     if "flexDirection(YogaFlexDirection.ROW).gapAll(" in code:
         errors.append(f"{family}: operator row will clip at narrow GUI scales")
 
-# The standalone five instrument UIs do not use the shared tab strip.
-# Their navigation must wrap when GUI Scale reduces the available width.
+# The five stand-alone instruments all use one active-tab renderer, which
+# preserves clickability at small scales and highlights the currently visible page.
+for token in ("public static UIElement standaloneTabs(", "flexWrap(FlexWrap.WRAP)",
+              'j == selected ? "▶ " + labels[j] : labels[j]',
+              "scroller.horizontalScroller.setNormalizedValue(0)",
+              "scroller.verticalScroller.setNormalizedValue(0)"):
+    if token not in components:
+        errors.append(f"Standalone LDLib2 active-tab helper regressed: {token!r}")
 for name in ("UniversalFieldDevice", "SignalConditioner", "Oscilloscope", "PidController", "LogicAnalyzer"):
     source = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{name}LdUi.java")
-    if ".flexWrap(FlexWrap.WRAP)" not in source:
-        errors.append(f"{name}LdUi.java: tab strip cannot wrap under narrow GUI scales")
+    if "RseLdUiComponents.standaloneTabs(workspace," not in source:
+        errors.append(f"{name}LdUi.java: active tabs lost shared wrap/selection/scroll contract")
+    if "tabButton(" in source:
+        errors.append(f"{name}LdUi.java: duplicate legacy tab handlers still present")
 
 # A client menu constructs the LDLib2 tree before vanilla tracked DataSlots
 # arrive. Without a static shape primer the screen can lock in a default
