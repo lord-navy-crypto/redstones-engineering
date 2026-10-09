@@ -220,7 +220,7 @@ public final class PneumaticSystemLdUi {
         }
 
         if(m.directional()){
-            p.addChild(new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+            p.addChild(new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                     RseLdUiComponents.serverAction("Cycle direction ▶",m::cycleWholeRouteForward),
                     RseLdUiComponents.serverAction("Cycle RX ▶",m::cycleInputForward),
                     RseLdUiComponents.serverAction("Cycle TX ▶",m::cycleOutputForward)
