@@ -125,6 +125,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot configKind = trackedInt();
     private final DataSlot configPrimary = trackedInt();
     private final DataSlot configSecondary = trackedInt();
+    private final DataSlot interlockBlockedTicks = trackedInt();
+    private final DataSlot interlockPermittedTicks = trackedInt();
+    private final DataSlot interlockTransitions = trackedInt();
     private final DataSlot pioneerMeasurementKind = trackedInt();
     private final DataSlot pioneerPrimary = trackedInt();
     private final DataSlot pioneerSecondary = trackedInt();
@@ -283,6 +286,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configKind.set(CONFIG_NONE);
         configPrimary.set(0);
         configSecondary.set(0);
+        interlockBlockedTicks.set(0);
+        interlockPermittedTicks.set(0);
+        interlockTransitions.set(0);
         pioneerMeasurementKind.set(PIONEER_MEASUREMENT_NONE);
         pioneerPrimary.set(0);
         pioneerSecondary.set(0);
@@ -339,6 +345,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_SAFETY_INTERLOCK);
             configPrimary.set(SafetyInterlockBlock.failedMask(level, blockPos));
             configSecondary.set(state.getValue(DirectionalSignalBlock.OUTPUT) > 0 ? 1 : 0);
+            interlockBlockedTicks.set(SafetyInterlockBlock.blockedTicks(level, blockPos));
+            interlockPermittedTicks.set(SafetyInterlockBlock.permittedTicks(level, blockPos));
+            interlockTransitions.set(SafetyInterlockBlock.transitionCount(level, blockPos));
         } else if (block instanceof TopologyDebuggerBlock) {
             configKind.set(CONFIG_TOPOLOGY_DEBUGGER);
             configPrimary.set(TopologyDebuggerBlock.scanCount(level, blockPos));
@@ -1185,6 +1194,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public int configKind() { return configKind.get(); }
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
+    public int interlockBlockedTicks() { return interlockBlockedTicks.get(); }
+    public int interlockPermittedTicks() { return interlockPermittedTicks.get(); }
+    public int interlockTransitions() { return interlockTransitions.get(); }
     public int pioneerMeasurementKind() { return pioneerMeasurementKind.get(); }
     public int pioneerProcessKind() { return pioneerProcessKind.get(); }
     public int pioneerProcessPrimary() { return pioneerProcessPrimary.get(); }
