@@ -140,6 +140,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot dataValid = trackedInt();
     private final DataSlot quality = trackedInt();
     private final DataSlot evidenceQuality = trackedInt();
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot driverCount = trackedInt();
     private final DataSlot seriesConfigurable = trackedInt();
     private final DataSlot inputEndpoint = trackedInt();
@@ -166,6 +167,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
      * Without this, initial KIND_UNKNOWN hides real controls for most devices.
      */
     private void primeClientUiShape(BlockState state) {
+        snapshotReady.set(0);
         Block block = state.getBlock();
         kind.set(kindOf(block));
         seriesConfigurable.set(block instanceof DirectionalSignalBlock
@@ -189,6 +191,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     protected void refreshAuthoritativeSnapshot() {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
+        snapshotReady.set(1);
         kind.set(kindOf(block));
         primary.set(0);
         secondary.set(0);
@@ -1271,6 +1274,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_NEXT);
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }
     public int secondary() { return secondary.get(); }
