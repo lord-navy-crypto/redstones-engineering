@@ -378,7 +378,7 @@ for menu_name, screen_name in block_facing:
         if screen_name == "PidControllerScreen":
             for token in (
                 "PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL",
-                "e[n]=SP[n]-PV[n]",
+                "e=SP−PV",
                 "anti-windup",
                 "PidTrendPlotElement",
                 "Cycle tuning preset ▶",
