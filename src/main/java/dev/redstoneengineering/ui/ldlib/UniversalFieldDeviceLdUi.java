@@ -76,14 +76,9 @@ public final class UniversalFieldDeviceLdUi {
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(440).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(overview, configure, pioneer, evidence);
 
-        var tabs = new UIElement().addClass("panel_bg");
-        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6).paddingAll(5));
-        tabs.addChildren(
-                tabButton("Overview", workspace, overview, overview, configure, pioneer, evidence),
-                tabButton("Configure", workspace, configure, overview, configure, pioneer, evidence),
-                tabButton("Pioneer", workspace, pioneer, overview, configure, pioneer, evidence),
-                tabButton("Evidence", workspace, evidence, overview, configure, pioneer, evidence)
-        );
+        var tabs = RseLdUiComponents.standaloneTabs(workspace,
+                new String[]{"Overview", "Configure", "Pioneer", "Evidence"},
+                new UIElement[]{overview, configure, pioneer, evidence});
 
         root.addChildren(
                 RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
@@ -99,21 +94,6 @@ public final class UniversalFieldDeviceLdUi {
         page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
         page.addChildren(children);
         return page;
-    }
-
-    private static Button tabButton(
-            String label,
-            ScrollerView workspace,
-            UIElement selected,
-            UIElement... pages
-    ) {
-        return new Button().setText(label).setOnClick(event -> {
-            for (UIElement page : pages) {
-                page.setDisplay(page == selected);
-            }
-            workspace.horizontalScroller.setNormalizedValue(0);
-            workspace.verticalScroller.setNormalizedValue(0);
-        });
     }
 
     /**
