@@ -87,7 +87,7 @@ public final class SignalProcessorLdUi {
                     RseLdUiComponents.liveRow("EVIDENCE","response",()->m.runtimeB()==1
                             ? "ZERO NUMERICAL LAG • input presence unverified"
                             : "NONZERO LAG • response in progress"),
-                    new Label().setText("Equality x=y is not evidence that a sensor or input source is connected.")
+                    RseLdUiComponents.note("Equality x=y is not evidence that a sensor or input source is connected.")
             );
         }else if(m.kind()==SignalProcessorMenu.KIND_EDGE){
             p.addChildren(
