@@ -1017,6 +1017,7 @@ new_evidence_guards = {
     "LapisLowPass": ("predictionReady(m)", "m.runtimePresent()",
                      "NOT READY • no retained state", "NOT READY • valid RX and initialized filter required"),
     "EnhancedFieldDevice": ("qualifiedRawMetric(m", "m.evidenceQualityKnown()",
+                            "m.snapshotReady()", "NOT READY • awaiting server snapshot",
                             "PORT QUALITY NOT REPORTED", "NOT READY • raw=",
                             "CONFIG / TOPOLOGY • PORT QUALITY NOT REPORTED"),
     "WorkcellController": ("m.inspectionReady()", "NOT READY • awaiting server workcell inspection",
@@ -1046,6 +1047,9 @@ if 'return index >= 0 && index < values.length ? values[index] : PortQuality.NOT
     errors.append("Field Device invalid/unknown quality sentinel must not decode to VALID")
 if 'public boolean evidenceQualityKnown()' not in field_device_server:
     errors.append("Field Device must differentiate absent quality from a measured port quality")
+for token in ("snapshotReady.set(0)", "snapshotReady.set(1)", "public boolean snapshotReady()"):
+    if token not in field_device_server:
+        errors.append(f"Field Device must not certify port quality before first server snapshot: {token!r}")
 workcell_server = read("src/main/java/dev/redstoneengineering/ui/menu/WorkcellControllerMenu.java")
 for token in ("inspectionReady.set(0)", "inspectionReady.set(1)", "public boolean inspectionReady()"):
     if token not in workcell_server:
