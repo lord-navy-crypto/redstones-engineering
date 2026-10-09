@@ -118,12 +118,17 @@ public final class OscilloscopeLdUi {
                                 + " • period=" + menu.periodTicks(1) + "t"),
                 RseLdUiComponents.liveRow("EVIDENCE", "CAPTURE", () ->
                         menu.sampleCount() + " samples • " + captureState(menu.captureState())),
+                RseLdUiComponents.liveRow("TRIGGER", "armed / source / threshold", () ->
+                        captureState(menu.captureState()) + " • " + triggerMode(menu.triggerMode())
+                                + " on CH-" + (menu.triggerChannel() == 0 ? "A" : "B")
+                                + " at " + menu.triggerLevel()),
+                RseLdUiComponents.liveRow("CURSORS", "display slots", () ->
+                        "A=" + menu.cursorA() + " / B=" + menu.cursorB()),
                 channelPhysics(menu, 0),
                 channelPhysics(menu, 1),
-                RseLdUiComponents.liveRow("DERIVED", "Cursor Δt", () ->
-                        menu.sampleCount()>0
-                                ? Math.abs(menu.cursorB() - menu.cursorA()) * menu.samplePeriodTicks() + " ticks"
-                                : "NOT READY • capture samples first")
+                RseLdUiComponents.liveRow("DERIVED", "Cursor Δt (CH-A)", () -> cursorEvidence(menu, 0)),
+                RseLdUiComponents.liveRow("DERIVED", "Cursor Δt (CH-B)", () -> cursorEvidence(menu, 1)),
+                new Label().setText("Cursor Δt is only shown if both selected display slots contain real captured samples on that channel.")
         );
     }
 
@@ -153,6 +158,17 @@ public final class OscilloscopeLdUi {
         panel.addChild(RseLdUiComponents.liveRow("ALIASING", "quality",
                 () -> alias(menu.aliasRisk(channel)) + " • f_N=" + formatHz(menu.nyquistMilliHz())));
         return panel;
+    }
+
+    private static String cursorEvidence(OscilloscopeMenu menu, int channel) {
+        // The 16-slot display is left-padded with -1 before a full capture.
+        // A nonempty capture alone does not make both cursor slots valid.
+        int a = menu.displaySample(channel, menu.cursorA());
+        int b = menu.displaySample(channel, menu.cursorB());
+        if (a < 0 || b < 0) return "NOT READY • cursor points to uncaptured data";
+        int deltaSamples = Math.abs(menu.cursorB() - menu.cursorA());
+        return "A=" + a + " / B=" + b + " • Δ=" + deltaSamples + " samples / "
+                + (deltaSamples * menu.samplePeriodTicks()) + " ticks (nominal)";
     }
 
     private static String fixed100(int hundredths) {
