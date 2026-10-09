@@ -26,10 +26,12 @@ public final class MediaConversionLdUi {
                                         RseLdUiComponents.formulaCard(()->menu.redstoneToLapis()
                         ? "y_L = round(100 · x_R / 15)"
                         : "y_R = round(15 · x_L / 100)"),
-                                        RseLdUiComponents.liveRow("MEASURED","input",()->Integer.toString(menu.inputValue()))
+                                        RseLdUiComponents.liveRow("MEASURED","input",()->menu.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                                 ? Integer.toString(menu.inputValue()) : "NOT READY • "+menu.inputQuality().name())
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("DERIVED","output",()->Integer.toString(menu.outputValue())),
+                                        RseLdUiComponents.liveRow("DERIVED","output",()->menu.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                                 ? Integer.toString(menu.outputValue()) : "NOT READY • "+menu.outputQuality().name()),
                                         RseLdUiComponents.liveRow("EVIDENCE","input quality",()->menu.inputQuality().name()),
                                         RseLdUiComponents.liveRow("EVIDENCE","output quality",()->menu.outputQuality().name())
                                 ),
@@ -52,6 +54,11 @@ public final class MediaConversionLdUi {
         return RseLdUiComponents.responsiveUi(root, player, 620, 440);
     }
 
+    private static boolean conversionReady(MediaConversionMenu menu) {
+        return menu.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                && menu.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID;
+    }
+
     private static UIElement quantization(MediaConversionMenu menu){
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         if(menu.redstoneToLapis()){
@@ -62,8 +69,8 @@ public final class MediaConversionLdUi {
             );
         }else{
             p.addChildren(
-                    RseLdUiComponents.liveRow("DERIVED","x_reconstructed",()->Integer.toString(menu.reconstructedLapis())),
-                    RseLdUiComponents.liveRow("EVIDENCE","Quantization loss |e_q|",()->Integer.toString(menu.quantizationLoss())),
+                    RseLdUiComponents.liveRow("DERIVED","x_reconstructed",()->conversionReady(menu)?Integer.toString(menu.reconstructedLapis()):"NOT READY • valid RX/TX required"),
+                    RseLdUiComponents.liveRow("EVIDENCE","Quantization loss |e_q|",()->conversionReady(menu)?Integer.toString(menu.quantizationLoss()):"NOT READY • no verified quantization pair"),
                     new Label().setText("Quantization error is explicit evidence at the Lapis→Redstone boundary.")
             );
         }
