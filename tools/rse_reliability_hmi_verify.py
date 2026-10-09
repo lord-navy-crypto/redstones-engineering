@@ -82,6 +82,39 @@ require(menu, "ReliabilitySystemMenu.java",
         "voter.resetDiagnostics(level, blockPos)",
         "latch.manualReset(level, blockPos)")
 
+# Safety interlock must fail closed during reset and expose genuine retained evidence.
+interlock = read("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java")
+universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
+universal_hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+require(interlock, "SafetyInterlockBlock.java",
+        "failedMask(level, pos) < 0 ? PortQuality.STALE : PortQuality.VALID",
+        "RuntimeIntStore.remove(level, KEY, pos);",
+        "updateOutput(level, pos, state, 0);",
+        "server.scheduleTick(pos, this, 1);",
+        "int blockedTicks(Level level, BlockPos pos)",
+        "int permittedTicks(Level level, BlockPos pos)",
+        "int transitionCount(Level level, BlockPos pos)")
+require(universal_menu, "UniversalFieldDeviceMenu.java",
+        "interlockBlockedTicks.set(SafetyInterlockBlock.blockedTicks(level, blockPos))",
+        "interlockPermittedTicks.set(SafetyInterlockBlock.permittedTicks(level, blockPos))",
+        "interlockTransitions.set(SafetyInterlockBlock.transitionCount(level, blockPos))")
+require(universal_hmi, "UniversalFieldDeviceLdUi.java",
+        "interlockInputs(menu.configPrimary())",
+        "menu.interlockBlockedTicks()",
+        "menu.interlockPermittedTicks()",
+        "menu.interlockTransitions()",
+        "NOT EVALUATED")
+require(screen, "ReliabilitySystemLdUi.java",
+        "LIVE RELIABILITY MECHANISM",
+        "DEVICE-SPECIFIC RELIABILITY EVIDENCE",
+        "quorum=",
+        "DEGRADED VOTE",
+        "max spread=",
+        "disagreement events=")
+for forbidden in ('"events A"', '"events B"', '"HEALTHY"'):
+    if forbidden in screen:
+        errors.append(f"Reliability HMI contains generic/misleading event or health token {forbidden}")
+
 if errors:
     print("RSE RELIABILITY HMI VERIFY: FAIL")
     for error in errors:
