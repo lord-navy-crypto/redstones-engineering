@@ -928,6 +928,68 @@ for token in ('liveMechanismPanel(m)', 'PIONEER • LIVE CONTROL CHAIN',
     if token not in pid_reveal:
         errors.append(f"PID Model page hides server-owned mechanism: {token}")
 
+# Pioneer instrumentation round: controllers and oscilloscopes must expose
+# their actual synchronized intermediate values; empty captures and partially
+# invalid windows cannot be presented as meaningful steady-state evidence.
+instrument_reveals = {
+    "PidController": (
+        ("PIONEER • SERVER PID TERM DECOMPOSITION", "m.bias()",
+         "m.pTerm()", "m.iTerm()", "m.dTerm()", "m.integralState()",
+         "m.derivativeState()", "m.antiWindupHolding()", "m.unsaturatedOutput()",
+         "m.trialScoreDelta()", "m.plantReady()"),
+        ("pTerm.set(terms.pTerm())", "iTerm.set(terms.iTerm())",
+         "dTerm.set(terms.dTerm())", "bias.set(terms.bias())",
+         "antiWindupHolding.set(terms.antiWindupHolding() ? 1 : 0)")
+    ),
+    "Oscilloscope": (
+        ("channelPhysics(menu, 0)", "channelPhysics(menu, 1)",
+         "menu.minimum(channel)", "menu.maximum(channel)", "menu.peakToPeak(channel)",
+         "menu.average100(channel)", "menu.periodSamples(channel)",
+         "menu.frequencyMilliHz(channel)", "menu.aliasRisk(channel)",
+         "menu.experimentSamplesDelta()", "menu.experimentFrequencyDeltaMilliHz()",
+         "menu.baselineCoverage()", "menu.candidateCoverage()",
+         'menu.sampleCount()>0', "BOUNDED NETWORK SCAN"),
+        ("minimum[channel].set(scope.minimum(channel))",
+         "average100[channel].set(scope.average100(channel))",
+         "frequencyMilliHz[channel].set(scope.estimatedFrequencyMilliHz(channel))",
+         "experimentSamplesDelta.set(scope.samplingExperimentSamplesPerCycleDelta())")
+    ),
+    "LogicAnalyzer": (
+        ('captureState(m.captureState())', "m.bounded()",
+         "m.coverage(c)>0", "m.duty(c)", "m.rising(c)", "m.falling(c)",
+         "m.probeCount(c)", "m.shieldedCableNodes()"),
+        ("duty[channel].set(analyzer.dutyPercent(channel))",
+         "transitionRate[channel].set(analyzer.transitionRatePercent(channel))",
+         "rising[channel].set(analyzer.rising(channel))",
+         "falling[channel].set(analyzer.falling(channel))")
+    ),
+    "SignalAnalyzer": (
+        ("measurementPanel(m)", "completeValidWindow(m)",
+         "m.validWindowCount()==m.windowCount()", "raw mean − reference",
+         "PER-SAMPLE CLAMP", "trialReady(m)", "NOT READY"),
+        ("average100.set(snapshot.average100())",
+         "validWindowCount.set(snapshot.validWindowCount())",
+         "measurementQuality.set(snapshot.measurementQuality().ordinal())")
+    )
+}
+for family, (display_tokens, snapshot_tokens) in instrument_reveals.items():
+    ui_code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    menu_code = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
+    for token in display_tokens:
+        if token not in ui_code:
+            errors.append(f"{family}: missing authority-backed Pioneer instrument variable {token}")
+    for token in snapshot_tokens:
+        if token not in menu_code:
+            errors.append(f"{family}: missing server snapshot for display {token}")
+    if "import dev.redstoneengineering.physics." in ui_code:
+        errors.append(f"{family}: UI must not run physics solver directly")
+scope_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+if 'menu.coverage(channel)>0' not in scope_ui or 'menu.frequencyMilliHz(channel)>0' not in scope_ui:
+    errors.append("Oscilloscope empty capture must not render bogus measurement frequency")
+signal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
+if 'm.validWindowCount()==m.windowCount()' not in signal_ui or 'trialReady(m)' not in signal_ui:
+    errors.append("Signal Analyzer invalid window/trial cannot report stable result or zero deltas")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -974,3 +1036,4 @@ print(" Radio collision precedence and no-frame diagnosis: PASS")
 print(" Operations protection priority / digital link fail-closed evidence: PASS")
 print(" Pioneer physical mechanisms / server slot provenance in five device families: PASS")
 print(" Universal all-family Overview live-variable previews and authority evidence: PASS")
+print(" Pioneer PID / scope / logic / signal analyzer instrument mechanism provenance: PASS")
