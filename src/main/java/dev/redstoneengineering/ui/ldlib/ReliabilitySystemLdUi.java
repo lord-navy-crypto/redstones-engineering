@@ -88,7 +88,7 @@ public final class ReliabilitySystemLdUi {
         p.addChildren(
                 RseLdUiComponents.serverAction("Maintenance action", m::runMaintenance),
                 RseLdUiComponents.liveRow("ACTION","maintenance",()->maintenanceName(m.kind())),
-                new Label().setText("Maintenance is an explicit server action, not a hidden state edit."));
+                RseLdUiComponents.note("Maintenance is an explicit server action, not a hidden state edit."));
         return p;
     }
 
@@ -105,7 +105,7 @@ public final class ReliabilitySystemLdUi {
                 RseLdUiComponents.liveRow("EVIDENCE", "extra", () ->
                         m.extraA() + " / " + m.extraB() + " / " + m.extraC()),
                 RseLdUiComponents.liveRow("PROVENANCE", "measurement", () -> evidenceInterpretation(m)),
-                new Label().setText("Numerical zero and missing/invalid evidence remain distinct; safe-state logic is never inferred from UI presentation alone.")
+                RseLdUiComponents.note("Numerical zero and missing/invalid evidence remain distinct; safe-state logic is never inferred from UI presentation alone.")
         );
         return p;
     }
@@ -121,7 +121,7 @@ public final class ReliabilitySystemLdUi {
                         RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶", m::cycleOutputForward)
                 ),
-                new Label().setText("Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.")
+                RseLdUiComponents.note("Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.")
         );
         return p;
     }
@@ -188,7 +188,7 @@ public final class ReliabilitySystemLdUi {
                             "latched=" + (m.extraA() != 0) + " / reset input active=" + (m.extraB() != 0);
                     default -> "UNAVAILABLE";
                 }),
-                new Label().setText("Counts and flags are retained server evidence; zero is never treated as proof of sensor presence.")
+                RseLdUiComponents.note("Counts and flags are retained server evidence; zero is never treated as proof of sensor presence.")
         );
         return p;
     }
