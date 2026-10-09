@@ -38,7 +38,7 @@ public final class SignalConditionerLdUi {
                 RseLdUiComponents.liveRow("MEASURED", "x", () -> menu.input() + " / 15"),
                 RseLdUiComponents.liveRow("STATE", "mode", () -> modeName(menu.mode())),
                 RseLdUiComponents.liveRow("DERIVED", "y", () -> menu.output() + " / 15"),
-                RseLdUiComponents.liveRow("EVIDENCE", "boundary", () -> menu.limiting() ? "SATURATED" : "IN RANGE")
+                RseLdUiComponents.liveRow("EVIDENCE", "boundary", () -> boundaryInterpretation(menu))
         );
         var configure = page(
                 parameterControl(menu),
@@ -153,6 +153,17 @@ public final class SignalConditionerLdUi {
             case 1 -> value >= -5 && value <= 5;
             case 2, 3 -> value >= 1 && value <= 15;
             default -> false;
+        };
+    }
+
+    /** Threshold/deadband suppress or retain deliberately; they do not hit
+     * an analog 0..15 saturation boundary, unlike gain/offset/clamp. */
+    private static String boundaryInterpretation(SignalConditionerMenu menu) {
+        return switch (menu.mode()) {
+            case 0, 1, 2 -> menu.limiting() ? "SATURATED • 0..15 transfer limit" : "IN RANGE • static transfer";
+            case 3 -> "NOT APPLICABLE • threshold gate, not saturation";
+            case 4 -> "NOT APPLICABLE • deadband hold, not saturation";
+            default -> "NOT READY • unknown transfer mode";
         };
     }
 
