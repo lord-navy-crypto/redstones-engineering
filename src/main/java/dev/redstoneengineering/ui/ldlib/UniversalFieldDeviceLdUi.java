@@ -131,6 +131,17 @@ public final class UniversalFieldDeviceLdUi {
         } else {
             panel.addChild(RseLdUiComponents.formulaCard(universalContract(menu.configKind())));
         }
+        if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) {
+            // Interpret only the last server-evaluated failure mask, not client-side
+            // redstone sampling. An unknown mask must not be presented as permission.
+            panel.addChild(RseLdUiComponents.liveRow("SAFETY", "evaluated mask",
+                    () -> menu.configPrimary() < 0 ? "NOT EVALUATED" : Integer.toString(menu.configPrimary())));
+            panel.addChild(RseLdUiComponents.liveRow("SAFETY", "permissives A / B / C",
+                    () -> interlockInputs(menu.configPrimary())));
+            panel.addChild(RseLdUiComponents.liveRow("OUTPUT", "permit",
+                    () -> menu.configPrimary() < 0 ? "UNVERIFIED • request safe 0"
+                            : menu.configSecondary() != 0 ? "15 • PERMIT" : "0 • BLOCKED"));
+        }
         // The old Overview showed the equation but concealed its live operands
         // behind the Pioneer tab. Preview actual synchronized process/metrology
         // values here for every supported Universal device family.
@@ -398,6 +409,18 @@ public final class UniversalFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("STATE", "device", () -> systemHeadline(menu)),
                 RseLdUiComponents.liveRow("STATE", "detail", () -> systemDetail(menu))
         );
+        if (menu.configKind() == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) {
+            panel.addChildren(
+                    RseLdUiComponents.liveRow("PERMISSIVE", "A / B / C", () -> interlockInputs(menu.configPrimary())),
+                    RseLdUiComponents.liveRow("EVIDENCE", "blocked / permitted evaluations", () ->
+                            menu.configPrimary() < 0 ? "NOT EVALUATED" :
+                                    menu.interlockBlockedTicks() + " / " + menu.interlockPermittedTicks()),
+                    RseLdUiComponents.liveRow("EVIDENCE", "permit transitions", () ->
+                            menu.configPrimary() < 0 ? "NOT EVALUATED" :
+                                    Integer.toString(menu.interlockTransitions())),
+                    new Label().setText("Counts are retained server evaluations (nominal 2-tick cycle), not elapsed game ticks.")
+            );
+        }
         if (hasExplicitAction(menu.configKind())) {
             panel.addChildren(
                     RseLdUiComponents.liveRow("ACTION", "operator", () -> actionLabel(menu)),
@@ -443,7 +466,7 @@ public final class UniversalFieldDeviceLdUi {
                     "Completed cycles = " + menu.configSecondary();
             case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK ->
                     "Missing permissives = " + failedPermissives(menu.configPrimary())
-                            + " • permit=" + (menu.configSecondary() != 0 ? "15" : "0");
+                            + " • permit=" + (menu.configPrimary() < 0 ? "UNVERIFIED" : menu.configSecondary() != 0 ? "15" : "0");
             case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER ->
                     "Target mode = " + (menu.configSecondary() != 0 ? "VANILLA REDSTONE" : "ENGINEERING PORTS")
                             + " • scan count=" + menu.configPrimary();
@@ -465,6 +488,13 @@ public final class UniversalFieldDeviceLdUi {
             case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> "Demagnetize core";
             default -> "No explicit operator action";
         };
+    }
+
+    private static String interlockInputs(int mask) {
+        if (mask < 0) return "A=? / B=? / C=? • NOT EVALUATED";
+        return "A=" + ((mask & 1) == 0 ? "PERMIT" : "BLOCK")
+                + " / B=" + ((mask & 2) == 0 ? "PERMIT" : "BLOCK")
+                + " / C=" + ((mask & 4) == 0 ? "PERMIT" : "BLOCK");
     }
 
     private static String failedPermissives(int mask) {
