@@ -49,6 +49,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot windowCount = trackedInt();
     private final DataSlot validWindowCount = trackedInt();
     private final DataSlot measurementQuality = trackedInt();
+    /** Distinguishes a client menu before synchronization from valid measured zero. */
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot average100 = trackedInt();
     private final DataSlot peakToPeak = trackedInt();
     private final DataSlot meanStep100 = trackedInt();
@@ -83,6 +85,9 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
                 RedstoneEngineering.SIGNAL_ANALYZER.get()
         );
         for (int i = 0; i < samples.length; i++) samples[i] = trackedInt();
+        snapshotReady.set(0);
+        measurementQuality.set(PortQuality.NOT_READY.ordinal());
+        sampleAge.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(SignalAnalyzerLdUi.create(this, inventory.player));
@@ -92,6 +97,7 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     @Override
     protected void refreshAuthoritativeSnapshot() {
         SignalAnalyzerBlock.UiSnapshot snapshot = SignalAnalyzerBlock.uiSnapshot(level, blockPos);
+        snapshotReady.set(1);
         mode.set(snapshot.mode());
         calibrationOffset.set(snapshot.calibrationOffset());
         reference.set(snapshot.reference());
@@ -202,6 +208,7 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         return clickMenuButton(playerInventory.player, BUTTON_TRIAL_CLEAR);
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int mode() { return mode.get(); }
     public int calibrationOffset() { return calibrationOffset.get(); }
     public int reference() { return reference.get(); }
