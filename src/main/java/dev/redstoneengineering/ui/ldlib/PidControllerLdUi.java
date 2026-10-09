@@ -80,7 +80,7 @@ public final class PidControllerLdUi {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PIONEER • SERVER PID TERM DECOMPOSITION"),
                 RseLdUiComponents.formulaCard(
-                        "e=SP−PV; P=Kp·e; I=Σe/KiDiv; D=Kd·d_f; u=clamp(bias+P+I+D,0,15)"),
+                        "e=SP−PV; P=Kp·e; I=(KiDiv=0 ? 0 : Σe/KiDiv); D=Kd·d_f; u=clamp(bias+P+I+D,0,15)"),
                 RseLdUiComponents.liveRow("PRESET","tuning",()->tuningName(m.tuning())),
                 RseLdUiComponents.liveRow("PRESET","Kp / KiDiv / Kd",()->m.kp()+" / "+m.kiDiv()+" / "+m.kd()),
                 RseLdUiComponents.liveRow("PRESET","dSmooth / Δt",()->m.derivativeSmoothing()+" / "+m.sampleTicks()+" ticks"),
