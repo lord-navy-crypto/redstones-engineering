@@ -86,11 +86,16 @@ public final class PidControllerLdUi {
                 RseLdUiComponents.liveRow("PRESET","dSmooth / Δt",()->m.derivativeSmoothing()+" / "+m.sampleTicks()+" ticks"),
                 RseLdUiComponents.liveRow("MEASURED","SP / PV",()->m.available()?m.setpoint()+" / "+m.processValue():"UNAVAILABLE • commissioning input"),
                 RseLdUiComponents.liveRow("DERIVED","error e",()->m.available()?signed(m.error()):"NOT READY"),
-                RseLdUiComponents.liveRow("STATE","Σe / filtered derivative",()->m.integralState()+" / "+m.derivativeState()),
-                RseLdUiComponents.liveRow("TERMS","P / I / D",()->m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm()),
-                RseLdUiComponents.liveRow("TERMS","bias / u_raw",()->m.bias()+" / "+m.unsaturatedOutput()),
+                RseLdUiComponents.liveRow("EVIDENCE","AUTO solver terms",()->autoTermState(m)),
+                RseLdUiComponents.liveRow("STATE","Σe / filtered derivative",()->m.runtimeTermsAvailable()
+                        ? m.integralState()+" / "+m.derivativeState() : "NOT READY • no AUTO solve"),
+                RseLdUiComponents.liveRow("TERMS","P / I / D",()->m.runtimeTermsAvailable()
+                        ? m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm() : "NOT READY • no AUTO solve"),
+                RseLdUiComponents.liveRow("TERMS","bias / u_raw",()->m.runtimeTermsAvailable()
+                        ? m.bias()+" / "+m.unsaturatedOutput() : "NOT READY • no AUTO solve"),
                 RseLdUiComponents.liveRow("OUTPUT","clamped u",()->m.controlOutput()+" / 15"),
-                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.antiWindupHolding()?"INTEGRAL HELD":"INTEGRATION ALLOWED"),
+                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.runtimeTermsAvailable()
+                        ? m.antiWindupHolding()?"INTEGRAL HELD":"INTEGRATION ALLOWED" : "NOT READY • no AUTO solve"),
                 RseLdUiComponents.liveRow("STATE","controller mode",()->m.inhibited()?"INHIBITED":m.manualMode()?"MANUAL":"AUTOMATIC"),
                 RseLdUiComponents.liveRow("EVIDENCE","controller / plant status",()->m.controllerStatus().name()+" / "+
                         (m.plantDetected()?m.plantStatus().name():"NO PNEUMATIC PLANT")),
@@ -98,16 +103,28 @@ public final class PidControllerLdUi {
         );
     }
 
+    private static String autoTermState(PidControllerMenu m) {
+        if (!m.runtimeTermsAvailable()) return "NOT READY • no retained AUTO calculation";
+        if (m.manualMode() || m.inhibited() || !m.available())
+            return "RETAINED LAST AUTO SOLVE • not current closed-loop proof";
+        return "SERVER AUTO SOLVE • available";
+    }
+
     private static UIElement liveMechanismPanel(PidControllerMenu m) {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PIONEER • LIVE CONTROL CHAIN"),
-                RseLdUiComponents.liveRow("INPUT","SP / PV",()->m.setpoint()+" / "+m.processValue()),
-                RseLdUiComponents.liveRow("ERROR","SP - PV",()->Integer.toString(m.error())),
-                RseLdUiComponents.liveRow("TERMS","P / I / D",()->m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm()),
-                RseLdUiComponents.liveRow("STATE","integral / filtered derivative",()->m.integralState()+" / "+m.derivativeState()),
-                RseLdUiComponents.liveRow("OUTPUT","raw / clamped",()->m.unsaturatedOutput()+" / "+m.controlOutput()),
+                RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.available()?"SERVER SNAPSHOT AVAILABLE":"UNAVAILABLE • input evidence"),
+                RseLdUiComponents.liveRow("INPUT","SP / PV",()->m.available()?m.setpoint()+" / "+m.processValue():"UNAVAILABLE"),
+                RseLdUiComponents.liveRow("ERROR","SP - PV",()->m.available()?Integer.toString(m.error()):"NOT READY"),
+                RseLdUiComponents.liveRow("TERMS","P / I / D",()->m.runtimeTermsAvailable()
+                        ? m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm() : "NOT READY • no AUTO solve"),
+                RseLdUiComponents.liveRow("STATE","integral / filtered derivative",()->m.runtimeTermsAvailable()
+                        ? m.integralState()+" / "+m.derivativeState() : "NOT READY • no AUTO solve"),
+                RseLdUiComponents.liveRow("OUTPUT","raw / clamped",()->m.runtimeTermsAvailable()
+                        ? m.unsaturatedOutput()+" / "+m.controlOutput() : "NOT READY • raw AUTO output unavailable"),
                 RseLdUiComponents.liveRow("SAFETY","mode",()->m.inhibited()?"INHIBITED":m.manualMode()?"MANUAL":"AUTO"),
-                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.antiWindupHolding()?"HOLDING INTEGRAL":"INTEGRATING"),
+                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.runtimeTermsAvailable()
+                        ? m.antiWindupHolding()?"HOLDING INTEGRAL":"INTEGRATING" : "NOT READY • no AUTO solve"),
                 RseLdUiComponents.liveRow("EVIDENCE","controller / plant",
                         ()->m.controllerStatus().name()+" / "+(m.plantDetected()?m.plantStatus().name():"NOT DETECTED")),
                 new Label().setText("Server-owned PID and plant evidence: HMI never re-solves the controller."));
@@ -117,9 +134,12 @@ public final class PidControllerLdUi {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("AUTHORITATIVE TREND • SP / PV / OUT • 2t/sample • 32-sample bounded ring"),
                 new PidTrendPlotElement(m),
-                RseLdUiComponents.liveRow("LIVE","SP/PV/OUT",()->m.setpoint()+" / "+m.processValue()+" / "+m.controlOutput()),
-                RseLdUiComponents.liveRow("LIVE","error",()->Integer.toString(m.error())),
-                RseLdUiComponents.liveRow("EVIDENCE","authoritative samples",()->m.trendCount()+" / "+PidControllerMenu.TREND_SAMPLES)
+                RseLdUiComponents.liveRow("LIVE","SP/PV/OUT",()->m.available()
+                        ? m.setpoint()+" / "+m.processValue()+" / "+m.controlOutput()
+                        : "UNAVAILABLE • current commissioning inputs"),
+                RseLdUiComponents.liveRow("LIVE","error",()->m.available()?Integer.toString(m.error()):"NOT READY"),
+                RseLdUiComponents.liveRow("EVIDENCE","authoritative samples",()->m.trendCount()+" / "+PidControllerMenu.TREND_SAMPLES),
+                new Label().setText("History samples remain retained after live inputs disappear; the live reading is withheld independently.")
         );
     }
 
@@ -144,10 +164,14 @@ public final class PidControllerLdUi {
     private static UIElement runtimePanel(PidControllerMenu m){
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 RseLdUiComponents.liveRow("STATE","mode",()->m.inhibited()?"INHIBITED":m.manualMode()?"MANUAL":"AUTO"),
-                RseLdUiComponents.liveRow("TERMS","P/I/D",()->m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm()),
-                RseLdUiComponents.liveRow("STATE","Σe / d_f",()->m.integralState()+" / "+m.derivativeState()),
-                RseLdUiComponents.liveRow("DERIVED","u_raw / u",()->m.unsaturatedOutput()+" / "+m.controlOutput()),
-                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.antiWindupHolding()?"HOLDING INTEGRAL":"INTEGRATING"),
+                RseLdUiComponents.liveRow("TERMS","P/I/D",()->m.runtimeTermsAvailable()
+                        ? m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm() : "NOT READY"),
+                RseLdUiComponents.liveRow("STATE","Σe / d_f",()->m.runtimeTermsAvailable()
+                        ? m.integralState()+" / "+m.derivativeState() : "NOT READY"),
+                RseLdUiComponents.liveRow("DERIVED","u_raw / u",()->m.runtimeTermsAvailable()
+                        ? m.unsaturatedOutput()+" / "+m.controlOutput() : "NOT READY • no AUTO solve"),
+                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.runtimeTermsAvailable()
+                        ? m.antiWindupHolding()?"HOLDING INTEGRAL":"INTEGRATING" : "NOT READY"),
                 RseLdUiComponents.liveRow("COMMISSIONING","system/controller",()->m.status().name()+" / "+m.controllerStatus().name()),
                 RseLdUiComponents.liveRow("METRICS","rise90/settle",()->m.rise90Ticks()+"t / "+m.settlingTicks()+"t"),
                 RseLdUiComponents.liveRow("METRICS","overshoot/saturation",()->m.overshoot()+" / "+m.saturationEvents())
