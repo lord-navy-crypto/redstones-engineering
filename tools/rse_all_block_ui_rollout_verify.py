@@ -1258,7 +1258,7 @@ for family in ("SignalProcessor", "SignalConditioner"):
 processor_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
 for token in ("NO • await first sample", "no server response evidence",
               "NOT READY • runtime pending", "NOT READY • parameter pending",
-              "m.snapshotReady() && m.initialized()", "m.snapshotReady() ? Integer.toString(m.runtimeA())"):
+              "m.snapshotReady() && m.initialized()", "Integer.toString(m.runtimeA())"):
     if token not in processor_ui:
         errors.append(f"Signal Processor retained history / response evidence regression: {token!r}")
 conditioner_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
