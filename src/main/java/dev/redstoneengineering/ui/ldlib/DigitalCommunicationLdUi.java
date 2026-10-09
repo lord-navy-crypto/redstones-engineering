@@ -97,7 +97,7 @@ public final class DigitalCommunicationLdUi {
                                 ? thresholdPercent(m) + "% • {20,40,60}% • direct entry"
                                 : "not applicable / fixed transform"
                 ),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
                         q
                 )
@@ -112,7 +112,7 @@ public final class DigitalCommunicationLdUi {
                 new Label().setText("PHYSICAL ROUTE • SERVER OWNED"),
                 RseLdUiComponents.liveRow("RX", "face", () -> m.inputDirection().getName().toUpperCase()),
                 RseLdUiComponents.liveRow("TX", "face", () -> m.outputDirection().getName().toUpperCase()),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle direction ▶", m::cycleWholeRouteForward),
                         RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleRxForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶", m::cycleTxForward)
