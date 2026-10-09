@@ -1282,10 +1282,16 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean topologyValid() { return topologyValid.get() != 0; }
     public boolean dataValid() { return dataValid.get() != 0; }
     public int qualityPercent() { return quality.get(); }
+    /** -1 is an explicit absence of per-port quality, never VALID (ordinal 0). */
+    public boolean evidenceQualityKnown() {
+        int index = evidenceQuality.get();
+        return index >= 0 && index < PortQuality.values().length;
+    }
+
     public PortQuality evidenceQuality() {
+        int index = evidenceQuality.get();
         PortQuality[] values = PortQuality.values();
-        int index = Math.max(0, Math.min(values.length - 1, evidenceQuality.get()));
-        return values[index];
+        return index >= 0 && index < values.length ? values[index] : PortQuality.NOT_READY;
     }
     public int driverCount() { return driverCount.get(); }
     public boolean seriesConfigurable() { return seriesConfigurable.get() != 0; }
