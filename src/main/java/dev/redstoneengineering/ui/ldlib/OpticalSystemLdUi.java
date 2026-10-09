@@ -82,7 +82,7 @@ public final class OpticalSystemLdUi {
             ).build());
             p.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE",primarySymbol(kind),()->primaryControl(m)),
-                    new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                    new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("PRIMARY").layout(l->l.width(82)), primary,
                             new Label().setText(primaryRange(kind)).layout(l->l.flex(1)))
             );
@@ -104,7 +104,7 @@ public final class OpticalSystemLdUi {
             ).build());
             p.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE","channel",()->secondaryControl(m)),
-                    new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                    new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("SECONDARY").layout(l->l.width(82)), secondary,
                             new Label().setText(secondaryRange(kind)).layout(l->l.flex(1)))
             );
@@ -120,7 +120,7 @@ public final class OpticalSystemLdUi {
         p.addChildren(
                 new Label().setText("PHYSICAL ROUTE • SERVER OWNED"),
                 RseLdUiComponents.liveRow("ROUTE","facing",()->m.facing().getName().toUpperCase()),
-                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle direction ▶",m::cycleWholeRouteForward),
                         RseLdUiComponents.serverAction("Cycle RX ▶",m::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",m::cycleOutputForward)
