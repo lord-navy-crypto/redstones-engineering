@@ -1153,6 +1153,45 @@ for token in ("snapshotReady.set(0)", "snapshotReady.set(1)",
 if "m.snapshotReady() && m.windowCount()>0" not in signal_hmi:
     errors.append("Signal Analyzer HMI reports complete evidence before first synchronized snapshot")
 
+# Startup evidence must never default to VALID (ordinal zero), and the
+# world dashboard must not report nonexistent zero-valued observations.
+for family, tokens in {
+    "CopperCircuitMeter": (
+        "snapshotReady.set(0)", "snapshotReady.set(1)",
+        "quality.set(PortQuality.NOT_READY.ordinal())", "public boolean snapshotReady()",
+    ),
+    "RangeSensor": (
+        "snapshotReady.set(0)", "snapshotReady.set(1)",
+        "public boolean snapshotReady()", "evidenceValid.set(scan.complete() ? 1 : 0)",
+    ),
+    "OperationsMonitor": (
+        "snapshotReady.set(0)", "snapshotReady.set(1)",
+        "firstOutKind.set(-1)", "public boolean snapshotReady()",
+    ),
+}.items():
+    server_source = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
+    for token in tokens:
+        if token not in server_source:
+            errors.append(f"{family}: unsynced server evidence may appear valid: {token!r}")
+for family, tokens in {
+    "CopperCircuitMeter": (
+        "m.snapshotReady() && m.quality()", "first server snapshot pending",
+        "awaiting server diagnostic",
+    ),
+    "RangeSensor": (
+        "distanceReadout(menu)", "menu.evidenceValid()", "CLEAR • no target within",
+        "range not synchronized", "route awaiting server",
+    ),
+    "OperationsMonitor": (
+        "m.snapshotReady()", "NO WORKCELLS", "NO BOUND RESOURCES",
+        "NOT READY • protection ledger pending", "NOT READY • server first-out pending",
+    ),
+}.items():
+    ui_source = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    for token in tokens:
+        if token not in ui_source:
+            errors.append(f"{family}: unsynced UI presentation regression: {token!r}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
