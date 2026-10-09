@@ -82,6 +82,38 @@ for token in ("new SignalAnalyzerPlotElement(m)", "μ=rounded mean"):
     if signal_ui and token not in signal_ui:
         errors.append(f"Signal Analyzer LDLib2 HMI missing {token!r}")
 
+# Cursor timing is evidence, not just a difference between two configured indices.
+# The 16-slot display can contain -1 for missing/uncaptured samples on each channel.
+logic_menu = read("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java")
+logic_block = read("src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java")
+for token in (
+    "validSamples[channel].set(analyzer.validSamples(channel))",
+    "public int validSamples(int channel)",
+):
+    if token not in logic_menu:
+        errors.append(f"Logic analyzer valid-sample synchronization missing {token!r}")
+for token in (
+    "if (slot < padding) return -1;",
+    "if ((validMasks[source] & bit) == 0) return -1;",
+):
+    if token not in logic_block:
+        errors.append(f"Logic analyzer missing-sample sentinel contract lost {token!r}")
+for token in (
+    "cursorValidity(m)",
+    "cursorDelta(m)",
+    "m.displayState(ch, m.cursorA()) >= 0",
+    "m.displayState(ch, m.cursorB()) >= 0",
+    "m.validSamples(c)>0",
+    "m.validSamples(c)>1",
+    "NOT READY • need 2 valid samples",
+    "complete bounded instrument scan",
+    "resolve duplicate probe channel assignments",
+):
+    if token not in logic_ui:
+        errors.append(f"Logic analyzer evidence gate missing {token!r}")
+if 'RseLdUiComponents.liveRow("DERIVED","Δt_cursor",()->Math.abs' in logic_ui:
+    errors.append("Logic analyzer reintroduced unconditional cursor timing.")
+
 # Draw extents must never exceed the actual allocated UI element box.
 # Fixed minimum drawing widths were a real overflow risk on narrow GUI scales.
 for name, source in (
