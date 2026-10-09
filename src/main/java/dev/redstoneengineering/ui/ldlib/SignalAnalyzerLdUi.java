@@ -98,10 +98,12 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("STATE","stable age",()->m.stableAgeTicks()+" ticks"),
                 RseLdUiComponents.liveRow("STATE","variation",()->stabilityClass(m)),
                 RseLdUiComponents.liveRow("EVIDENCE","valid rolling samples",()->m.validWindowCount()+"/"+m.windowCount()),
-                RseLdUiComponents.liveRow("METROLOGY","reference residual",()->
-                        m.validWindowCount()>0 && m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
-                                ? decimal100(m.average100()-100*m.reference())+" levels"
-                                : "NOT READY • valid window required"),
+                RseLdUiComponents.liveRow("METROLOGY","raw mean − reference",()->
+                        completeValidWindow(m)
+                                ? decimal100(m.average100()-100*m.reference())+" levels (uncalibrated)"
+                                : "NOT READY • fully valid window required"),
+                RseLdUiComponents.fixedRow("calibration",()->"PER-SAMPLE CLAMP",
+                        "A calibrated window residual cannot be recovered exactly from the raw mean alone"),
                 new Label().setText("Rolling statistics are synchronized server evidence; numeric zero remains distinct from missing evidence.")
         );
         return p;
@@ -144,6 +146,11 @@ public final class SignalAnalyzerLdUi {
         return f;
     }
 
+    private static boolean completeValidWindow(SignalAnalyzerMenu m){
+        return m.windowCount()>0 && m.validWindowCount()==m.windowCount()
+                && m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID;
+    }
+
     private static boolean trialReady(SignalAnalyzerMenu m){
         return m.trialBaselineSequence()>0 && m.trialCandidateSequence()>0 && m.trialTrend()!=null;
     }
@@ -151,8 +158,9 @@ public final class SignalAnalyzerLdUi {
     private static String stabilityClass(SignalAnalyzerMenu m){
         // A recorded zero is only steady when the window contains valid samples.
         // Empty/default evidence must never be interpreted as zero variation.
-        if(m.validWindowCount()==0 || m.measurementQuality()!=dev.redstoneengineering.core.port.PortQuality.VALID)
-            return "UNVERIFIED • "+m.measurementQuality().name();
+        if(!completeValidWindow(m))
+            return "UNVERIFIED • "+m.validWindowCount()+"/"+m.windowCount()
+                    +" valid • "+m.measurementQuality().name();
         if(m.windowCount()<4 || m.validWindowCount()<4) return "WARMUP";
         if(m.peakToPeak()==0 && m.meanStep100()==0) return "STEADY";
         if(m.peakToPeak()<=1 && m.meanStep100()<=50) return "STABLE";
