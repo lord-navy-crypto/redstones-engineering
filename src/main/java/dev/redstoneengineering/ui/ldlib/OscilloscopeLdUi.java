@@ -61,16 +61,9 @@ public final class OscilloscopeLdUi {
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(520).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(scope, sampling, trigger, experiment, network, status);
 
-        var tabs = new UIElement().addClass("panel_bg")
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5))
-                .addChildren(
-                        tabButton("Scope", workspace, scope, scope, sampling, trigger, experiment, network, status),
-                        tabButton("Sampling", workspace, sampling, scope, sampling, trigger, experiment, network, status),
-                        tabButton("Trigger", workspace, trigger, scope, sampling, trigger, experiment, network, status),
-                        tabButton("Experiment", workspace, experiment, scope, sampling, trigger, experiment, network, status),
-                        tabButton("Network", workspace, network, scope, sampling, trigger, experiment, network, status),
-                        tabButton("Status", workspace, status, scope, sampling, trigger, experiment, network, status)
-                );
+        var tabs = RseLdUiComponents.standaloneTabs(workspace,
+                new String[]{"Scope", "Sampling", "Trigger", "Experiment", "Network", "Status"},
+                new UIElement[]{scope, sampling, trigger, experiment, network, status});
 
         root.addChildren(
                 RseLdUiComponents.title("TWO-CHANNEL ENGINEERING OSCILLOSCOPE"),
@@ -86,19 +79,6 @@ public final class OscilloscopeLdUi {
         return new UIElement()
                 .layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10))
                 .addChildren(children);
-    }
-
-    private static Button tabButton(
-            String label,
-            ScrollerView workspace,
-            UIElement selected,
-            UIElement... pages
-    ) {
-        return new Button().setText(label).setOnClick(event -> {
-            for (UIElement page : pages) page.setDisplay(page == selected);
-            workspace.horizontalScroller.setNormalizedValue(0);
-            workspace.verticalScroller.setNormalizedValue(0);
-        });
     }
 
     private static UIElement waveformPanel(OscilloscopeMenu menu) {
