@@ -42,6 +42,11 @@ public final class AmethystSystemLdUi {
         return RseLdUiComponents.responsiveUi(root, player, 620, 440);
     }
 
+    /** Configuration remains visible even when input/output resonance evidence is absent. */
+    private static boolean reliableResonance(AmethystSystemMenu m) {
+        return m.quality() == PortQuality.VALID;
+    }
+
     private static UIElement overview(AmethystSystemMenu m){
         var p=new UIElement().addClass("panel_bg");p.layout(l->l.paddingAll(5).gapAll(3));
         if(m.kind()==AmethystSystemMenu.KIND_SOURCE){
@@ -52,22 +57,22 @@ public final class AmethystSystemLdUi {
             );
         } else if(m.kind()==AmethystSystemMenu.KIND_FILTER){
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","f_in/A_in",()->m.primary()+" / "+m.secondary()),
+                    RseLdUiComponents.liveRow("MEASURED","f_in/A_in",()->reliableResonance(m)?m.primary()+" / "+m.secondary():"NOT READY • resonance input unverified"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","f_target",()->Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("DERIVED","A_out",()->Integer.toString(m.auxiliary()))
+                    RseLdUiComponents.liveRow("DERIVED","A_out",()->reliableResonance(m)?Integer.toString(m.auxiliary()):"UNVERIFIED • no valid resonance input")
             );
         } else if(m.kind()==AmethystSystemMenu.KIND_TUNED){
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","f_in/A_in",()->m.primary()+" / "+m.secondary()),
+                    RseLdUiComponents.liveRow("MEASURED","f_in/A_in",()->reliableResonance(m)?m.primary()+" / "+m.secondary():"NOT READY • resonance input unverified"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","f0",()->Integer.toString(m.tertiary())),
                     RseLdUiComponents.liveRow("ADJUSTABLE","Q_idx",()->Integer.toString(m.auxiliary())),
                     RseLdUiComponents.liveRow("DERIVED","BW",()->Integer.toString(m.extraA())),
-                    RseLdUiComponents.liveRow("DERIVED","A_out",()->Integer.toString(m.extraB()))
+                    RseLdUiComponents.liveRow("DERIVED","A_out",()->reliableResonance(m)?Integer.toString(m.extraB()):"UNVERIFIED • no valid resonance input")
             );
         } else {
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","dominant/energy",()->m.primary()+" / "+m.secondary()),
-                    RseLdUiComponents.liveRow("MEASURED","active bands",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("MEASURED","dominant/energy",()->reliableResonance(m)?m.primary()+" / "+m.secondary():"NOT READY • spectrum evidence incomplete"),
+                    RseLdUiComponents.liveRow("MEASURED","active bands",()->reliableResonance(m)?Integer.toString(m.tertiary()):"NOT READY • spectrum evidence incomplete"),
                     RseLdUiComponents.liveRow("EVIDENCE","samples/conflicts",()->m.auxiliary()+" / "+m.extraA()),
                     RseLdUiComponents.liveRow("EVIDENCE","coverage",()->m.extraB()+" / "+m.stateFlag())
             );
@@ -89,23 +94,23 @@ public final class AmethystSystemLdUi {
                     RseLdUiComponents.liveRow("STATE","transmission",()->m.stateFlag()==1?"PULSE ACTIVE":"IDLE / NO EMISSION"));
         }else if(m.kind()==AmethystSystemMenu.KIND_FILTER){
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","carrier index",()->Integer.toString(m.primary())),
+                    RseLdUiComponents.liveRow("MEASURED","carrier index",()->reliableResonance(m)?Integer.toString(m.primary()):"NOT READY"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","target index",()->Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("EVIDENCE","server band match",()->m.stateFlag()==1?"MATCH":"REJECT"),
-                    RseLdUiComponents.liveRow("OUTPUT","amplitude after filter",()->Integer.toString(m.auxiliary())));
+                    RseLdUiComponents.liveRow("EVIDENCE","server band match",()->reliableResonance(m)?(m.stateFlag()==1?"MATCH":"REJECT"):"NOT READY • input unverified"),
+                    RseLdUiComponents.liveRow("OUTPUT","amplitude after filter",()->reliableResonance(m)?Integer.toString(m.auxiliary()):"NOT READY"));
         }else if(m.kind()==AmethystSystemMenu.KIND_TUNED){
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","incoming / natural index",()->m.primary()+" / "+m.tertiary()),
-                    RseLdUiComponents.liveRow("DERIVED","absolute detuning |Δf_idx|",()->Integer.toString(Math.abs(m.primary()-m.tertiary()))),
+                    RseLdUiComponents.liveRow("MEASURED","incoming / natural index",()->reliableResonance(m)?m.primary()+" / "+m.tertiary():"NOT READY • input unverified"),
+                    RseLdUiComponents.liveRow("DERIVED","absolute detuning |Δf_idx|",()->reliableResonance(m)?Integer.toString(Math.abs(m.primary()-m.tertiary())):"NOT READY • input unverified"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","quality-factor index",()->Integer.toString(m.auxiliary())),
                     RseLdUiComponents.liveRow("MODEL","server bandwidth index",()->Integer.toString(m.extraA())),
-                    RseLdUiComponents.liveRow("STATE","server response",()->m.stateFlag()==2?"SATURATED":m.stateFlag()==1?"RESPONDING":"NO RESPONSE"),
-                    RseLdUiComponents.liveRow("OUTPUT","resonance amplitude",()->Integer.toString(m.extraB())));
+                    RseLdUiComponents.liveRow("STATE","server response",()->reliableResonance(m)?(m.stateFlag()==2?"SATURATED":m.stateFlag()==1?"RESPONDING":"NO RESPONSE"):"UNVERIFIED • input evidence"),
+                    RseLdUiComponents.liveRow("OUTPUT","resonance amplitude",()->reliableResonance(m)?Integer.toString(m.extraB()):"NOT READY"));
         }else if(m.kind()==AmethystSystemMenu.KIND_SPECTRUM){
             p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","dominant band index",()->Integer.toString(m.primary())),
-                    RseLdUiComponents.liveRow("MEASURED","aggregate energy",()->Integer.toString(m.secondary())),
-                    RseLdUiComponents.liveRow("MEASURED","number of active bands",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("MEASURED","dominant band index",()->reliableResonance(m)?Integer.toString(m.primary()):"NOT READY"),
+                    RseLdUiComponents.liveRow("MEASURED","aggregate energy",()->reliableResonance(m)?Integer.toString(m.secondary()):"NOT READY"),
+                    RseLdUiComponents.liveRow("MEASURED","number of active bands",()->reliableResonance(m)?Integer.toString(m.tertiary()):"NOT READY"),
                     RseLdUiComponents.liveRow("EVIDENCE","samples",()->Integer.toString(m.auxiliary())),
                     RseLdUiComponents.liveRow("EVIDENCE","source conflicts",()->Integer.toString(m.extraA())),
                     RseLdUiComponents.liveRow("COVERAGE","scanned / expected cells",()->m.extraB()+" / "+m.stateFlag()));
