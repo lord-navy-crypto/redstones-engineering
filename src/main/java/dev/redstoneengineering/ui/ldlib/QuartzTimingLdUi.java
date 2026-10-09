@@ -58,7 +58,8 @@ public final class QuartzTimingLdUi {
                     RseLdUiComponents.liveRow("MEASURED","T_meas",()->m.primary()+" ticks"),
                     RseLdUiComponents.liveRow("MEASURED","T_upstream",()->m.tertiary()+" ticks"),
                     RseLdUiComponents.liveRow("DERIVED","|e_T|",()->m.secondary()+" ticks"),
-                    RseLdUiComponents.liveRow("EVIDENCE","current",()->m.runtimeC()==1?"YES":"NO")
+                    RseLdUiComponents.liveRow("EVIDENCE","current",()->m.runtimeC()==1?"YES":"NO"),
+                    RseLdUiComponents.liveRow("EVIDENCE","initialized / first edge",()->m.runtimeA()+ " / "+m.runtimeB())
             );
         }
         return p;
@@ -95,11 +96,36 @@ public final class QuartzTimingLdUi {
         return p;
     }
 
+    /**
+     * The three runtime slots have different semantics for each clock family.
+     * Expose their actual server-defined meanings, not misleading A/B/C labels.
+     */
     private static UIElement evidence(QuartzTimingMenu m) {
-        return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
-                RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.quality().name()),
-                RseLdUiComponents.liveRow("RUNTIME","A/B/C",()->m.runtimeA()+" / "+m.runtimeB()+" / "+m.runtimeC())
-        );
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(3));
+        p.addChild(RseLdUiComponents.liveRow("EVIDENCE","port quality",()->m.quality().name()));
+        switch (m.kind()) {
+            case QuartzTimingMenu.KIND_OSCILLATOR -> p.addChildren(
+                    RseLdUiComponents.liveRow("STATE", "oscillator output", () -> m.primary()==1?"HIGH":"LOW"),
+                    RseLdUiComponents.liveRow("MODEL", "period index", () -> Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("TIMING", "nominal period", () -> m.secondary()+" ticks"),
+                    RseLdUiComponents.fixedRow("history",()->"NOT RETAINED",
+                            "This oscillator has no historical edge or jitter trace in the menu snapshot"));
+            case QuartzTimingMenu.KIND_DIVIDER -> p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED", "counted rising edges", () -> Integer.toString(m.runtimeA())),
+                    RseLdUiComponents.liveRow("EVIDENCE", "divider initialized", () -> m.runtimeB()==1?"YES":"NO"),
+                    RseLdUiComponents.liveRow("MODEL", "ideal bounded period", () -> expectedDividerPeriod(m)+" ticks"),
+                    RseLdUiComponents.liveRow("LIMIT", "4096 tick saturation", () -> dividerSaturated(m)?"SATURATED":"IN RANGE"));
+            case QuartzTimingMenu.KIND_STABILITY -> p.addChildren(
+                    RseLdUiComponents.liveRow("EVIDENCE", "measurement initialized", () -> m.runtimeA()==1?"YES":"NO"),
+                    RseLdUiComponents.liveRow("EVIDENCE", "reference edge seen", () -> m.runtimeB()==1?"YES":"NO"),
+                    RseLdUiComponents.liveRow("EVIDENCE", "current measurement", () -> m.runtimeC()==1?"YES":"NO"),
+                    RseLdUiComponents.liveRow("MEASURED", "T_meas / T_upstream", () -> m.primary()+" / "+m.tertiary()+" ticks"),
+                    RseLdUiComponents.liveRow("DERIVED", "absolute period error", () -> m.secondary()+" ticks"));
+            default -> p.addChild(RseLdUiComponents.fixedRow("timing",()->"UNKNOWN",
+                    "No runtime semantics inferred for an unidentified device"));
+        }
+        return p;
     }
 
     private static String deviceName(QuartzTimingMenu m){return switch(m.kind()){case QuartzTimingMenu.KIND_DIVIDER->"QUARTZ CLOCK DIVIDER";case QuartzTimingMenu.KIND_STABILITY->"QUARTZ STABILITY MONITOR";default->"QUARTZ OSCILLATOR";};}
