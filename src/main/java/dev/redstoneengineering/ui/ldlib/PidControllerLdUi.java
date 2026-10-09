@@ -114,6 +114,7 @@ public final class PidControllerLdUi {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PIONEER • LIVE CONTROL CHAIN"),
                 RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.available()?"SERVER SNAPSHOT AVAILABLE":"UNAVAILABLE • input evidence"),
+                RseLdUiComponents.liveRow("EVIDENCE","AUTO solver terms",()->autoTermState(m)),
                 RseLdUiComponents.liveRow("INPUT","SP / PV",()->m.available()?m.setpoint()+" / "+m.processValue():"UNAVAILABLE"),
                 RseLdUiComponents.liveRow("ERROR","SP - PV",()->m.available()?Integer.toString(m.error()):"NOT READY"),
                 RseLdUiComponents.liveRow("TERMS","P / I / D",()->m.runtimeTermsAvailable()
