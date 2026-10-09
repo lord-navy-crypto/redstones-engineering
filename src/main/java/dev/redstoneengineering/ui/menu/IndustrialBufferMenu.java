@@ -31,6 +31,7 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
             List<LotView> visibleLots
     ) {}
 
+    private final DataSlot snapshotPresent = trackedInt();
     private final DataSlot capacityUnits = trackedInt();
     private final DataSlot usedUnits = trackedInt();
     private final DataSlot totalLotCount = trackedInt();
@@ -49,6 +50,7 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
     private IndustrialBufferMenu(int containerId, Inventory inventory, Payload payload) {
         super(EngineeringUiRegistration.INDUSTRIAL_BUFFER.get(), containerId, inventory, payload.pos(),
                 EngineeringSystemsModule.INDUSTRIAL_BUFFER.get());
+        snapshotPresent.set(payload.capacityUnits() > 0 ? 1 : 0);
         capacityUnits.set(Math.max(0, payload.capacityUnits()));
         usedUnits.set(Math.max(0, payload.usedUnits()));
         totalLotCount.set(Math.max(0, payload.totalLotCount()));
@@ -62,6 +64,7 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
     @Override
     protected void refreshAuthoritativeSnapshot() {
         OperationBufferSnapshot snapshot = IndustrialBufferBlock.snapshot(level, blockPos);
+        snapshotPresent.set(snapshot == null ? 0 : 1);
         if (snapshot == null) {
             capacityUnits.set(0);
             usedUnits.set(0);
@@ -89,6 +92,7 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
         outputProducerWorkcells.set(outputCount);
     }
 
+    public boolean snapshotPresent() { return snapshotPresent.get() != 0; }
     public int capacityUnits() { return capacityUnits.get(); }
     public int usedUnits() { return usedUnits.get(); }
     public int availableUnits() { return Math.max(0, capacityUnits() - usedUnits()); }
