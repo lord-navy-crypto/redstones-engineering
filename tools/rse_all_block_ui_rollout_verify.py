@@ -1230,6 +1230,32 @@ universal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFie
 if "if (!menu.snapshotReady()) return" not in universal_ui:
     errors.append("Universal Field Device exposes initial zeroed port values before server snapshot")
 
+# Signal processor and series conditioner distinguish real redstone level 0
+# from the client's zero-filled DataSlots before the first server sync.
+for family in ("SignalProcessor", "SignalConditioner"):
+    menu = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
+    ui = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    for token in ("snapshotReady.set(0)", "snapshotReady.set(1)",
+                  "public boolean snapshotReady()"):
+        if token not in menu:
+            # Signal Processor records readiness from its supported device kind.
+            if not (family == "SignalProcessor" and token == "snapshotReady.set(1)"
+                    and "snapshotReady.set(kind.get() >= 0 ? 1 : 0)" in menu):
+                errors.append(f"{family}: initial server snapshot readiness missing {token!r}")
+    if "snapshotReady()" not in ui or "NOT READY" not in ui:
+        errors.append(f"{family}: unsynchronized transfer or pulse shown as measured zero")
+processor_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
+for token in ("NO • await first sample", "no server response evidence",
+              "NOT READY • runtime pending", "NOT READY • parameter pending",
+              "m.snapshotReady() && m.initialized()", "m.snapshotReady() ? Integer.toString(m.runtimeA())"):
+    if token not in processor_ui:
+        errors.append(f"Signal Processor retained history / response evidence regression: {token!r}")
+conditioner_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
+for token in ("snapshotReady() ? menu.input()", "snapshotReady() ? menu.output()",
+              "NOT READY • no synchronized boundary result"):
+    if token not in conditioner_ui:
+        errors.append(f"Signal Conditioner redstone measured-zero distinction regression: {token!r}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
