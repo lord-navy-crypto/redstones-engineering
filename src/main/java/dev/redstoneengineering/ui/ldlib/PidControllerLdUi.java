@@ -71,15 +71,30 @@ public final class PidControllerLdUi {
         });
     }
 
+    /**
+     * Pioneer controller ledger: every numeric term comes from the
+     * server-side PidControllerBlock runtime/ClosedLoopCommissioning snapshot.
+     * No client-side PID step, integral update or second plant solve.
+     */
     private static UIElement modelPanel(PidControllerMenu m){
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
-                new Label().setText("e[n]=SP[n]-PV[n]; P[n]=Kp·e[n]"),
-                new Label().setText("Σe_cand=clamp(Σe[n-1]+e[n],-180,180); I[n]=KiDiv==0 ? 0 : Σe_cand/KiDiv"),
-                new Label().setText("d_f[n]=d_f[n-1]+(Δe-d_f[n-1])/dSmooth; D[n]=Kd·d_f[n]"),
-                new Label().setText("u_raw=bias+P+I+D; u=clamp(u_raw,0,15); saturation may hold integral"),
+                new Label().setText("PIONEER • SERVER PID TERM DECOMPOSITION"),
+                RseLdUiComponents.formulaCard(
+                        "e=SP−PV; P=Kp·e; I=Σe/KiDiv; D=Kd·d_f; u=clamp(bias+P+I+D,0,15)"),
                 RseLdUiComponents.liveRow("PRESET","tuning",()->tuningName(m.tuning())),
-                RseLdUiComponents.liveRow("FIXED","Kp/KiDiv/Kd",()->m.kp()+" / "+m.kiDiv()+" / "+m.kd()),
-                RseLdUiComponents.liveRow("FIXED","dSmooth/Δt",()->m.derivativeSmoothing()+" / "+m.sampleTicks()+"t")
+                RseLdUiComponents.liveRow("PRESET","Kp / KiDiv / Kd",()->m.kp()+" / "+m.kiDiv()+" / "+m.kd()),
+                RseLdUiComponents.liveRow("PRESET","dSmooth / Δt",()->m.derivativeSmoothing()+" / "+m.sampleTicks()+" ticks"),
+                RseLdUiComponents.liveRow("MEASURED","SP / PV",()->m.available()?m.setpoint()+" / "+m.processValue():"UNAVAILABLE • commissioning input"),
+                RseLdUiComponents.liveRow("DERIVED","error e",()->m.available()?signed(m.error()):"NOT READY"),
+                RseLdUiComponents.liveRow("STATE","Σe / filtered derivative",()->m.integralState()+" / "+m.derivativeState()),
+                RseLdUiComponents.liveRow("TERMS","P / I / D",()->m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm()),
+                RseLdUiComponents.liveRow("TERMS","bias / u_raw",()->m.bias()+" / "+m.unsaturatedOutput()),
+                RseLdUiComponents.liveRow("OUTPUT","clamped u",()->m.controlOutput()+" / 15"),
+                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.antiWindupHolding()?"INTEGRAL HELD":"INTEGRATION ALLOWED"),
+                RseLdUiComponents.liveRow("STATE","controller mode",()->m.inhibited()?"INHIBITED":m.manualMode()?"MANUAL":"AUTOMATIC"),
+                RseLdUiComponents.liveRow("EVIDENCE","controller / plant status",()->m.controllerStatus().name()+" / "+
+                        (m.plantDetected()?m.plantStatus().name():"NO PNEUMATIC PLANT")),
+                new Label().setText("Preset-dependent coefficients are not individual editable knobs; change preset in Configure.")
         );
     }
 
@@ -146,6 +161,9 @@ public final class PidControllerLdUi {
                 RseLdUiComponents.liveRow("PLANT","Actuator / supply pressure",()->m.plantPressure()+" / "+m.plantSupply()),
                 RseLdUiComponents.liveRow("PATH","Loss obs / line / restrict",()->m.plantObservedLoss()+" / "+m.plantLineLoss()+" / "+m.plantRestrictionLoss()),
                 RseLdUiComponents.liveRow("PLANT","Position / target / stall",()->m.plantPosition()+" / "+m.plantTarget()+" / "+m.plantStallTicks()+"t"),
+                RseLdUiComponents.liveRow("PATH","loss decomposition check",()->m.plantObservedLoss()+" observed vs "+
+                        (m.plantLineLoss()+m.plantRestrictionLoss())+" modeled"),
+                RseLdUiComponents.liveRow("EVIDENCE","plant ready / samples",()->(m.plantReady()?"READY":"NOT READY")+" • "+m.plantSamples()),
                 RseLdUiComponents.liveRow("PLANT","samples / penalty",()->m.plantSamples()+" / "+m.plantPenalty())
         );
         return p;
@@ -170,6 +188,7 @@ public final class PidControllerLdUi {
                 new Label().setText("Captures require settled PASS / MARGINAL / FAIL evidence"),
                 RseLdUiComponents.liveRow("TRIAL","baseline/candidate",()->seq(m.trialBaselineSequence())+" / "+seq(m.trialCandidateSequence())),
                 RseLdUiComponents.liveRow("TRIAL","comparison",()->m.trialTrend()==null?"INCOMPLETE":m.trialTrend().name()+" • "+(m.trialRobust()?"ROBUST":"CHECK")),
+                RseLdUiComponents.liveRow("DELTA","Δscore",()->signed(m.trialScoreDelta())),
                 RseLdUiComponents.liveRow("DELTA","Δsettle",()->signed(m.trialSettlingDelta())+"t"),
                 RseLdUiComponents.liveRow("DELTA","Δovershoot",()->signed(m.trialOvershootDelta())),
                 RseLdUiComponents.liveRow("DELTA","Δsat",()->signed(m.trialSaturationDelta())),
