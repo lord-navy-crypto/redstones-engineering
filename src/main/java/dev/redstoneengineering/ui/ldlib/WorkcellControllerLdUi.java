@@ -43,13 +43,20 @@ public final class WorkcellControllerLdUi {
                 new Label().setText("INPUT → WORKCELL → OUTPUT"),
                 RseLdUiComponents.liveRow("IDENTITY", "Workcell", m::workcellId),
                 RseLdUiComponents.liveRow("INPUT", "Input WIP", () ->
-                        capacityText(m.inputBufferUsedUnits(), m.inputBufferCapacityUnits())
-                                + " • " + evidencePercent(m.capacityEvidenceAvailable(), m.inputWipPressurePercent())),
+                        m.capacityEvidenceAvailable()
+                                ? capacityText(m.inputBufferUsedUnits(), m.inputBufferCapacityUnits())
+                                        + " • " + evidencePercent(true, m.inputWipPressurePercent())
+                                : "NOT READY • input buffer/capacity evidence missing"),
                 RseLdUiComponents.liveRow("WORKCELL", "resources", () ->
-                        m.validResourceCount() + "/" + m.runningResourceCount() + " valid/running of " + m.boundResourceCount()),
+                        m.inspectionReady()
+                                ? "valid=" + m.validResourceCount() + " • running=" + m.runningResourceCount()
+                                        + " • bound=" + m.boundResourceCount()
+                                : "NOT READY • awaiting server workcell inspection"),
                 RseLdUiComponents.liveRow("OUTPUT", "Output WIP", () ->
-                        capacityText(m.outputBufferUsedUnits(), m.outputBufferCapacityUnits())
-                                + " • " + evidencePercent(m.capacityEvidenceAvailable(), m.outputWipPressurePercent()))
+                        m.capacityEvidenceAvailable()
+                                ? capacityText(m.outputBufferUsedUnits(), m.outputBufferCapacityUnits())
+                                        + " • " + evidencePercent(true, m.outputWipPressurePercent())
+                                : "NOT READY • output buffer/capacity evidence missing")
         );
     }
 
@@ -60,13 +67,20 @@ public final class WorkcellControllerLdUi {
                         "PERMIT ⇔ valid capacity evidence ∧ no fault ∧ output space ∧ resource capacity"),
                 RseLdUiComponents.fixedRow("binding authority", () -> "Operations Binding Tool",
                         "resources + INPUT/OUTPUT buffers"),
+                RseLdUiComponents.liveRow("EVIDENCE", "server inspection", () ->
+                        m.inspectionReady() ? "AVAILABLE" : "NOT READY • snapshot pending"),
                 RseLdUiComponents.liveRow("MEASURED", "BOUND RESOURCES", () ->
-                        m.validResourceCount() + "/" + m.boundResourceCount()),
+                        m.inspectionReady() ? m.validResourceCount() + "/" + m.boundResourceCount() : "NOT READY"),
                 RseLdUiComponents.liveRow("DERIVED", "queue pressure", () ->
-                        m.queuePressure() < 0 ? "UNAVAILABLE" : m.queuePressure() + "/15"),
-                RseLdUiComponents.liveRow("ADMISSION", "admission", () -> m.admissionPermitted() ? "PERMIT" : "HOLD"),
-                RseLdUiComponents.liveRow("EVIDENCE", "reason", m::admissionReason),
-                RseLdUiComponents.liveRow("SAFETY", "fault resources", () -> Integer.toString(m.faultResourceCount())),
+                        !m.inspectionReady() || !m.capacityEvidenceAvailable() || m.queuePressure() < 0
+                                ? "UNAVAILABLE • capacity evidence missing" : m.queuePressure() + "/15"),
+                RseLdUiComponents.liveRow("ADMISSION", "admission", () ->
+                        !m.inspectionReady() ? "NOT READY • no inspected decision"
+                                : m.admissionPermitted() ? "PERMIT" : "HOLD"),
+                RseLdUiComponents.liveRow("EVIDENCE", "reason", () ->
+                        m.inspectionReady() ? m.admissionReason() : "NOT READY • no server assessment"),
+                RseLdUiComponents.liveRow("SAFETY", "fault resources", () ->
+                        m.inspectionReady() ? Integer.toString(m.faultResourceCount()) : "NOT READY"),
                 RseLdUiComponents.liveRow("EVIDENCE", "SETUP", () ->
                         m.setupEvidenceAvailable() ? "AVAILABLE" : "WITHHELD • WORLD EVIDENCE NOT PERSISTED"),
                 RseLdUiComponents.liveRow("EVIDENCE", "MAINTENANCE", () ->
@@ -77,12 +91,17 @@ public final class WorkcellControllerLdUi {
     private static UIElement portsPanel(WorkcellControllerMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("LOW-CARDINALITY REDSTONE PROJECTION"),
-                RseLdUiComponents.liveRow("NORTH", "ACTIVE", () -> m.runningResourceCount() > 0 ? "HIGH" : "LOW"),
-                RseLdUiComponents.liveRow("SOUTH", "PERMIT", () -> m.admissionPermitted() ? "HIGH" : "LOW"),
-                RseLdUiComponents.liveRow("EAST", "HOLD", () -> m.admissionHeld() ? "HIGH" : "LOW"),
-                RseLdUiComponents.liveRow("WEST", "FAULT", () -> m.faultResourceCount() > 0 ? "HIGH" : "LOW"),
+                RseLdUiComponents.liveRow("NORTH", "ACTIVE", () ->
+                        m.inspectionReady() ? (m.runningResourceCount() > 0 ? "HIGH" : "LOW") : "UNVERIFIED • fail-closed LOW"),
+                RseLdUiComponents.liveRow("SOUTH", "PERMIT", () ->
+                        m.inspectionReady() ? (m.admissionPermitted() ? "HIGH" : "LOW") : "UNVERIFIED • fail-closed LOW"),
+                RseLdUiComponents.liveRow("EAST", "HOLD", () ->
+                        m.inspectionReady() ? (m.admissionHeld() ? "HIGH" : "LOW") : "UNVERIFIED • awaiting inspection"),
+                RseLdUiComponents.liveRow("WEST", "FAULT", () ->
+                        m.inspectionReady() ? (m.faultResourceCount() > 0 ? "HIGH" : "LOW") : "UNVERIFIED • no fault assessment"),
                 RseLdUiComponents.liveRow("UP", "QUEUE PRESSURE", () ->
-                        m.queuePressure() < 0 ? "UNAVAILABLE" : m.queuePressure() + " / 15"),
+                        !m.inspectionReady() || !m.capacityEvidenceAvailable() || m.queuePressure() < 0
+                                ? "UNAVAILABLE • no verified buffer capacity" : m.queuePressure() + " / 15"),
                 new Label().setText("Job/resource/lot identities never travel through analog redstone.")
         );
     }
