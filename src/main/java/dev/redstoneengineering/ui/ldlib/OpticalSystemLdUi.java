@@ -55,8 +55,8 @@ public final class OpticalSystemLdUi {
                 RseLdUiComponents.liveRow("DERIVED",tertiaryMetric(m.kind()),()->
                         hasDerivedPair(m.kind()) ? measurement(m,m.tertiary()+" / "+m.auxiliary())
                                 : "NOT APPLICABLE • no paired derived operands"),
-                new Label().setText("Optical controls remain server-authoritative; the client never performs a second optical propagation solve."),
-                new Label().setText("Missing optical source evidence is not a measured zero; configuration remains independently readable.")
+                RseLdUiComponents.note("Optical controls remain server-authoritative; the client never performs a second optical propagation solve."),
+                RseLdUiComponents.note("Missing optical source evidence is not a measured zero; configuration remains independently readable.")
         );
         return p;
     }
@@ -125,7 +125,7 @@ public final class OpticalSystemLdUi {
                         RseLdUiComponents.serverAction("Cycle RX ▶",m::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",m::cycleOutputForward)
                 ),
-                new Label().setText("Direction and physical interface orientation are controlled only on Route.")
+                RseLdUiComponents.note("Direction and physical interface orientation are controlled only on Route.")
         );
         return p;
     }
@@ -143,7 +143,7 @@ public final class OpticalSystemLdUi {
             p.addChild(RseLdUiComponents.liveRow("EVIDENCE","physical port",()->m.quality().name()));
             return p;
         }
-        p.addChild(new Label().setText("Segment TX / RX • SERVER-AUTHORITATIVE OPTICAL COMMISSIONING"));
+        p.addChild(RseLdUiComponents.note("Segment TX / RX • SERVER-AUTHORITATIVE OPTICAL COMMISSIONING"));
         p.addChild(RseLdUiComponents.liveRow("COMMISSIONING","status",()->m.commissioningStatus().name()));
         if (m.kind()==OpticalSystemMenu.KIND_RECEIVER) {
             p.addChildren(
@@ -154,7 +154,7 @@ public final class OpticalSystemLdUi {
                     RseLdUiComponents.liveRow("TOPOLOGY","Passive nodes / hops",()->m.budgetPassiveNodes()+" / "+m.budgetPassiveHops()),
                     RseLdUiComponents.liveRow("TOPOLOGY","source / channel",()->m.budgetSourceCount()+" / "+m.budgetSourceChannel())
             );
-            p.addChild(new Label().setText("Intensity-unit segment budget only; upstream splitter/attenuator loss is not double-counted."));
+            p.addChild(RseLdUiComponents.note("Intensity-unit segment budget only; upstream splitter/attenuator loss is not double-counted."));
         } else {
             p.addChildren(
                     RseLdUiComponents.liveRow("METER","connected / same CH",()->m.meterConnectedNeighbors()+" / "+m.meterSameChannelNeighbors()),
@@ -164,7 +164,7 @@ public final class OpticalSystemLdUi {
                             : "NOT READY • no valid same-channel neighbors")
             );
         }
-        p.addChild(new Label().setText("Observer-only commissioning evidence does not mutate or re-solve the optical network."));
+        p.addChild(RseLdUiComponents.note("Observer-only commissioning evidence does not mutate or re-solve the optical network."));
         return p;
     }
 
