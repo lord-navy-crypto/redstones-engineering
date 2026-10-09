@@ -52,9 +52,13 @@ public final class DigitalCommunicationLdUi {
         p.addChildren(
                 new Label().setText("PIONEER PATTERN • COMMUNICATION MODEL"),
                 RseLdUiComponents.liveRow("DEVICE", "type", () -> deviceName(m.kind())),
+                RseLdUiComponents.liveRow("EVIDENCE", "server snapshot", () -> m.snapshotReady()
+                        ? "SYNCED • converter and medium inspected" : "NOT READY • awaiting server inspection"),
                 RseLdUiComponents.liveRow("INPUT", m.inputDomain().label(), () -> verifiedValue(m.inputValue(), m.inputDomain(), m.inputQuality())),
                 RseLdUiComponents.liveRow("OUTPUT", m.outputDomain().label(), () -> verifiedValue(m.outputValue(), m.outputDomain(), m.outputQuality())),
-                RseLdUiComponents.liveRow("CONTRACT", "transform", () -> m.inputDomain().label() + " → " + m.outputDomain().label()),
+                RseLdUiComponents.liveRow("CONTRACT", "transform", () -> m.snapshotReady()
+                        ? m.inputDomain().label() + " → " + m.outputDomain().label()
+                        : "NOT READY • port domain pending"),
                 RseLdUiComponents.note("The screen presents server-synchronized link evidence only; it does not recalculate bus/serial/differential physics on the client.")
         );
         return p;
@@ -67,7 +71,9 @@ public final class DigitalCommunicationLdUi {
                 RseLdUiComponents.liveRow("MEDIUM", "identity", () -> mediumName(m.mediumDomain())),
                 RseLdUiComponents.liveRow("MEASURED", "Q_link", () -> mediumQualityText(m)),
                 RseLdUiComponents.liveRow("MEASURED", "age", () -> mediumAgeText(m)),
-                RseLdUiComponents.liveRow("TOPOLOGY", "drivers", () -> m.mediumDriverCount()+" observed • "+(m.mediumAgeTicks()<0?"NO MEDIUM SAMPLE":"medium sample available")),
+                RseLdUiComponents.liveRow("TOPOLOGY", "drivers", () -> m.snapshotReady()
+                        ? m.mediumDriverCount()+" observed • "+(m.mediumAgeTicks()<0?"NO MEDIUM SAMPLE":"medium sample available")
+                        : "NOT READY • driver inspection pending"),
                 RseLdUiComponents.liveRow("METRIC", mediumMetricLabel(m), () -> mediumMetricValue(m)),
                 RseLdUiComponents.liveRow("TRADE-OFF", "medium", () -> mediumTradeoff(m)),
                 RseLdUiComponents.note("Quality and freshness remain independent synchronized evidence.")
@@ -79,7 +85,8 @@ public final class DigitalCommunicationLdUi {
         var q = new TextField().setNumbersOnlyInt(20, 60);
         q.layout(l -> l.width(100));
         q.bind(DataBindingBuilder.string(
-                () -> m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR ? Integer.toString(thresholdPercent(m)) : "",
+                () -> m.snapshotReady() && m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR
+                        ? Integer.toString(thresholdPercent(m)) : "",
                 value -> {
                     if (m.kind() != DigitalCommunicationMenu.KIND_REGENERATOR) return;
                     try { m.setRegeneratorThresholdFromUi(Integer.parseInt(value)); }
@@ -93,14 +100,23 @@ public final class DigitalCommunicationLdUi {
                 RseLdUiComponents.liveRow(
                         m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR ? "ADJUSTABLE" : "FIXED",
                         "Q_min",
-                        () -> m.kind() == DigitalCommunicationMenu.KIND_REGENERATOR
-                                ? thresholdPercent(m) + "% • {20,40,60}% • direct entry"
-                                : "not applicable / fixed transform"
+                        () -> m.kind() != DigitalCommunicationMenu.KIND_REGENERATOR
+                                ? "not applicable / fixed transform"
+                                : m.snapshotReady()
+                                    ? thresholdPercent(m) + "% • {20,40,60}% • direct entry"
+                                    : "NOT READY • threshold awaiting server"
                 ),
                 new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
                         q
-                )
+                ),
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                        .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
+                        RseLdUiComponents.serverAction("Q_min 20%", () -> { m.setRegeneratorThresholdFromUi(20); }),
+                        RseLdUiComponents.serverAction("Q_min 40%", () -> { m.setRegeneratorThresholdFromUi(40); }),
+                        RseLdUiComponents.serverAction("Q_min 60%", () -> { m.setRegeneratorThresholdFromUi(60); })
+                ),
+                RseLdUiComponents.note("Only 20%, 40% and 60% are supported; each selection is validated by the server.")
         );
         return p;
     }
@@ -110,8 +126,10 @@ public final class DigitalCommunicationLdUi {
         p.layout(l -> l.paddingAll(5).gapAll(4));
         p.addChildren(
                 new Label().setText("PHYSICAL ROUTE • SERVER OWNED"),
-                RseLdUiComponents.liveRow("RX", "face", () -> m.inputDirection().getName().toUpperCase()),
-                RseLdUiComponents.liveRow("TX", "face", () -> m.outputDirection().getName().toUpperCase()),
+                RseLdUiComponents.liveRow("RX", "face", () -> m.snapshotReady()
+                        ? m.inputDirection().getName().toUpperCase() : "NOT READY • route pending"),
+                RseLdUiComponents.liveRow("TX", "face", () -> m.snapshotReady()
+                        ? m.outputDirection().getName().toUpperCase() : "NOT READY • route pending"),
                 new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle direction ▶", m::cycleWholeRouteForward),
                         RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleRxForward),
@@ -146,6 +164,7 @@ public final class DigitalCommunicationLdUi {
     }
 
     private static String diagnosis(DigitalCommunicationMenu m) {
+        if (!m.snapshotReady()) return "LINK NOT READY • WAITING FOR SERVER SNAPSHOT";
         // Never announce a healthy bus, serial link or domain converter when
         // its authoritative input/output quality is a hard fault or not ready.
         PortQuality input = m.inputQuality();
@@ -205,6 +224,7 @@ public final class DigitalCommunicationLdUi {
     }
 
     private static String mediumHeadline(DigitalCommunicationMenu m) {
+        if (!m.snapshotReady()) return "NOT READY • medium inspection pending";
         if (m.mediumDomain() != EngineeringDomain.GENERIC && m.mediumAgeTicks() < 0)
             return "NOT READY • no synchronized timed-medium evidence";
         if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
@@ -224,6 +244,7 @@ public final class DigitalCommunicationLdUi {
     }
 
     private static String mediumMetricValue(DigitalCommunicationMenu m) {
+        if (!m.snapshotReady()) return "NOT READY • medium inspection pending";
         if (m.mediumAgeTicks() < 0) return "NOT READY • no synchronized medium sample";
         if (m.mediumDomain() == EngineeringDomain.DATA_BUS_8)
             return m.mediumMetricB() + " / " + m.mediumMetricC() + " frames";
@@ -254,10 +275,12 @@ public final class DigitalCommunicationLdUi {
     }
 
     private static String mediumQualityText(DigitalCommunicationMenu m) {
+        if (!m.snapshotReady()) return "NOT READY • medium quality pending";
         return m.mediumAgeTicks() < 0 ? "N/A" : m.mediumQualityPercent() + "%";
     }
 
     private static String mediumAgeText(DigitalCommunicationMenu m) {
+        if (!m.snapshotReady()) return "NOT READY • no server medium sample";
         return m.mediumAgeTicks() < 0 ? "NO SAMPLE" : m.mediumAgeTicks() + "t";
     }
 
