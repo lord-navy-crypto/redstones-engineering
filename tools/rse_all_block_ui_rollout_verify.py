@@ -1192,6 +1192,44 @@ for family, tokens in {
         if token not in ui_source:
             errors.append(f"{family}: unsynced UI presentation regression: {token!r}")
 
+# Prevent every new zero-initialized device DataSlot from briefly decoding
+# PortQuality ordinal 0 as VALID before server sync. Quality is not a
+# cosmetic status: it determines whether measured/derived values are trusted.
+device_quality_fields = {
+    "MagneticSystem": ("quality",),
+    "OpticalSystem": ("quality",),
+    "PneumaticSystem": ("inputQuality", "outputQuality", "upstreamQuality", "downstreamQuality"),
+    "AmethystSystem": ("quality",),
+    "DigitalCommunication": ("inputQuality", "outputQuality"),
+    "RadioLink": ("quality",),
+    "QuartzTiming": ("quality",),
+    "ReliabilitySystem": ("quality",),
+    "LapisLowPass": ("inputQuality", "outputQuality"),
+    "MediaConversion": ("inputQuality", "outputQuality"),
+}
+for family, field_names in device_quality_fields.items():
+    menu_src = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
+    for field in field_names:
+        token = f"{field}.set(PortQuality.NOT_READY.ordinal());"
+        if token not in menu_src:
+            errors.append(f"{family}: port quality {field} may appear VALID before first server sync")
+
+base_menu = read("src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java")
+for token in ("HEALTH_UNVERIFIED = -1", "operationalHealth.set(HEALTH_UNVERIFIED)",
+              "case HEALTH_UNVERIFIED ->", "evidenceState.set(EVIDENCE_NOT_READY)",
+              'return "RX / TX • awaiting server route evidence"'):
+    if token not in base_menu:
+        errors.append(f"Global Health/Port pre-sync misreport regressed: {token!r}")
+universal = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
+for token in ("for (DataSlot quality : qualities) quality.set(PortQuality.NOT_READY.ordinal())",
+              "public boolean snapshotReady()", "snapshotReady.set(0)", "snapshotReady.set(1)",
+              "if (!snapshotReady()) return PortQuality.NOT_READY"):
+    if token not in universal:
+        errors.append(f"Universal Field Device client shape masquerades as world evidence: {token!r}")
+universal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+if "if (!menu.snapshotReady()) return" not in universal_ui:
+    errors.append("Universal Field Device exposes initial zeroed port values before server snapshot")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
