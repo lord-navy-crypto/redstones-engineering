@@ -820,6 +820,74 @@ for token in (
 if digital_diag.find("PortQuality.FAULT") > digital_diag.find('"8-BIT PARALLEL BUS HEALTHY"'):
     errors.append("Digital link HEALTHY must follow authoritative input/output fault checks")
 
+# Physics-mechanism reveal gate: previously hidden runtime slots are now
+# named against their server-owned snapshot contracts. This is not a request
+# for additional local physics or invented editable controls.
+mechanism_families = {
+    "MagneticSystem": (
+        ("mechanismPanel(m)", "total scanned cells (X+Y+Z)",
+         "∂B along X", "∂B along Y", "∂B along Z",
+         "connected Copper feeds", "NOT RETAINED IN HMI"),
+        ("extra.set(gx.scannedCells() + gy.scannedCells() + gz.scannedCells())",
+         "primary.set(gx.value()); secondary.set(gy.value()); tertiary.set(gz.value())",
+         "secondary.set(input.voltage())", "tertiary.set(input.connectedFeeds())")
+    ),
+    "QuartzTiming": (
+        ("counted rising edges", "divider initialized", "measurement initialized",
+         "reference edge seen", "current measurement",
+         "4096 tick saturation", "NOT RETAINED"),
+        ("runtimeA.set(QuartzClockDividerBlock.countedEdges(level, blockPos))",
+         "runtimeB.set(QuartzClockDividerBlock.initialized(level, blockPos) ? 1 : 0)",
+         "runtimeA.set(measurement.initialized() ? 1 : 0)",
+         "runtimeB.set(measurement.referenceEdgeSeen() ? 1 : 0)",
+         "runtimeC.set(measurement.currentMeasurement() ? 1 : 0)")
+    ),
+    "AmethystSystem": (
+        ("resonanceMechanism(m)", "absolute detuning |Δf_idx|",
+         "quality-factor index", "server bandwidth index",
+         "scanned / expected cells", "UNVERIFIED RESONANCE EVIDENCE",
+         "SOURCE IDLE / NO TRANSMISSION"),
+        ("extraA.set(e.bandwidth()); extraB.set(e.outputAmplitude())",
+         "extraB.set(s.scannedCells()); stateFlag.set(s.expectedCells())",
+         "stateFlag.set(e.saturated() ? 2 : e.responding() ? 1 : 0)")
+    ),
+    "SignalProcessor": (
+        ("control(menu)", "runtime(menu)", "OUTPUT",
+         "SERVER RETAINED", "configured pulse width"),
+        ("runtimeA.set(EdgeDetectorBlock.pulseRemaining(level, blockPos))",
+         "runtimeB.set(EdgeDetectorBlock.edgeCount(level, blockPos))",
+         "runtimeC.set(EdgeDetectorBlock.lastEdgeAgeTicks(level, blockPos))")
+    ),
+    "PneumaticSystem": (
+        ("pneumaticMechanism(m)", "primaryMetric(m.kind())",
+         "secondaryMetric(m.kind())", "P_stored", "P_set",
+         "flow proxy", "vent count", "physical path edges",
+         "winning path edges", "retained samples"),
+        ("primary.set(PneumaticFlowMeterBlock.flowProxy(level, blockPos))",
+         "secondary.set(PneumaticFlowMeterBlock.pressureDrop(level, blockPos))",
+         "tertiary.set(PneumaticFlowMeterBlock.inletPressure(level, blockPos))",
+         "auxiliary.set(PneumaticFlowMeterBlock.outletPressure(level, blockPos))",
+         "cylinderPathEdges.set(path.pathEdges())",
+         "cylinderSamples.set(PneumaticCylinderBlock.samples(level, blockPos))")
+    ),
+}
+for family, (ui_tokens, menu_tokens) in mechanism_families.items():
+    ui_code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    menu_code = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
+    for token in ui_tokens:
+        if token not in ui_code:
+            errors.append(f"{family}: Pioneer mechanism/variable not visible: {token}")
+    for token in menu_tokens:
+        if token not in menu_code:
+            errors.append(f"{family}: expected server-owned snapshot field absent: {token}")
+for family in ("MagneticSystem", "AmethystSystem", "PneumaticSystem"):
+    ui_code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    if "import dev.redstoneengineering.physics." in ui_code:
+        errors.append(f"{family} UI must not import or run its own physics solver")
+quartz_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java")
+if '"RUNTIME","A/B/C"' in quartz_ui:
+    errors.append("Quartz runtime A/B/C is not a meaningful experiment variable")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
@@ -864,3 +932,4 @@ print(" Pioneer named sensor profile decoding: PASS")
 print(" Reliability/Pneumatic/Optical fail-closed high-risk commissioning: PASS")
 print(" Radio collision precedence and no-frame diagnosis: PASS")
 print(" Operations protection priority / digital link fail-closed evidence: PASS")
+print(" Pioneer physical mechanisms / server slot provenance in five device families: PASS")
