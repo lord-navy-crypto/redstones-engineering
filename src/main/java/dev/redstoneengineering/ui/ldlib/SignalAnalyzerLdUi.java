@@ -176,6 +176,7 @@ public final class SignalAnalyzerLdUi {
 
     private static boolean completeValidWindow(SignalAnalyzerMenu m){
         return m.windowCount()>0 && m.validWindowCount()==m.windowCount()
+                && m.sampleAgeTicks()>=0 && m.sampleAgeTicks()<=4
                 && m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID;
     }
 
