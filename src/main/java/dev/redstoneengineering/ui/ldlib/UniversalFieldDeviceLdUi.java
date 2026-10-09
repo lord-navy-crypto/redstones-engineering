@@ -42,6 +42,8 @@ public final class UniversalFieldDeviceLdUi {
 
         var overview = page(
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),
+                RseLdUiComponents.liveRow("EVIDENCE", "snapshot", () ->
+                        menu.snapshotReady() ? "SERVER PORTS SYNCED" : "NOT READY • first port snapshot pending"),
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
                 RseLdUiComponents.liveRow("I/O", "route", menu::portRouteLabel),
                 modelPreviewPanel(menu),
@@ -246,12 +248,16 @@ public final class UniversalFieldDeviceLdUi {
         panel.addChildren(
                 new Label().setText("MECHANISM FLOW • SERVER-AUTHORITATIVE"),
                 RseLdUiComponents.liveRow("RX / INPUT", "endpoint",
-                        () -> menu.hasInputEndpoint() ? "DECLARED • synchronized port evidence" : "NONE"),
+                        () -> menu.hasInputEndpoint()
+                                 ? (menu.snapshotReady() ? "DECLARED • synchronized port evidence"
+                                         : "DECLARED • data pending") : "NONE"),
                 RseLdUiComponents.liveRow("MODEL", "contract",
                         () -> universalContract(menu.configKind())),
                 RseLdUiComponents.liveRow("STATE", "snapshot", menu::operationalHealthLabel),
                 RseLdUiComponents.liveRow("TX / OUTPUT", "endpoint",
-                        () -> menu.hasOutputEndpoint() ? "DECLARED • synchronized port evidence" : "NONE"),
+                        () -> menu.hasOutputEndpoint()
+                                 ? (menu.snapshotReady() ? "DECLARED • synchronized port evidence"
+                                         : "DECLARED • data pending") : "NONE"),
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
                 new Label().setText(
                         "Client presents synchronized evidence and validated operator intent; "
@@ -262,6 +268,7 @@ public final class UniversalFieldDeviceLdUi {
 
     private static String portText(UniversalFieldDeviceMenu menu, Direction side) {
         if (!menu.hasPort(side)) return "—";
+        if (!menu.snapshotReady()) return "DECLARED • NOT READY • awaiting server port value / domain / quality";
         String io = menu.isBidirectional(side) ? "BIDIR"
                 : menu.isInput(side) ? "RX"
                 : menu.isOutput(side) ? "TX" : "PASSIVE";
