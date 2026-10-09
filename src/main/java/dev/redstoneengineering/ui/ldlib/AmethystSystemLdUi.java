@@ -25,11 +25,12 @@ public final class AmethystSystemLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.title("PIONEER PATTERN • RESONANCE MODEL"),
-                                        RseLdUiComponents.formulaCard(()->equation(m))
+                                        RseLdUiComponents.formulaCard(()->equation(m)),
+                                        overview(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        overview(m),
-                                        controls(m)
+                                        controls(m),
+                                        resonanceMechanism(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         diagnostics(m),
@@ -73,6 +74,44 @@ public final class AmethystSystemLdUi {
         }
         p.addChild(RseLdUiComponents.fixedRow("frequency units",()->"MODEL INDEX 1..15",
                 "Frequency values are deliberate model indices, not fabricated Hz"));
+        return p;
+    }
+
+    /** Explain live resonance mechanisms using only menu-synchronized values. */
+    private static UIElement resonanceMechanism(AmethystSystemMenu m){
+        var p=new UIElement().addClass("panel_bg");
+        p.layout(l->l.paddingAll(5).gapAll(4));
+        p.addChild(RseLdUiComponents.title("RESONANCE • MODEL INDICES / OBSERVED RESPONSE"));
+        if(m.kind()==AmethystSystemMenu.KIND_SOURCE){
+            p.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE","frequency index",()->m.primary()+" / 15"),
+                    RseLdUiComponents.liveRow("ADJUSTABLE","source amplitude",()->m.secondary()+" / 15"),
+                    RseLdUiComponents.liveRow("STATE","transmission",()->m.stateFlag()==1?"PULSE ACTIVE":"IDLE / NO EMISSION"));
+        }else if(m.kind()==AmethystSystemMenu.KIND_FILTER){
+            p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED","carrier index",()->Integer.toString(m.primary())),
+                    RseLdUiComponents.liveRow("ADJUSTABLE","target index",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("EVIDENCE","server band match",()->m.stateFlag()==1?"MATCH":"REJECT"),
+                    RseLdUiComponents.liveRow("OUTPUT","amplitude after filter",()->Integer.toString(m.auxiliary())));
+        }else if(m.kind()==AmethystSystemMenu.KIND_TUNED){
+            p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED","incoming / natural index",()->m.primary()+" / "+m.tertiary()),
+                    RseLdUiComponents.liveRow("DERIVED","absolute detuning |Δf_idx|",()->Integer.toString(Math.abs(m.primary()-m.tertiary()))),
+                    RseLdUiComponents.liveRow("ADJUSTABLE","quality-factor index",()->Integer.toString(m.auxiliary())),
+                    RseLdUiComponents.liveRow("MODEL","server bandwidth index",()->Integer.toString(m.extraA())),
+                    RseLdUiComponents.liveRow("STATE","server response",()->m.stateFlag()==2?"SATURATED":m.stateFlag()==1?"RESPONDING":"NO RESPONSE"),
+                    RseLdUiComponents.liveRow("OUTPUT","resonance amplitude",()->Integer.toString(m.extraB())));
+        }else if(m.kind()==AmethystSystemMenu.KIND_SPECTRUM){
+            p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED","dominant band index",()->Integer.toString(m.primary())),
+                    RseLdUiComponents.liveRow("MEASURED","aggregate energy",()->Integer.toString(m.secondary())),
+                    RseLdUiComponents.liveRow("MEASURED","number of active bands",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("EVIDENCE","samples",()->Integer.toString(m.auxiliary())),
+                    RseLdUiComponents.liveRow("EVIDENCE","source conflicts",()->Integer.toString(m.extraA())),
+                    RseLdUiComponents.liveRow("COVERAGE","scanned / expected cells",()->m.extraB()+" / "+m.stateFlag()));
+        }
+        p.addChild(RseLdUiComponents.fixedRow("frequency units",()->"INDEX, NOT HERTZ",
+                "The RSE resonance model uses discrete carrier bands, not mapped physical SI frequencies"));
         return p;
     }
 
@@ -129,8 +168,12 @@ public final class AmethystSystemLdUi {
 
     private static String diagnosis(AmethystSystemMenu m){
         if(m.quality()==PortQuality.TOPOLOGY_ERROR)return "SOURCE CONFLICT / resonance topology ambiguous";
+        if(m.quality()==PortQuality.FAULT || m.quality()==PortQuality.DOMAIN_MISMATCH)
+            return "RESONANCE INPUT FAULT • "+m.quality().name();
         if(m.quality()==PortQuality.NO_SIGNAL)return "NO RESONANCE EVIDENCE";
-        if(m.quality()==PortQuality.STALE)return "STALE RESONANCE EVIDENCE";
+        if(m.quality()==PortQuality.STALE || m.quality()==PortQuality.NOT_READY)
+            return "UNVERIFIED RESONANCE EVIDENCE • "+m.quality().name();
+        if(m.quality()!=PortQuality.VALID)return "NON-VALID RESONANCE INPUT • "+m.quality().name();
         if(m.kind()==AmethystSystemMenu.KIND_FILTER){
             if(m.primary()!=m.tertiary())return "FREQUENCY REJECT • input does not match selected band";
             return m.auxiliary()>0?"FREQUENCY PASS • selected band present":"MATCHED BAND • zero amplitude";
@@ -147,12 +190,12 @@ public final class AmethystSystemLdUi {
             if(m.tertiary()==1)return "SINGLE-BAND RESONANCE";
             return "MULTI-BAND RESONANCE";
         }
-        return m.secondary()==0?"SOURCE CONFIGURED • zero amplitude":"SOURCE ACTIVE";
+        return m.stateFlag()==1?"SOURCE ACTIVE":"SOURCE IDLE / NO TRANSMISSION";
     }
 
     private static String nextAction(AmethystSystemMenu m){
         if(m.quality()==PortQuality.TOPOLOGY_ERROR)return "NEXT • isolate competing resonance sources before interpreting frequency.";
-        if(m.quality()==PortQuality.NO_SIGNAL||m.quality()==PortQuality.STALE)return "NEXT • restore current resonance evidence before tuning the device.";
+        if(m.quality()!=PortQuality.VALID)return "NEXT • resolve resonance source, domain and coverage quality before accepting the response.";
         if(m.kind()==AmethystSystemMenu.KIND_FILTER&&m.primary()!=m.tertiary())return "NEXT • align target index with the carrier or intentionally keep this rejection band.";
         if(m.kind()==AmethystSystemMenu.KIND_TUNED&&Math.abs(m.primary()-m.tertiary())>m.extraA())return "NEXT • retune natural index or widen the modeled response band via Q.";
         if(m.kind()==AmethystSystemMenu.KIND_SPECTRUM&&m.extraA()>0)return "NEXT • separate conflicting sources, then rescan the spectrum.";
