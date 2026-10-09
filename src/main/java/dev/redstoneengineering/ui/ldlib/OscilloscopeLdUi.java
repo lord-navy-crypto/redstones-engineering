@@ -84,6 +84,7 @@ public final class OscilloscopeLdUi {
     private static UIElement waveformPanel(OscilloscopeMenu menu) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new OscilloscopePlotElement(menu),
+                RseLdUiComponents.note("Plot points are synchronized captures. Lines between samples are visual interpolation, not additional measurements; a cursor pair requires valid samples."),
                 RseLdUiComponents.liveRow("MEASURED", "CH-A", () -> waveform(menu, 0)),
                 RseLdUiComponents.liveRow("MEASURED", "CH-B", () -> waveform(menu, 1)),
                 RseLdUiComponents.liveRow("LIVE", "A", () -> formatSample(menu.current(0))),
