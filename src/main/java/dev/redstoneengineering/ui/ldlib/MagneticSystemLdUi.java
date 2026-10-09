@@ -84,7 +84,7 @@ public final class MagneticSystemLdUi {
         if(m.kind()==MagneticSystemMenu.KIND_PERMANENT){
             p.addChild(RseLdUiComponents.serverAction("Cycle N marker ▶",m::cycleOrientationForward));
         }else if(m.kind()==MagneticSystemMenu.KIND_COIL){
-            p.addChild(new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+            p.addChild(new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                     RseLdUiComponents.serverAction("Cycle RX ▶",m::cycleInputForward),
                     RseLdUiComponents.serverAction("Cycle TX ▶",m::cycleOutputForward)
             ));
