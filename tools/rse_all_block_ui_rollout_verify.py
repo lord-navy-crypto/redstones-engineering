@@ -990,6 +990,34 @@ signal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerL
 if 'm.validWindowCount()==m.windowCount()' not in signal_ui or 'trialReady(m)' not in signal_ui:
     errors.append("Signal Analyzer invalid window/trial cannot report stable result or zero deltas")
 
+# Pioneer instrument integrity regression: a missing server observation is not
+# a zero measurement and cannot certify a healthy medium or a complete field.
+new_evidence_guards = {
+    "MagneticSystem": ("m.complete()", "NOT READY • X/Y/Z scan incomplete",
+                       "UNVERIFIED • Copper input", "NOT READY • scan incomplete"),
+    "DigitalCommunication": ("verifiedValue(", "m.mediumAgeTicks() < 0",
+                             "MEDIUM NOT READY • NO TIMED SAMPLE",
+                             "NOT READY • no synchronized medium sample"),
+    "QuartzTiming": ("m.dividerInputValid()", "upstream clock",
+                     "NOT READY • input clock unverified"),
+    "IndustrialBuffer": ("m.snapshotPresent()", "NOT READY • buffer snapshot missing",
+                         "No lots in the bounded opening snapshot"),
+    "AmethystSystem": ("reliableResonance(m)", "NOT READY • spectrum evidence incomplete",
+                       "UNVERIFIED • input evidence"),
+}
+for family, evidence_tokens in new_evidence_guards.items():
+    ui_code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
+    for token in evidence_tokens:
+        if token not in ui_code:
+            errors.append(f"{family}: absent validity-qualified display guard {token!r}")
+for family, menu_token in (
+    ("QuartzTiming", "dividerInputValid.set(inputSample.valid() ? 1 : 0)"),
+    ("IndustrialBuffer", "snapshotPresent.set(snapshot == null ? 0 : 1)"),
+):
+    menu_code = read(f"src/main/java/dev/redstoneengineering/ui/menu/{family}Menu.java")
+    if menu_token not in menu_code:
+        errors.append(f"{family}: server-side evidence provenance not synchronized")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
