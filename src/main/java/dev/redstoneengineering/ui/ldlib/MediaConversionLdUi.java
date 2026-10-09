@@ -26,22 +26,32 @@ public final class MediaConversionLdUi {
                                         RseLdUiComponents.formulaCard(()->menu.redstoneToLapis()
                         ? "y_L = round(100 · x_R / 15)"
                         : "y_R = round(15 · x_L / 100)"),
-                                        RseLdUiComponents.liveRow("MEASURED","input",()->menu.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                        RseLdUiComponents.liveRow("EVIDENCE","server snapshot",()->menu.snapshotReady()
+                                                 ? "SYNCED • converter ports inspected" : "NOT READY • awaiting server evidence"),
+                                         RseLdUiComponents.liveRow("MEASURED","input",()->menu.snapshotReady()
+                                                 && menu.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                                                  ? Integer.toString(menu.inputValue()) : "NOT READY • "+menu.inputQuality().name())
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("DERIVED","output",()->menu.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                        RseLdUiComponents.liveRow("DERIVED","output",()->menu.snapshotReady()
+                                                 && menu.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                                                  ? Integer.toString(menu.outputValue()) : "NOT READY • "+menu.outputQuality().name()),
-                                        RseLdUiComponents.liveRow("EVIDENCE","input quality",()->menu.inputQuality().name()),
-                                        RseLdUiComponents.liveRow("EVIDENCE","output quality",()->menu.outputQuality().name())
+                                        RseLdUiComponents.liveRow("EVIDENCE","input quality",()->menu.snapshotReady()
+                                                 ? menu.inputQuality().name() : "NOT READY • snapshot pending"),
+                                        RseLdUiComponents.liveRow("EVIDENCE","output quality",()->menu.snapshotReady()
+                                                 ? menu.outputQuality().name() : "NOT READY • snapshot pending")
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         quantization(menu),
-                                        RseLdUiComponents.liveRow("COMMISSIONING","status",()->menu.commissioningStatus().name()),
-                                        RseLdUiComponents.liveRow("I/O","route",()->menu.inputFace().getName().toUpperCase()+" → "+menu.outputFace().getName().toUpperCase())
+                                        RseLdUiComponents.liveRow("COMMISSIONING","status",()->menu.snapshotReady()
+                                                 ? menu.commissioningStatus().name() : "NOT READY • awaiting port inspection"),
+                                        RseLdUiComponents.liveRow("I/O","route",()->menu.snapshotReady()
+                                                 ? menu.inputFace().getName().toUpperCase()+" → "+menu.outputFace().getName().toUpperCase()
+                                                 : "NOT READY • route awaiting server")
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                                        new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW)
+                                                 .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle RX ▶",menu::cycleRxForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",menu::cycleTxForward)
                 ),
@@ -55,7 +65,8 @@ public final class MediaConversionLdUi {
     }
 
     private static boolean conversionReady(MediaConversionMenu menu) {
-        return menu.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+        return menu.snapshotReady()
+                 && menu.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                 && menu.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID;
     }
 
@@ -63,8 +74,10 @@ public final class MediaConversionLdUi {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         if(menu.redstoneToLapis()){
             p.addChildren(
-                    RseLdUiComponents.liveRow("FIXED","code spacing",()->Integer.toString(menu.sourceSpacing())),
-                    new Label().setText("UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION"),
+                    RseLdUiComponents.liveRow("FIXED","code spacing",()->menu.snapshotReady() && menu.sourceSpacing()>=0
+                                                 ? Integer.toString(menu.sourceSpacing())
+                                                 : "NOT READY • requires valid input encoding"),
+                    RseLdUiComponents.note("UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION"),
                     RseLdUiComponents.note("Redstone→Lapis expands representation only; source code spacing remains visible.")
             );
         }else{
