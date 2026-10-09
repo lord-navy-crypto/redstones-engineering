@@ -67,6 +67,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot kd = trackedInt();
     private final DataSlot derivativeSmoothing = trackedInt();
     private final DataSlot sampleTicks = trackedInt();
+    private final DataSlot runtimeTermsAvailable = trackedInt();
     private final DataSlot integralState = trackedInt();
     private final DataSlot derivativeState = trackedInt();
     private final DataSlot bias = trackedInt();
@@ -164,6 +165,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         derivativeSmoothing.set(model.derivativeSmoothing());
         sampleTicks.set(model.sampleTicks());
         PidControllerBlock.RuntimeTerms terms = PidControllerBlock.runtimeTerms(level, blockPos, tuning.get(), snapshot.error());
+        runtimeTermsAvailable.set(terms.available() ? 1 : 0);
         integralState.set(terms.integralState());
         derivativeState.set(terms.derivativeState());
         bias.set(terms.bias());
@@ -304,6 +306,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int kd() { return kd.get(); }
     public int derivativeSmoothing() { return derivativeSmoothing.get(); }
     public int sampleTicks() { return sampleTicks.get(); }
+    public boolean runtimeTermsAvailable() { return runtimeTermsAvailable.get() != 0; }
     public int integralState() { return integralState.get(); }
     public int derivativeState() { return derivativeState.get(); }
     public int bias() { return bias.get(); }
