@@ -909,6 +909,25 @@ for token in ("private static UIElement processPioneerPanel(", "private static U
     if token not in universal_preview:
         errors.append(f"Universal Pioneer deep evidence/variables page missing: {token}")
 
+# Reliability observer controls must be real; PID model home must include
+# server-owned intermediate states rather than only a line plot.
+reliability_reveal = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
+reliability_config = reliability_reveal.split("private static UIElement parameterPanel(",1)[-1].split(
+    "private static UIElement statePanel(",1)[0]
+for token in ('if (adjustable(m.kind()))', 'if (adjustable(m.kind())) {',
+              'NO EDITABLE PARAMETER', 'Maintenance action'):
+    if token not in reliability_config:
+        errors.append(f"Reliability inspector has false/missing parameter action: {token}")
+if "setNumbersOnlyInt(0, 160)" in reliability_reveal:
+    errors.append("Reliability HMI uses a universal 160-wide editor instead of kind-specific bounds")
+pid_reveal = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java")
+for token in ('liveMechanismPanel(m)', 'PIONEER • LIVE CONTROL CHAIN',
+              'm.pTerm()', 'm.iTerm()', 'm.dTerm()', 'm.integralState()',
+              'm.derivativeState()', 'm.antiWindupHolding()',
+              'm.unsaturatedOutput()', 'm.plantDetected()'):
+    if token not in pid_reveal:
+        errors.append(f"PID Model page hides server-owned mechanism: {token}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
