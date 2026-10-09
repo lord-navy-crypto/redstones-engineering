@@ -21,6 +21,7 @@ public final class EngineeringPlot {
     }
 
     public static void analogFrame(GuiGraphics graphics, int x, int y, int width, int height) {
+        if (width <= 0 || height <= 0) return;
         graphics.fill(x, y, x + width, y + height, BACKGROUND);
         for (int division = 1; division < 4; division++) {
             int gx = x + Math.round(division * width / 4.0f);
@@ -62,8 +63,11 @@ public final class EngineeringPlot {
             int px = x + Math.round(slot * (width - 1) / (float) denominator);
             int py = y + (height - 1) - Math.round((sample - minimum) * (height - 1) / (float) span);
             if (previousX >= 0) {
-                graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
+                // Analogue traces interpolate consecutive valid readings.
+                // The old horizontal-then-vertical staircase depicted
+                // artificial instantaneous jumps. Digital traces below
+                // deliberately retain that step geometry.
+                analogSegment(graphics, previousX, previousY, px, py, color);
             }
             boundedPoint(graphics, px, py, x, y, width, height, color);
             previousX = px;
@@ -139,6 +143,33 @@ public final class EngineeringPlot {
         int py = y + (height - 1) - Math.round((bounded - minimum) * (height - 1) / (float) (maximum - minimum));
         for (int px = x; px < x + width; px += 4) {
             graphics.fill(px, py, Math.min(px + 2, x + width), py + 1, color);
+        }
+    }
+
+    /**
+     * Integer line rasterization between two in-bounds sample coordinates.
+     * A convex half-open trace rectangle contains the entire segment when
+     * both endpoints are inside it. Breaks remain breaks for invalid samples.
+     */
+    private static void analogSegment(GuiGraphics graphics,
+                                      int x0, int y0, int x1, int y1, int color) {
+        int dx = Math.abs(x1 - x0);
+        int sx = x0 < x1 ? 1 : -1;
+        int dy = -Math.abs(y1 - y0);
+        int sy = y0 < y1 ? 1 : -1;
+        int error = dx + dy;
+        while (true) {
+            graphics.fill(x0, y0, x0 + 1, y0 + 1, color);
+            if (x0 == x1 && y0 == y1) break;
+            int twiceError = 2 * error;
+            if (twiceError >= dy) {
+                error += dy;
+                x0 += sx;
+            }
+            if (twiceError <= dx) {
+                error += dx;
+                y0 += sy;
+            }
         }
     }
 
