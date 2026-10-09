@@ -165,7 +165,8 @@ public final class OscilloscopeLdUi {
         // A nonempty capture alone does not make both cursor slots valid.
         int a = menu.displaySample(channel, menu.cursorA());
         int b = menu.displaySample(channel, menu.cursorB());
-        if (a < 0 || b < 0) return "NOT READY • cursor points to uncaptured data";
+        if (menu.sampleCount() <= 0 || a < 0 || b < 0)
+            return "NOT READY • cursor points to uncaptured data";
         int deltaSamples = Math.abs(menu.cursorB() - menu.cursorA());
         return "A=" + a + " / B=" + b + " • Δ=" + deltaSamples + " samples / "
                 + (deltaSamples * menu.samplePeriodTicks()) + " ticks (nominal)";
