@@ -43,6 +43,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
     private final DataSlot output = trackedInt();
     private final DataSlot facing = trackedInt();
     private final DataSlot evidenceValid = trackedInt();
+    private final DataSlot snapshotReady = trackedInt();
 
     public RangeSensorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -51,6 +52,8 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
     public RangeSensorMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.RANGE_SENSOR.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        snapshotReady.set(0);
+        facing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(RangeSensorLdUi.create(this, inventory.player));
@@ -59,6 +62,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof RangeSensorBlock)) {
             distance.set(0);
@@ -85,6 +89,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         output.set(state.getValue(RangeSensorBlock.OUTPUT));
         facing.set(RangeSensorBlock.sensingSide(state).ordinal());
         evidenceValid.set(scan.complete() ? 1 : 0);
+        snapshotReady.set(1);
     }
 
     @Override
@@ -161,6 +166,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         return clickMenuButton(playerInventory.player, BUTTON_RANGE_DIRECT_BASE + range);
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int distance() { return distance.get(); }
     public int scanStatusOrdinal() { return scanStatus.get(); }
     public int scannedCells() { return scannedCells.get(); }
