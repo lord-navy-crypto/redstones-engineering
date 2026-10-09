@@ -132,7 +132,7 @@ public final class LogicAnalyzerLdUi {
             p.addChild(RseLdUiComponents.liveRow("PORT","probe count",
                     ()->Integer.toString(m.probeCount(c))));
             p.addChild(RseLdUiComponents.liveRow("MEASURED","HIGH duty / transitions",
-                    ()->m.coverage(c)>0?m.duty(c)+"% / "+m.transitionRate(c)+"%":"NOT READY"));
+                    ()->m.coverage(c)>0?"duty="+m.duty(c)+"% • transition="+m.transitionRate(c)+"%":"NOT READY"));
             p.addChild(RseLdUiComponents.liveRow("EVENTS","rising / falling",
                     ()->m.coverage(c)>0?m.rising(c)+" / "+m.falling(c):"NOT READY"));
             p.addChild(RseLdUiComponents.liveRow("EVIDENCE","valid coverage",
