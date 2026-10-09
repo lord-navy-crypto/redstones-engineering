@@ -28,7 +28,8 @@ public final class SignalAnalyzerPlotElement extends UIElement {
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
         EngineeringPlot.analogTrace(g.graphics, SignalAnalyzerBlock.DISPLAY_SAMPLES,
                 menu::sample,0,15,x+6,y+6,w-12,h-12,0xFF62B0FF);
-        if(menu.windowCount()>0){
+        // A retained invalid-only window does not justify a green mean line.
+        if(menu.validWindowCount()>0){
             int mean=Math.max(0,Math.min(15,Math.round(menu.average100()/100.0f)));
             EngineeringPlot.horizontalMarker(g.graphics,mean,0,15,x+6,y+6,w-12,h-12,0xFF68D391);
         }
