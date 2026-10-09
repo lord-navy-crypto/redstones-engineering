@@ -43,8 +43,25 @@ public final class OscilloscopePlotElement extends UIElement {
         plotChannel(g, 0, CHANNEL_A, x, y, width, height);
         plotChannel(g, 1, CHANNEL_B, x, y, width, height);
         EngineeringPlot.horizontalMarker(g.graphics, menu.triggerLevel(), 0, 15, x, y, width, height, TRIGGER);
-        EngineeringPlot.verticalMarker(g.graphics, menu.cursorA(), 16, x, y, width, height, CURSOR_A);
-        EngineeringPlot.verticalMarker(g.graphics, menu.cursorB(), 16, x, y, width, height, CURSOR_B);
+        // Cursor lines must represent positions with actual server-captured
+        // readings, not empty display slots. Require a valid A/B pair on
+        // at least one shared channel before drawing a timing interval.
+        if (validCursorPair()) {
+            EngineeringPlot.verticalMarker(g.graphics, menu.cursorA(), 16, x, y, width, height, CURSOR_A);
+            EngineeringPlot.verticalMarker(g.graphics, menu.cursorB(), 16, x, y, width, height, CURSOR_B);
+        }
+    }
+
+    private boolean validCursorPair() {
+        int a = menu.cursorA();
+        int b = menu.cursorB();
+        if (a < 0 || a >= 16 || b < 0 || b >= 16) return false;
+        for (int channel = 0; channel < 2; channel++) {
+            if (menu.displaySample(channel, a) >= 0 && menu.displaySample(channel, b) >= 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void plotChannel(GUIContext g, int channel, int color, int x, int y, int width, int height) {
