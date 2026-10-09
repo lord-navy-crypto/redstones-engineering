@@ -37,7 +37,8 @@ public final class SignalProcessorLdUi {
                                         runtime(menu)
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->parameter(menu)),
+                                        RseLdUiComponents.liveRow("ADJUSTABLE",symbol(menu.kind()),()->menu.snapshotReady()
+                                                 ? parameter(menu) : "NOT READY • awaiting parameter"),
                                         control(menu)
                                 ),
                                 RseLdUiComponents.workspacePage(
@@ -77,7 +78,7 @@ public final class SignalProcessorLdUi {
         int max=menu.kind()==SignalProcessorMenu.KIND_FILTER?4:8;
         var field=new TextField().setNumbersOnlyInt(1,max); field.layout(l->l.width(90));
         field.bind(DataBindingBuilder.string(
-                ()->Integer.toString(menu.parameter()),
+                ()->menu.snapshotReady() ? Integer.toString(menu.parameter()) : "",
                 v->{try{menu.setParameterFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}
         ).build());
         return new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
@@ -103,15 +104,20 @@ public final class SignalProcessorLdUi {
             p.addChildren(
                     RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.snapshotReady()
                              ? m.runtimeA()+"t remaining" : "NOT READY • runtime pending"),
-                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.snapshotReady() && m.initialized()?"YES • baseline sampled":"NO • await first sample"),
+                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->!m.snapshotReady()
+                             ? "NOT READY • first server snapshot pending"
+                             : m.initialized() ? "YES • baseline sampled" : "NO • await first sample"),
                     RseLdUiComponents.liveRow("EVIDENCE","edges",()->m.snapshotReady() && m.initialized()
                             ? m.runtimeB()+" • last age "+(m.runtimeC()<0?"NONE":m.runtimeC()+"t")
                             : "NOT READY • no input baseline")
             );
         }else{
             p.addChildren(
-                    RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.runtimeA()+"t remaining"),
-                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->m.initialized()?"YES • last input "+m.runtimeB():"NO"),
+                    RseLdUiComponents.liveRow("RUNTIME","pulse",()->m.snapshotReady()
+                             ? m.runtimeA()+"t remaining" : "NOT READY • runtime pending"),
+                    RseLdUiComponents.liveRow("EVIDENCE","initialized",()->!m.snapshotReady()
+                             ? "NOT READY • server evidence pending"
+                             : m.initialized() ? "YES • last input "+m.runtimeB() : "NO • awaiting initial edge baseline"),
                 RseLdUiComponents.liveRow("MODEL","configured pulse width",()->m.snapshotReady()
                              ? m.parameter()+" ticks" : "NOT READY • parameter pending")
             );
