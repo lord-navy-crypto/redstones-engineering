@@ -26,6 +26,7 @@ public final class SignalAnalyzerPlotElement extends UIElement {
         int w = allocatedWidth - 2 * inset;
         int h = allocatedHeight - 2 * inset;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
+        if (!menu.snapshotReady() || menu.validWindowCount() <= 0) return;
         EngineeringPlot.analogTrace(g.graphics, SignalAnalyzerBlock.DISPLAY_SAMPLES,
                 menu::sample,0,15,x+6,y+6,w-12,h-12,0xFF62B0FF);
         // A retained invalid-only window does not justify a green mean line.
