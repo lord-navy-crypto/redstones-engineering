@@ -1004,6 +1004,18 @@ new_evidence_guards = {
                          "No lots in the bounded opening snapshot"),
     "AmethystSystem": ("reliableResonance(m)", "NOT READY • spectrum evidence incomplete",
                        "UNVERIFIED • input evidence"),
+    "OpticalSystem": ("opticalBudgetReady(m)", "hasDerivedPair(m.kind())",
+                      "NOT READY • no valid same-channel neighbors",
+                      "UNVERIFIED • source / receiver path"),
+    "PneumaticSystem": ("primaryReadout(m)", "secondarySnapshot(m)",
+                        "flowMeterReady(m)", "cylinderReady(m)",
+                        "witnessReadout(m)", "NOT READY • sample/witness evidence incomplete",
+                        "NOT READY • relief pressure unverified"),
+    "MediaConversion": ("conversionReady(menu)", "NOT READY • no verified quantization pair",
+                        "menu.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID",
+                        "menu.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID"),
+    "LapisLowPass": ("predictionReady(m)", "m.runtimePresent()",
+                     "NOT READY • no retained state", "NOT READY • valid RX and initialized filter required"),
 }
 for family, evidence_tokens in new_evidence_guards.items():
     ui_code = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
