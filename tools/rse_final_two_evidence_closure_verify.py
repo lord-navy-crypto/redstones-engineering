@@ -73,7 +73,7 @@ require(
     "OperationsMonitorBlock.inputEvidence",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java",
     "TELEMETRY • INCOMPLETE",
     "KPIs advance only while RUN + at least one QUEUE source are trustworthy.",
     "Cycle timing requires observed LOW→HIGH edges",

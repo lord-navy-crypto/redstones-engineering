@@ -16,6 +16,8 @@ import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.PidControllerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -65,6 +67,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot kd = trackedInt();
     private final DataSlot derivativeSmoothing = trackedInt();
     private final DataSlot sampleTicks = trackedInt();
+    private final DataSlot runtimeTermsAvailable = trackedInt();
     private final DataSlot integralState = trackedInt();
     private final DataSlot derivativeState = trackedInt();
     private final DataSlot bias = trackedInt();
@@ -123,6 +126,9 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
                 RedstoneEngineering.PID_CONTROLLER.get()
         );
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(PidControllerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -159,6 +165,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         derivativeSmoothing.set(model.derivativeSmoothing());
         sampleTicks.set(model.sampleTicks());
         PidControllerBlock.RuntimeTerms terms = PidControllerBlock.runtimeTerms(level, blockPos, tuning.get(), snapshot.error());
+        runtimeTermsAvailable.set(terms.available() ? 1 : 0);
         integralState.set(terms.integralState());
         derivativeState.set(terms.derivativeState());
         bias.set(terms.bias());
@@ -266,6 +273,16 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    /** LDLib2 operator-intent facade; all actions reuse the existing server-authoritative menu path. */
+    public boolean cycleTuningForward() { return clickMenuButton(playerInventory.player, BUTTON_TUNING_NEXT); }
+    public boolean cycleInputForward() { return clickMenuButton(playerInventory.player, BUTTON_INPUT_NEXT); }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_NEXT); }
+    public boolean captureAcceptance() { return clickMenuButton(playerInventory.player, BUTTON_CAPTURE_ACCEPTANCE); }
+    public boolean resetRuntimeTrend() { return clickMenuButton(playerInventory.player, BUTTON_RESET_RUNTIME_TREND); }
+    public boolean captureTrialBaseline() { return clickMenuButton(playerInventory.player, BUTTON_TRIAL_BASELINE); }
+    public boolean captureTrialCandidate() { return clickMenuButton(playerInventory.player, BUTTON_TRIAL_CANDIDATE); }
+    public boolean clearTrial() { return clickMenuButton(playerInventory.player, BUTTON_TRIAL_CLEAR); }
+
     public int tuning() { return tuning.get(); }
     public Direction inputFacing() { return direction(inputFacing.get()); }
     public Direction outputFacing() { return direction(outputFacing.get()); }
@@ -289,6 +306,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int kd() { return kd.get(); }
     public int derivativeSmoothing() { return derivativeSmoothing.get(); }
     public int sampleTicks() { return sampleTicks.get(); }
+    public boolean runtimeTermsAvailable() { return runtimeTermsAvailable.get() != 0; }
     public int integralState() { return integralState.get(); }
     public int derivativeState() { return derivativeState.get(); }
     public int bias() { return bias.get(); }

@@ -17,6 +17,8 @@ import dev.redstoneengineering.physics.DifferentialNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SerialNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.DigitalCommunicationLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -48,6 +50,8 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = BUTTON_RX_RIGHT;
     public static final int BUTTON_OUTPUT_LEFT = BUTTON_TX_LEFT;
     public static final int BUTTON_OUTPUT_RIGHT = BUTTON_TX_RIGHT;
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 13000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 13060;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot inputValue = trackedInt();
@@ -69,6 +73,8 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     private final DataSlot mediumMetricA = trackedInt();
     private final DataSlot mediumMetricB = trackedInt();
     private final DataSlot mediumMetricC = trackedInt();
+    /** Client device kind is a shape hint; link diagnostics require server sync. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public DigitalCommunicationMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -77,11 +83,25 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     public DigitalCommunicationMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.DIGITAL_COMMUNICATION.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        inputQuality.set(PortQuality.NOT_READY.ordinal());
+        outputQuality.set(PortQuality.NOT_READY.ordinal());
+        snapshotReady.set(0);
+        mediumAgeTicks.set(-1);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else kind.set(kindOf(level.getBlockState(blockPos).getBlock()));
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(DigitalCommunicationLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         inputValue.set(0);
@@ -128,6 +148,7 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         }
 
         refreshMediumTelemetry(deviceKind, inputSide, outputSide);
+        snapshotReady.set(1);
     }
 
     private void clearMediumTelemetry() {
@@ -229,7 +250,15 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed;
 
-        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX
+                && block instanceof DigitalRegeneratorBlock regenerator) {
+            int percent = id - BUTTON_PARAMETER_DIRECT_BASE;
+            int threshold = percent == 20 ? 0 : percent == 40 ? 1 : percent == 60 ? 2 : -1;
+            if (threshold < 0) return false;
+            level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, threshold), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, regenerator, 1);
+            changed = true;
+        } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
             boolean clockwise = id == BUTTON_ROTATE_RIGHT;
             if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, clockwise);
             else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
@@ -263,6 +292,25 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    /** LDLib2 HMI intent facade; medium solvers remain server-owned and observer-only here. */
+    public boolean setRegeneratorThresholdFromUi(int percent) {
+        if (kind() != KIND_REGENERATOR || (percent != 20 && percent != 40 && percent != 60)) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_DIRECT_BASE + percent);
+    }
+
+    public boolean cycleWholeRouteForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleRxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_RX_RIGHT);
+    }
+
+    public boolean cycleTxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_TX_RIGHT);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int inputValue() { return inputValue.get(); }
     public int outputValue() { return outputValue.get(); }

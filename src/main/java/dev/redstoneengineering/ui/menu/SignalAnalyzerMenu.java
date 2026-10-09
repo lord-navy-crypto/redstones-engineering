@@ -6,6 +6,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.SignalCalibrationTrialComparison;
 import dev.redstoneengineering.diagnostics.SignalCalibrationTrialStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.SignalAnalyzerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -25,6 +27,10 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_TRIAL_BASELINE = 8;
     public static final int BUTTON_TRIAL_CANDIDATE = 9;
     public static final int BUTTON_TRIAL_CLEAR = 10;
+    public static final int BUTTON_CALIBRATION_DIRECT_BASE = 18000;
+    public static final int BUTTON_CALIBRATION_DIRECT_MAX = 18004;
+    public static final int BUTTON_REFERENCE_DIRECT_BASE = 18100;
+    public static final int BUTTON_REFERENCE_DIRECT_MAX = 18115;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot calibrationOffset = trackedInt();
@@ -43,6 +49,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot windowCount = trackedInt();
     private final DataSlot validWindowCount = trackedInt();
     private final DataSlot measurementQuality = trackedInt();
+    /** Distinguishes a client menu before synchronization from valid measured zero. */
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot average100 = trackedInt();
     private final DataSlot peakToPeak = trackedInt();
     private final DataSlot meanStep100 = trackedInt();
@@ -77,12 +85,19 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
                 RedstoneEngineering.SIGNAL_ANALYZER.get()
         );
         for (int i = 0; i < samples.length; i++) samples[i] = trackedInt();
+        snapshotReady.set(0);
+        measurementQuality.set(PortQuality.NOT_READY.ordinal());
+        sampleAge.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(SignalAnalyzerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
         SignalAnalyzerBlock.UiSnapshot snapshot = SignalAnalyzerBlock.uiSnapshot(level, blockPos);
+        snapshotReady.set(1);
         mode.set(snapshot.mode());
         calibrationOffset.set(snapshot.calibrationOffset());
         reference.set(snapshot.reference());
@@ -140,7 +155,11 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         boolean changed;
-        if (id == BUTTON_TRIAL_BASELINE) {
+        if (id >= BUTTON_CALIBRATION_DIRECT_BASE && id <= BUTTON_CALIBRATION_DIRECT_MAX) {
+            changed = SignalAnalyzerBlock.setCalibrationOffset(level, blockPos, (id - BUTTON_CALIBRATION_DIRECT_BASE) - 2);
+        } else if (id >= BUTTON_REFERENCE_DIRECT_BASE && id <= BUTTON_REFERENCE_DIRECT_MAX) {
+            changed = SignalAnalyzerBlock.setReference(level, blockPos, id - BUTTON_REFERENCE_DIRECT_BASE);
+        } else if (id == BUTTON_TRIAL_BASELINE) {
             changed = SignalAnalyzerBlock.captureCalibrationBaseline(level, blockPos) != null;
         } else if (id == BUTTON_TRIAL_CANDIDATE) {
             changed = SignalAnalyzerBlock.captureCalibrationCandidate(level, blockPos) != null;
@@ -158,6 +177,38 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    /** LDLib2 HMI intent facade; mutations reuse the validated server menu path. */
+    public boolean toggleMode() {
+        return clickMenuButton(playerInventory.player, BUTTON_MODE_TOGGLE);
+    }
+
+    public boolean resetStatistics() {
+        return clickMenuButton(playerInventory.player, BUTTON_RESET_HISTORY);
+    }
+
+    public boolean setCalibrationFromUi(int value) {
+        if (value < -2 || value > 2) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CALIBRATION_DIRECT_BASE + value + 2);
+    }
+
+    public boolean setReferenceFromUi(int value) {
+        if (value < 0 || value > 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_REFERENCE_DIRECT_BASE + value);
+    }
+
+    public boolean captureTrialBaseline() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIAL_BASELINE);
+    }
+
+    public boolean captureTrialCandidate() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIAL_CANDIDATE);
+    }
+
+    public boolean clearTrial() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIAL_CLEAR);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int mode() { return mode.get(); }
     public int calibrationOffset() { return calibrationOffset.get(); }
     public int reference() { return reference.get(); }

@@ -13,6 +13,8 @@ import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.physics.SoulFluxNetwork;
 import dev.redstoneengineering.physics.ThermalPhysics;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.UniversalFieldDeviceLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -38,6 +40,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CONFIG_SECONDARY_NEXT = 113;
     public static final int BUTTON_CONFIG_ACTION = 114;
     public static final int BUTTON_CONFIG_TOGGLE = 115;
+    /** Encodes an explicit primary numeric target as BASE + value through the vanilla container-button channel. */
+    public static final int BUTTON_CONFIG_PRIMARY_DIRECT_BASE = 1000;
+    public static final int BUTTON_CONFIG_PRIMARY_DIRECT_MAX = 1063;
+    /** Encodes an explicit secondary numeric target as BASE + value through the same server-authoritative channel. */
+    public static final int BUTTON_CONFIG_SECONDARY_DIRECT_BASE = 1100;
+    public static final int BUTTON_CONFIG_SECONDARY_DIRECT_MAX = 1163;
 
     public static final int ROUTE_NONE = 0;
     public static final int ROUTE_SERIES_AXIS = 1;
@@ -117,6 +125,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot configKind = trackedInt();
     private final DataSlot configPrimary = trackedInt();
     private final DataSlot configSecondary = trackedInt();
+    private final DataSlot interlockBlockedTicks = trackedInt();
+    private final DataSlot interlockPermittedTicks = trackedInt();
+    private final DataSlot interlockTransitions = trackedInt();
     private final DataSlot pioneerMeasurementKind = trackedInt();
     private final DataSlot pioneerPrimary = trackedInt();
     private final DataSlot pioneerSecondary = trackedInt();
@@ -142,6 +153,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot[] minimums = trackedInts(FACE_COUNT);
     private final DataSlot[] maximums = trackedInts(FACE_COUNT);
     private final DataSlot[] qualities = trackedInts(FACE_COUNT);
+    /** Client port-shape priming is not a synchronized world observation. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public UniversalFieldDeviceMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -150,11 +163,128 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public UniversalFieldDeviceMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.UNIVERSAL_FIELD_DEVICE.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        snapshotReady.set(0);
+        for (DataSlot quality : qualities) quality.set(PortQuality.NOT_READY.ordinal());
+        pioneerEvidenceQuality.set(-1);
+        pioneerProcessEvidenceQuality.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiShape(level.getBlockState(blockPos));
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(UniversalFieldDeviceLdUi.create(this, inventory.player));
+        }
+    }
+
+    /**
+     * Establish the *structural* client UI shape before menu DataSlots arrive.
+     * Only block type and declared port descriptors are consulted, never
+     * engineeringSnapshot(), solver results, or the world simulation.
+     * The authoritative server snapshot subsequently syncs all runtime values.
+     */
+    private void primeClientUiShape(BlockState state) {
+        snapshotReady.set(0);
+        Block block = state.getBlock();
+        facing.set(directionOrdinal(state));
+        routeKind.set(routeKind(block));
+        seriesRotatable.set(isRotatable(block) ? 1 : 0);
+        configKind.set(uiConfigKind(block));
+        pioneerMeasurementKind.set(uiMeasurementKind(block));
+        pioneerProcessKind.set(uiProcessKind(block));
+        declaredPortMask.set(0);
+        inputMask.set(0);
+        outputMask.set(0);
+        bidirectionalMask.set(0);
+        if (block instanceof EngineeringPortProvider provider) {
+            int declared = 0, inputs = 0, outputs = 0, bidirectional = 0;
+            for (Direction side : Direction.values()) {
+                var descriptor = provider.engineeringPort(state, side);
+                if (descriptor.isEmpty()) continue;
+                int bit = 1 << side.ordinal();
+                declared |= bit;
+                PortDirection direction = descriptor.get().direction();
+                if (direction == PortDirection.INPUT) inputs |= bit;
+                else if (direction == PortDirection.OUTPUT) outputs |= bit;
+                else if (direction == PortDirection.BIDIRECTIONAL) bidirectional |= bit;
+            }
+            declaredPortMask.set(declared);
+            inputMask.set(inputs);
+            outputMask.set(outputs);
+            bidirectionalMask.set(bidirectional);
+        }
+    }
+
+    private static int uiConfigKind(Block block) {
+        if (block instanceof LapisPrecisionRangeSensorBlock) return CONFIG_LAPIS_RANGE;
+        if (block instanceof AbstractLapisTransducerBlock) return CONFIG_LAPIS_TRANSDUCER;
+        if (block instanceof MolecularCloudReceiverBlock) return CONFIG_MOLECULAR_RECEIVER;
+        if (block instanceof AlarmProcessorBlock) return CONFIG_ALARM;
+        if (block instanceof SampleHoldBlock) return CONFIG_SAMPLE_HOLD;
+        if (block instanceof CalibrationModuleBlock) return CONFIG_CALIBRATION;
+        if (block instanceof PwmControllerBlock) return CONFIG_PWM;
+        if (block instanceof FaultInjectorBlock) return CONFIG_FAULT_INJECTOR;
+        if (block instanceof SequenceControllerBlock) return CONFIG_SEQUENCE_CONTROLLER;
+        if (block instanceof SafetyInterlockBlock) return CONFIG_SAFETY_INTERLOCK;
+        if (block instanceof TopologyDebuggerBlock) return CONFIG_TOPOLOGY_DEBUGGER;
+        if (block instanceof CopperVoltageSourceBlock) return CONFIG_COPPER_VOLTAGE_SOURCE;
+        if (block instanceof CopperResistiveLoadBlock) return CONFIG_COPPER_LOAD;
+        if (block instanceof CopperSeriesResistorBlock) return CONFIG_COPPER_SERIES_RESISTOR;
+        if (block instanceof CopperCapacitorBlock) return CONFIG_COPPER_CAPACITOR;
+        if (block instanceof CopperFuseBlock) return CONFIG_COPPER_FUSE;
+        if (block instanceof LapisNoiseSourceBlock) return CONFIG_LAPIS_NOISE;
+        if (block instanceof QuartzLabOscillatorBlock) return CONFIG_QUARTZ_OSCILLATOR;
+        if (block instanceof QuartzPhaseDelayBlock) return CONFIG_QUARTZ_PHASE_DELAY;
+        if (block instanceof IronCoreBlock) return CONFIG_IRON_CORE;
+        if (block instanceof ThermalMassBlock) return CONFIG_THERMAL_MASS;
+        if (block instanceof ThermalHeaterBlock) return CONFIG_THERMAL_HEATER;
+        if (block instanceof ThermalRadiatorBlock) return CONFIG_THERMAL_RADIATOR;
+        return CONFIG_NONE;
+    }
+
+    private static int uiMeasurementKind(Block block) {
+        if (block instanceof TemperatureSensorBlock) return PIONEER_MEASUREMENT_TEMPERATURE;
+        if (block instanceof EngineeringLightSensorBlock) return PIONEER_MEASUREMENT_LIGHT;
+        if (block instanceof TankLevelSensorBlock) return PIONEER_MEASUREMENT_TANK;
+        if (block instanceof EntityDensitySensorBlock) return PIONEER_MEASUREMENT_ENTITY_DENSITY;
+        if (block instanceof LapisPrecisionMeterBlock) return PIONEER_MEASUREMENT_LAPIS_METER;
+        if (block instanceof LapisPrecisionRangeSensorBlock) return PIONEER_MEASUREMENT_LAPIS_RANGE;
+        if (block instanceof AnalogIndicatorBlock) return PIONEER_MEASUREMENT_ANALOG_INDICATOR;
+        return PIONEER_MEASUREMENT_NONE;
+    }
+
+    private static int uiProcessKind(Block block) {
+        if (block instanceof CalibrationModuleBlock) return PIONEER_PROCESS_CALIBRATION;
+        if (block instanceof SampleHoldBlock) return PIONEER_PROCESS_SAMPLE_HOLD;
+        if (block instanceof PwmControllerBlock) return PIONEER_PROCESS_PWM;
+        if (block instanceof LapisTemperatureTransducerBlock) return PIONEER_PROCESS_LAPIS_TEMPERATURE;
+        if (block instanceof LapisMagneticTransducerBlock) return PIONEER_PROCESS_LAPIS_MAGNETIC;
+        if (block instanceof LapisOpticalTransducerBlock) return PIONEER_PROCESS_LAPIS_OPTICAL;
+        if (block instanceof LapisVoltageTransducerBlock) return PIONEER_PROCESS_LAPIS_VOLTAGE;
+        if (block instanceof CopperWireBlock) return PIONEER_PROCESS_COPPER_WIRE;
+        if (block instanceof CopperVoltageSourceBlock) return PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE;
+        if (block instanceof CopperResistiveLoadBlock) return PIONEER_PROCESS_COPPER_LOAD;
+        if (block instanceof CopperSeriesResistorBlock) return PIONEER_PROCESS_COPPER_SERIES_RESISTOR;
+        if (block instanceof CopperCapacitorBlock) return PIONEER_PROCESS_COPPER_CAPACITOR;
+        if (block instanceof CopperFuseBlock) return PIONEER_PROCESS_COPPER_FUSE;
+        if (block instanceof CopperCableJunctionBlock) return PIONEER_PROCESS_COPPER_JUNCTION;
+        if (block instanceof LapisNoiseSourceBlock) return PIONEER_PROCESS_LAPIS_NOISE;
+        if (block instanceof QuartzLabOscillatorBlock) return PIONEER_PROCESS_QUARTZ_OSCILLATOR;
+        if (block instanceof QuartzPhaseDelayBlock) return PIONEER_PROCESS_QUARTZ_PHASE_DELAY;
+        if (block instanceof QuartzTriggeredLapisSamplerBlock) return PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER;
+        if (block instanceof SoulFluxInjectorBlock) return PIONEER_PROCESS_SOUL_INJECTOR;
+        if (block instanceof SoulFluxMeterBlock) return PIONEER_PROCESS_SOUL_METER;
+        if (block instanceof MolecularCloudReceiverBlock) return PIONEER_PROCESS_MOLECULAR_RECEIVER;
+        if (block instanceof IronCoreBlock) return PIONEER_PROCESS_IRON_CORE;
+        if (block instanceof ThermalMassBlock) return PIONEER_PROCESS_THERMAL_MASS;
+        if (block instanceof ThermalHeaterBlock) return PIONEER_PROCESS_THERMAL_HEATER;
+        if (block instanceof ThermalRadiatorBlock) return PIONEER_PROCESS_THERMAL_RADIATOR;
+        if (block instanceof ThermalCalorimeterBlock) return PIONEER_PROCESS_THERMAL_CALORIMETER;
+        if (block instanceof SoulSoilConduitBlock) return PIONEER_PROCESS_SOUL_CONDUIT;
+        if (block instanceof SoulSandReservoirBlock) return PIONEER_PROCESS_SOUL_RESERVOIR;
+        return PIONEER_PROCESS_NONE;
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         facing.set(directionOrdinal(state));
@@ -164,6 +294,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configKind.set(CONFIG_NONE);
         configPrimary.set(0);
         configSecondary.set(0);
+        interlockBlockedTicks.set(0);
+        interlockPermittedTicks.set(0);
+        interlockTransitions.set(0);
         pioneerMeasurementKind.set(PIONEER_MEASUREMENT_NONE);
         pioneerPrimary.set(0);
         pioneerSecondary.set(0);
@@ -220,6 +353,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_SAFETY_INTERLOCK);
             configPrimary.set(SafetyInterlockBlock.failedMask(level, blockPos));
             configSecondary.set(state.getValue(DirectionalSignalBlock.OUTPUT) > 0 ? 1 : 0);
+            interlockBlockedTicks.set(SafetyInterlockBlock.blockedTicks(level, blockPos));
+            interlockPermittedTicks.set(SafetyInterlockBlock.permittedTicks(level, blockPos));
+            interlockTransitions.set(SafetyInterlockBlock.transitionCount(level, blockPos));
         } else if (block instanceof TopologyDebuggerBlock) {
             configKind.set(CONFIG_TOPOLOGY_DEBUGGER);
             configPrimary.set(TopologyDebuggerBlock.scanCount(level, blockPos));
@@ -277,7 +413,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             maximums[i].set(0);
             qualities[i].set(-1);
         }
-        if (!(block instanceof EngineeringPortProvider provider)) return;
+        if (!(block instanceof EngineeringPortProvider provider)) {
+            snapshotReady.set(1);
+            return;
+        }
 
         int declared = 0;
         int inputs = 0;
@@ -306,6 +445,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         inputMask.set(inputs);
         outputMask.set(outputs);
         bidirectionalMask.set(bidirectional);
+        snapshotReady.set(1);
     }
 
     private void fillPioneerMeasurementSnapshot(Block block, BlockState state) {
@@ -780,6 +920,22 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
+        if (id >= BUTTON_CONFIG_PRIMARY_DIRECT_BASE && id <= BUTTON_CONFIG_PRIMARY_DIRECT_MAX) {
+            boolean changed = applyDirectPrimaryTarget(id - BUTTON_CONFIG_PRIMARY_DIRECT_BASE);
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
+        if (id >= BUTTON_CONFIG_SECONDARY_DIRECT_BASE && id <= BUTTON_CONFIG_SECONDARY_DIRECT_MAX) {
+            boolean changed = applyDirectSecondaryTarget(id - BUTTON_CONFIG_SECONDARY_DIRECT_BASE);
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
         boolean changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> rotate(false);
             case BUTTON_ROTATE_RIGHT -> rotate(true);
@@ -800,6 +956,121 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    /**
+     * Direct numeric entry remains server-authoritative: the client only sends a bounded integer intent.
+     * We deliberately reuse each block's existing adjustment method so all invalidation, recomputation,
+     * scheduling and evidence semantics remain in one place.
+     */
+    private boolean applyDirectPrimaryTarget(int target) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        int min;
+        int max;
+        java.util.function.IntSupplier current;
+        java.util.function.IntPredicate stepForward;
+
+        if (block instanceof AlarmProcessorBlock alarm) {
+            min = 1; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(AlarmProcessorBlock.SEVERITY);
+            stepForward = ignored -> alarm.adjustSeverity(level, blockPos, 1);
+        } else if (block instanceof MolecularCloudReceiverBlock receiver) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(MolecularCloudReceiverBlock.SENSITIVITY);
+            stepForward = ignored -> receiver.adjustSensitivity(level, blockPos, 1);
+        } else if (block instanceof PwmControllerBlock pwm) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(PwmControllerBlock.PERIOD_MODE);
+            stepForward = ignored -> pwm.adjustPeriodMode(level, blockPos, 1);
+        } else if (block instanceof CopperVoltageSourceBlock source) {
+            min = 0; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperVoltageSourceBlock.VOLTAGE);
+            stepForward = ignored -> source.adjustVoltage(level, blockPos, 1);
+        } else if (block instanceof CopperResistiveLoadBlock load) {
+            min = 1; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperResistiveLoadBlock.RESISTANCE);
+            stepForward = ignored -> load.adjustResistance(level, blockPos, 1);
+        } else if (block instanceof CopperSeriesResistorBlock resistor) {
+            min = 1; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperSeriesResistorBlock.RESISTANCE);
+            stepForward = ignored -> resistor.adjustResistance(level, blockPos, 1);
+        } else if (block instanceof CopperFuseBlock fuse) {
+            min = 1; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperFuseBlock.RATING);
+            stepForward = ignored -> fuse.adjustRating(level, blockPos, 1);
+        } else if (block instanceof CopperCapacitorBlock capacitor) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(CopperCapacitorBlock.C_INDEX);
+            stepForward = ignored -> capacitor.adjustCapacitance(level, blockPos, 1);
+        } else if (block instanceof LapisNoiseSourceBlock noise) {
+            min = 0; max = 20;
+            current = () -> level.getBlockState(blockPos).getValue(LapisNoiseSourceBlock.BASELINE);
+            stepForward = ignored -> noise.adjustBaseline(level, blockPos, 1);
+        } else if (block instanceof QuartzLabOscillatorBlock oscillator) {
+            min = 0; max = 4;
+            current = () -> level.getBlockState(blockPos).getValue(QuartzLabOscillatorBlock.PERIOD_INDEX);
+            stepForward = ignored -> oscillator.adjustPeriod(level, blockPos, 1);
+        } else if (block instanceof QuartzPhaseDelayBlock delay) {
+            min = 1; max = 16;
+            current = () -> level.getBlockState(blockPos).getValue(QuartzPhaseDelayBlock.DELAY);
+            stepForward = ignored -> delay.adjustDelay(level, blockPos, 1);
+        } else if (block instanceof ThermalHeaterBlock heater) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(ThermalHeaterBlock.RESISTANCE_INDEX);
+            stepForward = ignored -> heater.adjustResistance(level, blockPos, 1);
+        } else if (block instanceof ThermalMassBlock mass) {
+            min = 1; max = 4;
+            current = () -> level.getBlockState(blockPos).getValue(ThermalMassBlock.HEAT_CAPACITY);
+            stepForward = ignored -> mass.adjustHeatCapacity(level, blockPos, 1);
+        } else if (block instanceof ThermalRadiatorBlock radiator) {
+            min = 1; max = 4;
+            current = () -> level.getBlockState(blockPos).getValue(ThermalRadiatorBlock.COOLING);
+            stepForward = ignored -> radiator.adjustCooling(level, blockPos, 1);
+        } else {
+            return false;
+        }
+
+        if (target < min || target > max) return false;
+        int guard = max - min + 2;
+        boolean changed = false;
+        while (current.getAsInt() != target && guard-- > 0) {
+            if (!stepForward.test(1)) return changed;
+            changed = true;
+        }
+        return changed || current.getAsInt() == target;
+    }
+
+    private boolean applyDirectSecondaryTarget(int target) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        int min;
+        int max;
+        java.util.function.IntSupplier current;
+        java.util.function.IntPredicate stepForward;
+
+        if (block instanceof LapisPrecisionRangeSensorBlock range) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(LapisPrecisionRangeSensorBlock.RANGE_INDEX);
+            stepForward = ignored -> range.adjustRange(level, blockPos, 1);
+        } else if (block instanceof LapisNoiseSourceBlock noise) {
+            min = 0; max = 10;
+            current = () -> level.getBlockState(blockPos).getValue(LapisNoiseSourceBlock.NOISE);
+            stepForward = ignored -> noise.adjustNoise(level, blockPos, 1);
+        } else if (block instanceof QuartzLabOscillatorBlock oscillator) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(QuartzLabOscillatorBlock.JITTER);
+            stepForward = ignored -> oscillator.adjustJitter(level, blockPos, 1);
+        } else {
+            return false;
+        }
+
+        if (target < min || target > max) return false;
+        int guard = max - min + 2;
+        boolean changed = false;
+        while (current.getAsInt() != target && guard-- > 0) {
+            if (!stepForward.test(1)) return changed;
+            changed = true;
+        }
+        return changed || current.getAsInt() == target;
     }
 
     private boolean adjustPrimary(int delta) {
@@ -882,11 +1153,63 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         return rotate(clockwise);
     }
 
+    /** LDLib2 universal-HMI intent facade. Every operation reuses the established menu channel. */
+    public boolean cycleWholeRouteForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    public boolean cyclePrimaryForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_PRIMARY_NEXT);
+    }
+
+    public boolean cycleSecondaryForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_SECONDARY_NEXT);
+    }
+
+    public boolean runConfigAction() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_ACTION);
+    }
+
+    public boolean toggleConfiguration() {
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_TOGGLE);
+    }
+
+    public boolean applyPrimaryRawTargetFromUi(int target) {
+        if (target < 0 || target > BUTTON_CONFIG_PRIMARY_DIRECT_MAX - BUTTON_CONFIG_PRIMARY_DIRECT_BASE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_PRIMARY_DIRECT_BASE + target);
+    }
+
+    public boolean applySecondaryRawTargetFromUi(int target) {
+        if (target < 0 || target > BUTTON_CONFIG_SECONDARY_DIRECT_MAX - BUTTON_CONFIG_SECONDARY_DIRECT_BASE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CONFIG_SECONDARY_DIRECT_BASE + target);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int facingOrdinal() { return facing.get(); }
     public int routeKind() { return routeKind.get(); }
+    /** Safe presentation adapter; only the menu layer consults SensorModel's profile table. */
+    public static String profileNameForUi(int profile) {
+        return SensorModel.profileName(profile);
+    }
+
+    public String configPrimaryProfileName() {
+        return profileNameForUi(configPrimary.get());
+    }
+
     public int configKind() { return configKind.get(); }
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
+    public int interlockBlockedTicks() { return interlockBlockedTicks.get(); }
+    public int interlockPermittedTicks() { return interlockPermittedTicks.get(); }
+    public int interlockTransitions() { return interlockTransitions.get(); }
     public int pioneerMeasurementKind() { return pioneerMeasurementKind.get(); }
     public int pioneerProcessKind() { return pioneerProcessKind.get(); }
     public int pioneerProcessPrimary() { return pioneerProcessPrimary.get(); }
@@ -933,6 +1256,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     public PortQuality quality(Direction side) {
+        if (!snapshotReady()) return PortQuality.NOT_READY;
         int ordinal = qualities[side.ordinal()].get();
         PortQuality[] all = PortQuality.values();
         return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];

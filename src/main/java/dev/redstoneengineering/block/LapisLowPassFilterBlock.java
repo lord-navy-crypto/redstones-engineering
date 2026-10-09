@@ -91,6 +91,18 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         return true;
     }
 
+    /** Select an exact supported alpha profile by index while preserving server scheduling semantics. */
+    public static boolean setAlphaIndex(Level level, BlockPos pos, int index) {
+        if (level.isClientSide || index < 0 || index >= EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisLowPassFilterBlock block)) return false;
+        int current = state.getValue(ALPHA);
+        if (current == index) return true;
+        level.setBlock(pos, state.setValue(ALPHA, index), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+        return true;
+    }
+
     /** Restore the engineering profile's declared default without touching runtime evidence directly. */
     public static boolean resetAlpha(Level level, BlockPos pos) {
         if (level.isClientSide) return false;

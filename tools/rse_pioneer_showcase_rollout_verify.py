@@ -13,29 +13,29 @@ def read(rel):
     return path.read_text(errors="ignore")
 
 doc = read("docs/PIONEER_SHOWCASE_STANDARD.md")
-lowpass = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
-scope = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
-pid = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
-digital = read("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java")
-pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
-optical = read("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java")
-magnetic = read("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java")
-amethyst = read("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java")
-reliability = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java")
-radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
-analyzer = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
-buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
-logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java")
-copper = read("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
-ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
-workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
-universal = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
-enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
-processor = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
-range_sensor = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
-conditioner = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
-quartz = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
-media_conversion = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
+lowpass = read("src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java")
+scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+pid = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java")
+digital = read("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java")
+pneumatic = read("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java")
+optical = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
+magnetic = read("src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java")
+amethyst = read("src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java")
+reliability = read("src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java")
+radio = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
+analyzer = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
+buffer = read("src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java")
+logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
+copper = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
+ops = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
+workcell = read("src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java")
+universal = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+enhanced = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
+processor = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
+range_sensor = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
+conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
+quartz = read("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java")
+media_conversion = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
 client_registration = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
@@ -108,13 +108,14 @@ for token in (
 for token in (
     "y[n] = y[n-1] + α",
     "LIVE SUBSTITUTION",
-    "VARIABLE ROLES",
+    '"MEASURED", "x[n]"',
+    '"ADJUSTABLE", "α"',
 ):
     if token not in lowpass:
         errors.append(f"Low-pass pioneer missing {token!r}")
 
 for token in (
-    'EXPERIMENT("Experiment")',
+    "SAMPLING EXPERIMENT",
     "SAMPLING MODEL",
     "FROZEN EVIDENCE COMPARISON",
     "PASS",
@@ -127,42 +128,43 @@ for token in (
 for token in (
     "Capture acceptance",
     "historyCount()",
-    "AcceptanceEvidenceTrend",
+    "comparisonTrend()",
     "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL",
     "Trial baseline",
     "Trial candidate",
+    "trialTrend()",
+    "trialRobust()",
 ):
     if token not in pid:
         errors.append(f"PID pioneer missing acceptance-evidence token {token!r}")
 
 wave2 = {
-    "DigitalCommunicationScreen.java": (digital, (
+    "DigitalCommunicationLdUi.java": (digital, (
         "PIONEER PATTERN • COMMUNICATION MODEL",
-        "communicationEquation()",
+        "communicationEquation(m)",
         "U = min(100%, 100 · T_frame / Δt_arrival)",
         "Q_bus = max(35, 100 - loadingPenalty - contentionPenalty)",
-        'variableRole(g, "MEASURED", "Q_link"',
+        '"MEASURED", "Q_link"',
     )),
-    "PneumaticSystemScreen.java": (pneumatic, (
+    "PneumaticSystemLdUi.java": (pneumatic, (
         "PIONEER PATTERN • PNEUMATIC MODEL",
-        "pneumaticEquation()",
         "ΔP_path = ΔP_line + ΔP_restriction",
         "H_charge = max(0, P_line - P_stored)",
         "ΔP_local = max(0, P_in - P_out)",
+        "SERVER PNEUMATIC NETWORK",
     )),
-    "OpticalSystemScreen.java": (optical, (
+    "OpticalSystemLdUi.java": (optical, (
         "PIONEER PATTERN • OPTICAL MODEL",
-        "opticalEquation()",
+        "opticalEquation(m)",
         "I_out = max(0, I_in - L)",
         "I_A = floor(I_in/2)",
         "L_obs = I_TX - I_RX",
     )),
-    "MagneticSystemScreen.java": (magnetic, (
+    "MagneticSystemLdUi.java": (magnetic, (
         "PIONEER PATTERN • MAGNETIC MODEL",
-        "magneticEquation()",
         "V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)",
         "Σ S_i / max(1,r_i²)",
-        'variableRole(g,"EVIDENCE"',
+        'liveRow("EVIDENCE"',
     )),
 }
 
@@ -175,40 +177,39 @@ for name, (text, tokens) in wave2.items():
 
 
 wave3 = {
-    "AmethystSystemScreen.java": (amethyst, (
+    "AmethystSystemLdUi.java": (amethyst, (
         "PIONEER PATTERN • RESONANCE MODEL",
-        "resonanceEquation()",
         "A_out = (f_in = f_target) ? max(0, A_in - 1) : 0",
         "BW = 5 - Q",
         "Frequency values are deliberate model indices, not fabricated Hz",
+        "no client-side spectrum/history is invented",
     )),
-    "ReliabilitySystemScreen.java": (reliability, (
+    "ReliabilitySystemLdUi.java": (reliability, (
         "PIONEER PATTERN • RELIABILITY / SAFE STATE",
-        "reliabilityEquation()",
-        "heartbeat seen ∧ age ≥ timeout",
+        "reliabilityEquation(m)",
+        "age ≥ timeout",
         "spread ≤ tolerance",
         "fault ≥ threshold",
     )),
-    "RadioLinkScreen.java": (radio, (
+    "RadioLinkLdUi.java": (radio, (
         "PIONEER PATTERN • RADIO LINK BUDGET",
-        "radioEquation()",
         "M_decode = Q_link - Q_min",
         "availability = 100 · validSamples / samples",
-        'variableRole(g,"EVIDENCE","path"',
+        'liveRow("EVIDENCE","quality"',
     )),
-    "SignalAnalyzerScreen.java": (analyzer, (
+    "SignalAnalyzerLdUi.java": (analyzer, (
         "PIONEER PATTERN • METROLOGY / CALIBRATION",
         "x_cal = clamp(x_raw + b_cal, 0, 15)",
-        'variableRole(graphics,"ADJUSTABLE","b_cal"',
-        "Calibration changes only the displayed engineering reading",
+        '"b_cal","-2..+2 • direct entry"',
+        "DISPLAY ONLY • calibrated reading does not drive INLINE",
         "client never samples the world",
     )),
-    "IndustrialBufferScreen.java": (buffer, (
+    "IndustrialBufferLdUi.java": (buffer, (
         "PIONEER PATTERN • OPERATIONS / WIP MODEL",
         "WIP% = 100·used/capacity",
         "clamp(round(15·used/capacity),1,15)",
-        'evidenceRow(graphics,"Workcell roles"',
-        "LOT identity",
+        "WORKCELL ROLES",
+        "LOT IDENTITY",
     )),
 }
 
@@ -221,39 +222,39 @@ for name, (text, tokens) in wave3.items():
 
 
 wave4 = {
-    "LogicAnalyzerScreen.java": (logic, (
+    "LogicAnalyzerLdUi.java": (logic, (
         "PIONEER PATTERN • DIGITAL TIMING MODEL",
         "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW",
         '"Δt_sample"',
-        '"Δt_cursor"',
-        "server capture engine",
+        "cursorDelta(m)", "cursorValidity(m)",
+        "server-authoritative",
     )),
-    "CopperCircuitMeterScreen.java": (copper, (
+    "CopperCircuitMeterLdUi.java": (copper, (
         "PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL",
         "I = V / R_eq ; P = V · I",
-        '"commissioning"',
+        "COMMISSIONING",
         "observer-only",
         "server computes V, R_eq, I and P",
     )),
-    "OperationsMonitorScreen.java": (ops, (
+    "OperationsMonitorLdUi.java": (ops, (
         "PIONEER PATTERN • PLANT STATE / KPI AUTHORITY",
         "QUEUE = max(valid horizontal QUEUE/WIP sources)",
         '"queue pressure"',
         '"state"',
         "KPIs stay WITHHELD",
     )),
-    "WorkcellControllerScreen.java": (workcell, (
+    "WorkcellControllerLdUi.java": (workcell, (
         "PIONEER PATTERN • WORKCELL ADMISSION GATE",
         "PERMIT ⇔ valid capacity evidence ∧ no fault ∧ output space ∧ resource capacity",
         '"admission"',
         '"reason"',
         "Operations Binding Tool",
     )),
-    "UniversalFieldDeviceScreen.java": (universal, (
-        "universalContract(kind)",
+    "UniversalFieldDeviceLdUi.java": (universal, (
+        "universalContract(menu.configKind())",
         "Universal HMI rule:",
         "reset statistics does not disarm",
-        "diagnostics reset never bypasses",
+        "PERMIT=15 iff A>0 ∧ B>0 ∧ C>0",
         "no hidden universal physics",
     )),
 }
@@ -267,18 +268,19 @@ for name, (text, tokens) in wave4.items():
 
 
 wave5 = {
-    "EnhancedFieldDeviceScreen.java": (enhanced, (
+    "EnhancedFieldDeviceLdUi.java": (enhanced, (
         "PIONEER PATTERN • SHARED FIELD DEVICE",
-        "pioneerContract()",
-        "sharedPioneerExplanation()",
-        "TOPOLOGY: connected faces = physical graph edges; medium identity is preserved",
-        "OBSERVE: physical/process state → synchronized evidence; network drive = NONE",
-        "STATE: safety/process state is server-authoritative; invalid evidence fails closed",
-        '"AUTHORITY", "policy"',
+        "modelContract(m.kind())",
+        "server state → synchronized HMI evidence",
+        "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
+        "valid zero ≠ no source",
+        "TOPOLOGY ERROR • CONFLICT / INVALID PATH",
+        '"EVIDENCE", "PortQuality"',
+        "Client presentation only",
     )),
-    "SignalProcessorScreen.java": (processor, (
+    "SignalProcessorLdUi.java": (processor, (
         "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
-        "processorEquation()",
+        "processorEquation(",
         "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)",
         "e[n] = edge_mode(x[n-1], x[n]); e[n] ⇒ y=15 for 2 ticks",
         "rising edge(x) ⇒ y=15 for W ticks; otherwise y=0",
@@ -296,7 +298,7 @@ for name, (text, tokens) in wave5.items():
 
 wave6_tokens = (
     "PIONEER PATTERN • RSE DISCRETE TRANSPORT MODEL",
-    "isDiscreteTransportDevice()",
+    "isDiscreteTransportDevice(int kind)",
     "HOP: A_next=max(0,A-1); RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)",
     "HOP: A_next=max(0,A-4), node Q=80; RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)",
     "Lm={water:1,milk-model:2,lava:3}",
@@ -327,26 +329,27 @@ for kind in (
         errors.append(f"EnhancedFieldDeviceScreen missing Wave-6 device kind {kind}")
 
 wave7 = {
-    "RangeSensorScreen.java": (range_sensor, (
+    "RangeSensorLdUi.java": (range_sensor, (
         "FORMULA-FIRST SENSOR RESPONSE",
         "y = (d ≤ 0) ? 0 : round(15 · (R - d + 1) / R)",
-        '"EVIDENCE", "scan"',
+        '"EVIDENCE","scan"',
         "A complete CLEAR scan with d=0 is valid evidence",
     )),
-    "SignalConditionerScreen.java": (conditioner, (
-        "FORMULA-FIRST SERVER CONTROL",
+    "SignalConditionerLdUi.java": (conditioner, (
+        "SERIES SIGNAL CONDITIONER",
         "y = clamp₀..₁₅(g · x)",
         "y = (|x - y_prev| ≥ B) ? x : y_prev",
         '"EVIDENCE", "boundary"',
+        "RseLdUiComponents.authorityFooter()",
     )),
-    "QuartzTimingScreen.java": (quartz, (
+    "QuartzTimingLdUi.java": (quartz, (
         "FORMULA-FIRST TIMING MODEL",
         "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
-        "expectedDividerPeriod()",
+        "expectedDividerPeriod",
         "SATURATED @4096",
         "|e_T| = |T_meas - T_upstream|",
     )),
-    "MediaConversionScreen.java": (media_conversion, (
+    "MediaConversionLdUi.java": (media_conversion, (
         "FORMULA-FIRST MEDIA BOUNDARY",
         "y_L = round(100 · x_R / 15)",
         "y_R = round(15 · x_L / 100)",
@@ -429,14 +432,15 @@ wave13_screen_tokens = (
     "m = unique Lapis sample on selected face",
     "target ⇒ x = round(100·d/R)",
     "display = clamp(x_back,0,15)",
-    'variableRole(g, "MEASURED"',
-    'variableRole(g, "EVIDENCE"',
+    "measurementRoles(int kind)",
+    '"MEASURED"',
+    '"EVIDENCE"',
     "no experiment tab is invented",
 )
 # The no-experiment rule is documented rather than duplicated in client prose.
 for token in wave13_screen_tokens[:-1]:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-13 measurement token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-13 measurement token {token!r}")
 if wave13_screen_tokens[-1] not in doc:
     errors.append("Pioneer standard lost the Wave-13 no-invented-experiment rule")
 
@@ -492,14 +496,15 @@ wave14_screen_tokens = (
     "100·clamp(B,0,15)/15",
     "100·clamp(I,0,15)/15",
     "100·clamp(V,0,15)/15",
-    'variableRole(g, "PROFILE", "Δt_sample"',
-    'variableRole(g, "PROFILE", "resolution"',
-    'variableRole(g, "PROFILE", "noise"',
-    'variableRole(g, "PROFILE", "latency"',
+    "processRoles(int kind)",
+    '"Δt_sample"',
+    '"resolution"',
+    '"noise"',
+    '"latency"',
 )
 for token in wave14_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-14 process token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-14 process token {token!r}")
 
 for token in (
     "Calibration Module",
@@ -553,14 +558,16 @@ wave15_screen_tokens = (
     "V_out = V_in·R_load/(R_s+R_load)",
     "q_target=round(100·V_in/15)",
     "TRIPPED ← TRIPPED ∨ (I>I_rating)",
-    'variableRole(g, "SOLVER", "R_load"',
-    'variableRole(g, "SOLVER", "charge"',
-    'variableRole(g, "STATE", "trip latch"',
+    '"R_load"',
+    '"charge"',
+    '"trip latch"',
+    '"SOLVER"',
+    '"STATE"',
     "Opening the HMI never performs another load-network scan",
 )
 for token in wave15_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-15 Copper token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-15 Copper token {token!r}")
 
 for token in (
     "Copper Wire",
@@ -647,14 +654,17 @@ wave16_screen_tokens = (
     "packet=4u",
     "floor(15·Q_s/100)",
     "c_raw=clamp(round(g·Σ r_cloud/(1+d²)),0,15)",
-    'variableRole(g, "ADJUSTABLE", "μ"',
-    'variableRole(g, "EVIDENCE", "jitter offset"',
-    'variableRole(g, "SOLVER", "pending"',
-    'variableRole(g, "SOLVER", "c_filt"',
+    '"μ"',
+    '"jitter offset"',
+    '"pending"',
+    '"c_filt"',
+    '"ADJUSTABLE"',
+    '"EVIDENCE"',
+    '"SOLVER"',
 )
 for token in wave16_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-16 active-source token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-16 active-source token {token!r}")
 
 for token in (
     "Lapis Noise Source",
@@ -724,13 +734,16 @@ wave17_screen_tokens = (
     "ΔT_20t=T[n]-T[n-1]",
     "transient Soul Flux J decays by 1 each 20 ticks",
     "stored Q_s decays by 1 each 40 ticks",
-    'variableRole(g, "STATE", "remanence"',
-    'variableRole(g, "ADJUSTABLE", "C_index"',
-    'variableRole(g, "DERIVED", "C·ΔT"',
+    '"remanence"',
+    '"C_index"',
+    '"C·ΔT"',
+    '"STATE"',
+    '"ADJUSTABLE"',
+    '"DERIVED"',
 )
 for token in wave17_screen_tokens:
     if token not in universal:
-        errors.append(f"UniversalFieldDeviceScreen missing Wave-17 closure token {token!r}")
+        errors.append(f"UniversalFieldDeviceLdUi missing Wave-17 closure token {token!r}")
 
 for token in (
     "Iron Core",
@@ -772,7 +785,7 @@ if "event.register(RsePioneerWave17GameTests.class);" not in gametest_registrati
     errors.append("Wave-17 GameTests are not registered")
 
 if "dev.redstoneengineering.physics" in universal:
-    errors.append("UniversalFieldDeviceScreen imports physics directly; final client must remain presentation-only")
+    errors.append("UniversalFieldDeviceLdUi imports physics directly; final client must remain presentation-only")
 
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
@@ -790,8 +803,20 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text and "formulaCard(" in text:
             formula_migrated += 1
 
-if formula_migrated < 20:
-    errors.append(f"expected at least 20 formula-first EngineeringScreen families after Wave 5, found {formula_migrated}")
+ldlib_formula_migrated = 0
+ldlib_dir = root / "src/main/java/dev/redstoneengineering/ui/ldlib"
+if ldlib_dir.is_dir():
+    for path in ldlib_dir.glob("*LdUi.java"):
+        text = path.read_text(errors="ignore")
+        if "ModularUI" in text and ("formulaCard(" in text or "governingEquation(" in text):
+            ldlib_formula_migrated += 1
+
+formula_migrated_total = formula_migrated + ldlib_formula_migrated
+if formula_migrated_total < 20:
+    errors.append(
+        f"expected at least 20 formula-first HMI families after Wave 5, "
+        f"found EngineeringScreen={formula_migrated}, LDLib2={ldlib_formula_migrated}, total={formula_migrated_total}"
+    )
 
 if errors:
     print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: FAIL")
@@ -819,5 +844,7 @@ print(" Wave 16 seven-block active-source / timing Pioneer rollout PASS")
 print(" Wave 17 final seven-block material / storage / thermal rollout PASS")
 print(" Pioneer completion ledger: 122 / 122 processed; 0 remain")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
-print(f" formula-first EngineeringScreen families: {formula_migrated}")
+print(f" formula-first legacy EngineeringScreen families: {formula_migrated}")
+print(f" formula-first LDLib2 HMI families: {ldlib_formula_migrated}")
+print(f" formula-first HMI families total: {formula_migrated_total}")
 print(" no client-side second physics/robotics/metrology/Copper/timing/thermal solver in Waves 2-17: PASS")

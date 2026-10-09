@@ -45,7 +45,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
         "PneumaticNetwork.actuatorPathEvidence", "cylinderSupply", "cylinderPathEdges",
         "cylinderObservedLoss", "cylinderLineLoss", "cylinderRestrictionLoss",
         "cylinderResponsePeriod", "cylinderRemainingTicks")
-require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
         "Supply / cylinder P", "Path loss", "Response / remaining",
         "RESTRICTION / REGULATION LOSS DOMINANT", "DISTRIBUTION PATH LOSS DOMINANT",
         "LOW SUPPLY PRESSURE", "DOWNSTREAM PRESSURE STARVATION",
@@ -55,7 +55,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.j
         "PARTIAL COMMANDED RESTRICTION", "Local ΔP")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java")
 for forbidden in ("PneumaticNetwork.collect(", "PneumaticNetwork.localLimit(", "PneumaticNetwork.permits("):
     if forbidden in menu or forbidden in screen:
         errors.append(f"pneumatic HMI must not run a second pressure-path solve; found {forbidden!r}")

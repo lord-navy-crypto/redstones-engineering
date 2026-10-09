@@ -48,7 +48,7 @@ for needle in (
         raise SystemExit(f"TransmissionTopology missing optical splice isolation contract {needle}")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
 for needle in ("KIND_OPTICAL_FIBER", "KIND_OPTICAL_EMITTER", "KIND_OPTICAL_RECEIVER", "KIND_OPTICAL_POWER_METER", "KIND_OPTICAL_SPLITTER", "KIND_OPTICAL_CHANNEL_FILTER", "KIND_OPTICAL_ATTENUATOR", "KIND_OPTICAL_FIBER_JUNCTION"):
     if needle not in menu or needle not in screen:
         raise SystemExit(f"UI missing {needle}")

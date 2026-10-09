@@ -14,7 +14,8 @@ def read(rel):
     return path.read_text(errors="ignore")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
 field_ui = read("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java")
 redstone_net = read("src/main/java/dev/redstoneengineering/physics/RedstoneCableNetwork.java")
 terminal = read("src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java")
@@ -92,7 +93,7 @@ for token in (
 
 for token in (
     "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
-    "isSourceMediumIntegrityDevice()",
+    "isSourceMediumIntegrityDevice(int k)",
     "configured zero remains VALID evidence",
     "valid zero ≠ no source",
     "multi-source=TOPOLOGY_ERROR; truncated scan=STALE",
@@ -103,7 +104,10 @@ for token in (
     "KIND_OPTICAL_FIBER_JUNCTION",
 ):
     if token not in screen:
-        errors.append(f"EnhancedFieldDeviceScreen missing Wave-8 contract {token!r}")
+        errors.append(f"EnhancedFieldDeviceLdUi missing Wave-8 contract {token!r}")
+
+if host and "extends LdlibEngineeringHostScreen<FieldDeviceMenu>" not in host:
+    errors.append("EnhancedFieldDeviceScreen missing LDLib2 host contract")
 
 # Real Lapis source controls: not decorative; menu mutates server state and recomputes the network.
 for token in (

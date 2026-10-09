@@ -38,7 +38,7 @@ for forbidden in (
     if plot and forbidden in plot:
         errors.append(f"EngineeringPlot must remain render-only; found {forbidden!r}")
 
-scope = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
+scope = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopePlotElement.java")
 for token in (
     "EngineeringPlot.analogFrame",
     "EngineeringPlot.analogTrace",
@@ -48,29 +48,95 @@ for token in (
     "plotChannel(g, 1",
 ):
     if scope and token not in scope:
-        errors.append(f"Oscilloscope visualization missing {token!r}")
+        errors.append(f"Oscilloscope LDLib2 visualization missing {token!r}")
 if scope and "fullTrace(" in scope:
     errors.append("Oscilloscope retains the old per-channel fullTrace background redraw path")
 
-logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java")
+scope_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+if scope_ui and "new OscilloscopePlotElement(menu)" not in scope_ui:
+    errors.append("Oscilloscope LDLib2 HMI does not embed the real plot element")
+
+logic = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerPlotElement.java")
 for token in (
     "EngineeringPlot.digitalTrace",
     "EngineeringPlot.verticalMarker",
-    "int lane = channel;",
-    "slot -> menu.displayState(lane, slot)",
+    "for(int ch=0;ch<4;ch++)",
+    "slot->menu.displayState(c,slot)",
 ):
     if logic and token not in logic:
-        errors.append(f"Logic Analyzer visualization missing {token!r}")
+        errors.append(f"Logic Analyzer LDLib2 visualization missing {token!r}")
+logic_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java")
+if logic_ui and "new LogicAnalyzerPlotElement(menu)" not in logic_ui:
+    errors.append("Logic Analyzer LDLib2 HMI does not embed the real digital plot element")
 
-signal = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
+signal = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerPlotElement.java")
 for token in (
     "EngineeringPlot.analogFrame",
     "EngineeringPlot.analogTrace",
     "EngineeringPlot.horizontalMarker",
-    "μ=rounded mean",
 ):
     if signal and token not in signal:
-        errors.append(f"Signal Analyzer visualization missing {token!r}")
+        errors.append(f"Signal Analyzer LDLib2 visualization missing {token!r}")
+signal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
+for token in ("new SignalAnalyzerPlotElement(m)", "μ=rounded mean"):
+    if signal_ui and token not in signal_ui:
+        errors.append(f"Signal Analyzer LDLib2 HMI missing {token!r}")
+
+# Cursor timing is evidence, not just a difference between two configured indices.
+# The 16-slot display can contain -1 for missing/uncaptured samples on each channel.
+logic_menu = read("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java")
+logic_block = read("src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java")
+for token in (
+    "validSamples[channel].set(analyzer.validSamples(channel))",
+    "public int validSamples(int channel)",
+):
+    if token not in logic_menu:
+        errors.append(f"Logic analyzer valid-sample synchronization missing {token!r}")
+for token in (
+    "if (slot < padding) return -1;",
+    "if ((validMasks[source] & bit) == 0) return -1;",
+):
+    if token not in logic_block:
+        errors.append(f"Logic analyzer missing-sample sentinel contract lost {token!r}")
+for token in (
+    "cursorValidity(m)",
+    "cursorDelta(m)",
+    "m.displayState(ch, m.cursorA()) >= 0",
+    "m.displayState(ch, m.cursorB()) >= 0",
+    "m.validSamples(c)>0",
+    "m.validSamples(c)>1",
+    "NOT READY • need 2 valid samples",
+    "complete bounded instrument scan",
+    "resolve duplicate probe channel assignments",
+):
+    if token not in logic_ui:
+        errors.append(f"Logic analyzer evidence gate missing {token!r}")
+if 'RseLdUiComponents.liveRow("DERIVED","Δt_cursor",()->Math.abs' in logic_ui:
+    errors.append("Logic analyzer reintroduced unconditional cursor timing.")
+
+# Draw extents must never exceed the actual allocated UI element box.
+# Fixed minimum drawing widths were a real overflow risk on narrow GUI scales.
+for name, source in (
+    ("OscilloscopePlotElement", scope),
+    ("LogicAnalyzerPlotElement", logic),
+    ("SignalAnalyzerPlotElement", signal),
+    ("PidTrendPlotElement", read("src/main/java/dev/redstoneengineering/ui/ldlib/PidTrendPlotElement.java")),
+):
+    for token in (
+        "allocatedWidth = Math.round(getSizeWidth())",
+        "allocatedHeight = Math.round(getSizeHeight())",
+        "final int inset = 4",
+        "allocatedWidth - 2 * inset",
+        "allocatedHeight - 2 * inset",
+    ):
+        if token not in source:
+            errors.append(f"{name}: allocated-size inset clipping contract missing {token!r}")
+    if "Math.max(" in source and ("Math.round(getSizeWidth())" in source.split("Math.max(", 1)[-1][:80]):
+        errors.append(f"{name}: unsafe minimum-size graph paint may exceed UI element bounds")
+
+components = read("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java")
+if "layout.height(20).paddingAll(4)" not in components:
+    errors.append("RSE shared server-action controls lost 20px minimum hit targets")
 
 if errors:
     print("RSE existing-content visualization verification: FAIL")

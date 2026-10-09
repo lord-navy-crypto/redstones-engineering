@@ -8,6 +8,8 @@ import dev.redstoneengineering.operations.world.OperationPlantSavedData;
 import dev.redstoneengineering.operations.world.OperationWorkcellBufferBinding;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import dev.redstoneengineering.ui.IndustrialBufferUi;
+import dev.redstoneengineering.ui.ldlib.IndustrialBufferLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
@@ -29,12 +31,16 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
             List<LotView> visibleLots
     ) {}
 
+    private final DataSlot snapshotPresent = trackedInt();
     private final DataSlot capacityUnits = trackedInt();
     private final DataSlot usedUnits = trackedInt();
     private final DataSlot totalLotCount = trackedInt();
     private final DataSlot inputConsumerWorkcells = trackedInt();
     private final DataSlot outputProducerWorkcells = trackedInt();
     private final List<LotView> visibleLots;
+    /** Exact count accompanying the immutable 64-bit identity payload at open time.
+     * The synchronized DataSlot count below may change while the menu remains open. */
+    private final int openingLotCount;
 
     public IndustrialBufferMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, readPayload(data));
@@ -47,16 +53,22 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
     private IndustrialBufferMenu(int containerId, Inventory inventory, Payload payload) {
         super(EngineeringUiRegistration.INDUSTRIAL_BUFFER.get(), containerId, inventory, payload.pos(),
                 EngineeringSystemsModule.INDUSTRIAL_BUFFER.get());
+        snapshotPresent.set(payload.capacityUnits() > 0 ? 1 : 0);
         capacityUnits.set(Math.max(0, payload.capacityUnits()));
         usedUnits.set(Math.max(0, payload.usedUnits()));
         totalLotCount.set(Math.max(0, payload.totalLotCount()));
+        openingLotCount = Math.max(0, payload.totalLotCount());
         visibleLots = List.copyOf(payload.visibleLots());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(IndustrialBufferLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
         OperationBufferSnapshot snapshot = IndustrialBufferBlock.snapshot(level, blockPos);
+        snapshotPresent.set(snapshot == null ? 0 : 1);
         if (snapshot == null) {
             capacityUnits.set(0);
             usedUnits.set(0);
@@ -84,11 +96,13 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
         outputProducerWorkcells.set(outputCount);
     }
 
+    public boolean snapshotPresent() { return snapshotPresent.get() != 0; }
     public int capacityUnits() { return capacityUnits.get(); }
     public int usedUnits() { return usedUnits.get(); }
     public int availableUnits() { return Math.max(0, capacityUnits() - usedUnits()); }
     public int totalLotCount() { return totalLotCount.get(); }
     public List<LotView> visibleLots() { return visibleLots; }
+    public int openingLotCount() { return openingLotCount; }
     public int inputConsumerWorkcells() { return inputConsumerWorkcells.get(); }
     public int outputProducerWorkcells() { return outputProducerWorkcells.get(); }
     public int wipPressurePercent() {

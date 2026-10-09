@@ -1,5 +1,7 @@
 # Alpha 1.0.9 Required Dependency Platform
 
+> **Historical note:** this document records the Alpha 1.0.9 decision at that time. It is not the current installation contract. Current RSE requires only dependencies with real implementation usage; see `docs/DEPENDENCY_POLICY.md`. JEI, Cloth Config and Fusion are no longer hard prerequisites unless future code actually integrates them.
+
 RSE Alpha 1.0.9 intentionally requires five ecosystem libraries because the project will build directly on their capabilities instead of maintaining duplicate in-house infrastructure.
 
 - JEI: recipe/use browsing and engineering progression UI.

@@ -153,8 +153,8 @@ require(
     "RedstoneCableNetwork.recompute(server, pos)",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
-    "menu.seriesConfigurable()",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
+    "m.seriesConfigurable()",
 )
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
@@ -330,12 +330,11 @@ require(
     "wrappedText",
     "routePage",
     'Component.literal("Route")',
-    'Component.literal("Direction ▲")',
-    'Component.literal("Direction ▼")',
-    'Component.literal("RX ▲")',
-    'Component.literal("RX ▼")',
-    'Component.literal("TX ▲")',
-    'Component.literal("TX ▼")',
+    'Component.literal("Cycle direction ▶")',
+    'Component.literal("Cycle RX ▶")',
+    'Component.literal("Cycle TX ▶")',
+    "One-button route control",
+    "each click advances to the next valid orientation",
     "routeActionId(boolean clockwise)",
     "routeInputActionId(boolean clockwise)",
     "routeOutputActionId(boolean clockwise)",
@@ -410,7 +409,7 @@ print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" configurable RX/TX route contract: PASS")
-print(" compact endpoint-driven Route HMI: PASS")
+print(" compact one-button endpoint-driven Route HMI: PASS")
 print(" universal and legacy fallback route authority parity: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")

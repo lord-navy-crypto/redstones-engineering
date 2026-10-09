@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.QuartzTimingLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -36,6 +38,9 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 6;
     public static final int BUTTON_OUTPUT_LEFT = 7;
     public static final int BUTTON_OUTPUT_RIGHT = 8;
+    /** Exact visible timing parameter encoded as BASE + engineering value. */
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 11000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 11032;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -47,6 +52,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot quality = trackedInt();
+    private final DataSlot dividerInputValid = trackedInt();
 
     public QuartzTimingMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -55,7 +61,23 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     public QuartzTimingMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.QUARTZ_TIMING.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        quality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(QuartzTimingLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof QuartzOscillatorBlock) kind.set(KIND_OSCILLATOR);
+        else if (block instanceof QuartzClockDividerBlock) kind.set(KIND_DIVIDER);
+        else if (block instanceof QuartzStabilityMonitorBlock) kind.set(KIND_STABILITY);
+        else kind.set(-1);
     }
 
     @Override
@@ -71,6 +93,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         inputFacing.set(-1);
         outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
+        dividerInputValid.set(0);
 
         if (block instanceof QuartzOscillatorBlock) {
             kind.set(KIND_OSCILLATOR);
@@ -90,6 +113,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
             DomainNetwork.QuartzSample inputSample = DomainNetwork.sampleQuartz(level, blockPos.relative(in));
             DomainNetwork.QuartzSample result = DomainNetwork.sampleQuartz(level, blockPos.relative(out));
             primary.set(inputSample.periodTicks());
+            dividerInputValid.set(inputSample.valid() ? 1 : 0);
             secondary.set(result.periodTicks());
             tertiary.set(QuartzClockDividerBlock.division(state.getValue(QuartzClockDividerBlock.DIV_INDEX)));
             runtimeA.set(QuartzClockDividerBlock.countedEdges(level, blockPos));
@@ -130,7 +154,21 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof QuartzOscillatorBlock oscillator) {
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX) {
+            int value = id - BUTTON_PARAMETER_DIRECT_BASE;
+            if (block instanceof QuartzOscillatorBlock oscillator) {
+                int target = -1;
+                for (int i = 0; i < 5; i++) if (QuartzTimingLineBlock.periodTicks(i) == value) target = i;
+                if (target < 0) return false;
+                level.setBlock(blockPos, state.setValue(QuartzOscillatorBlock.PERIOD_INDEX, target), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeQuartzAround(server, blockPos);
+                level.scheduleTick(blockPos, oscillator, 1);
+                changed = true;
+            } else if (block instanceof QuartzClockDividerBlock) {
+                if (!(level instanceof ServerLevel server)) return false;
+                changed = QuartzClockDividerBlock.setDivision(server, blockPos, value);
+            } else return false;
+        } else if (block instanceof QuartzOscillatorBlock oscillator) {
             if (id != BUTTON_PARAMETER_PREVIOUS && id != BUTTON_PARAMETER_NEXT) return false;
             int index = state.getValue(QuartzOscillatorBlock.PERIOD_INDEX);
             index = id == BUTTON_PARAMETER_NEXT ? (index + 1) % 5 : Math.floorMod(index - 1, 5);
@@ -164,8 +202,18 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    /** LDLib2 intent facade; reuses existing validated menu actions. */
+    public boolean setTimingParameterFromUi(int value) {
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_DIRECT_BASE + value);
+    }
+    public boolean resetMeasurement() { return clickMenuButton(playerInventory.player, BUTTON_RESET_MEASUREMENT); }
+    public boolean cycleInputForward() { return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT); }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
+    public boolean cycleWholeRouteForward() { return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT); }
+
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }
+    public boolean dividerInputValid() { return dividerInputValid.get() != 0; }
     public int secondary() { return secondary.get(); }
     public int tertiary() { return tertiary.get(); }
     public int runtimeA() { return runtimeA.get(); }

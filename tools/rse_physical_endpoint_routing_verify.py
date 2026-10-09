@@ -23,12 +23,14 @@ signal = BLOCK / "DirectionalSignalBlock.java"
 domain = BLOCK / "DirectionalDomainBlock.java"
 pid_menu = UI / "ui/menu/PidControllerMenu.java"
 pid_screen = UI / "client/ui/PidControllerScreen.java"
+pid_ld = UI / "ui/ldlib/PidControllerLdUi.java"
 conditioner = BLOCK / "SignalConditionerBlock.java"
 servo_sensor = BLOCK / "ServoPositionSensorBlock.java"
 scaler = BLOCK / "RedstoneToLapisScalerBlock.java"
 quantizer = BLOCK / "LapisToRedstoneQuantizerBlock.java"
 conversion_menu = UI / "ui/menu/MediaConversionMenu.java"
 conversion_screen = UI / "client/ui/MediaConversionScreen.java"
+conversion_ld = UI / "ui/ldlib/MediaConversionLdUi.java"
 
 for path in (signal, domain):
     require(path, "physicalPortsDoNotOverlap", "full physical-port collision validation")
@@ -40,10 +42,12 @@ require(pid_menu, "BUTTON_INPUT_PREVIOUS", "PID RX controls")
 require(pid_menu, "BUTTON_OUTPUT_NEXT", "PID TX controls")
 require(pid_menu, "DirectionalSignalBlock.rotateSeriesInput", "PID server-authoritative RX routing")
 require(pid_menu, "DirectionalSignalBlock.rotateSeriesOutput", "PID server-authoritative TX routing")
-require(pid_screen, 'Component.literal("RX ▲")', "PID RX up control")
-require(pid_screen, 'Component.literal("TX ▼")', "PID TX down control")
-require(pid_screen, "menu.inputFacing()", "dynamic PID RX face display")
-require(pid_screen, "menu.outputFacing()", "dynamic PID TX face display")
+require(pid_screen, "extends LdlibEngineeringHostScreen<PidControllerMenu>", "PID LDLib2 host")
+require(pid_ld, '"Cycle RX ▶"', "PID one-button RX cycle")
+require(pid_ld, '"Cycle TX ▶"', "PID one-button TX cycle")
+require(pid_ld, "m.inputFacing()", "dynamic PID RX face display")
+require(pid_ld, "m.outputFacing()", "dynamic PID TX face display")
+require(pid_ld, "RseLdUiComponents.authorityFooter()", "PID server-authority footer")
 
 require(conditioner, "seriesInputSide", "Signal Conditioner configured RX backend")
 require(conditioner, "seriesOutputSide", "Signal Conditioner configured TX backend")
@@ -66,10 +70,12 @@ require(conversion_menu, "RedstoneToLapisScalerBlock.rotateInput", "scaler RX ro
 require(conversion_menu, "RedstoneToLapisScalerBlock.rotateOutput", "scaler TX routing")
 require(conversion_menu, "LapisToRedstoneQuantizerBlock.rotateInput", "quantizer RX routing")
 require(conversion_menu, "LapisToRedstoneQuantizerBlock.rotateOutput", "quantizer TX routing")
-require(conversion_screen, 'Component.literal("RX ◀")', "converter RX UI")
-require(conversion_screen, 'Component.literal("TX ▶")', "converter TX UI")
-require(conversion_screen, "menu.inputFace()", "converter live RX display")
-require(conversion_screen, "menu.outputFace()", "converter live TX display")
+require(conversion_screen, "extends LdlibEngineeringHostScreen<MediaConversionMenu>", "converter LDLib2 host")
+require(conversion_ld, '"Cycle RX ▶"', "converter one-button RX UI")
+require(conversion_ld, '"Cycle TX ▶"', "converter one-button TX UI")
+require(conversion_ld, "menu.inputFace().getName().toUpperCase()", "converter live RX display")
+require(conversion_ld, "menu.outputFace().getName().toUpperCase()", "converter live TX display")
+require(conversion_ld, "RseLdUiComponents.authorityFooter()", "converter server-authority footer")
 
 for path in BLOCK.glob("*.java"):
     body = text(path)
@@ -100,7 +106,7 @@ print("RSE physical endpoint routing verification: PASS")
 print(" - independent RX/TX route properties retained")
 print(" - declared physical ports are collision-checked before route mutation")
 print(" - dense multi-port layouts fall back to rigid legal rotation")
-print(" - dedicated PID HMI exposes server-authoritative RX/TX routing")
-print(" - Redstone/Lapis converters expose independent server-authoritative RX/TX routing")
+print(" - dedicated PID HMI exposes one-button server-authoritative RX/TX routing")
+print(" - Redstone/Lapis converters expose one-button independent server-authoritative RX/TX routing")
 print(" - old converter outputs are cleared or notified before TX relocation")
 print(" - no audited directional backend reconstructs RX as TX opposite")

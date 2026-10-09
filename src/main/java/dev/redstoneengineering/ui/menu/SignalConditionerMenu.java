@@ -4,6 +4,8 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.SignalConditionerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -25,6 +27,9 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 7;
     public static final int BUTTON_OUTPUT_LEFT = 8;
     public static final int BUTTON_OUTPUT_RIGHT = 9;
+    /** Formula parameter value encoded as BASE + (value + 16), supporting signed offset mode. */
+    public static final int BUTTON_PARAM_DIRECT_BASE = 5000;
+    public static final int BUTTON_PARAM_DIRECT_MAX = 5031;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot parameter = trackedInt();
@@ -33,6 +38,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot limiting = trackedInt();
+    /** Redstone 0 can be genuine; a menu's pre-sync default 0 cannot. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public SignalConditionerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -41,11 +48,18 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public SignalConditionerMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.SIGNAL_CONDITIONER.get(), containerId, inventory, pos,
                 RedstoneEngineering.SIGNAL_CONDITIONER.get());
+        snapshotReady.set(0);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(SignalConditionerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof SignalConditionerBlock)) return;
         mode.set(state.getValue(SignalConditionerBlock.MODE));
@@ -55,6 +69,7 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
         outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         limiting.set(SignalConditionerBlock.limitingActive(level, blockPos, state) ? 1 : 0);
+        snapshotReady.set(1);
     }
 
     @Override
@@ -63,7 +78,9 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
 
         boolean changed;
-        if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
+        if (id >= BUTTON_PARAM_DIRECT_BASE && id <= BUTTON_PARAM_DIRECT_MAX) {
+            changed = SignalConditionerBlock.setFormulaParameter(level, blockPos, (id - BUTTON_PARAM_DIRECT_BASE) - 16);
+        } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
             changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
         } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
             changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_RIGHT);
@@ -79,6 +96,34 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    /** LDLib2 server-event facade: preserve the existing validated menu mutation path. */
+    public boolean cycleModeForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_MODE_NEXT);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    public boolean applyVisibleFormulaParameter(int value) {
+        if (!validVisibleFormulaParameter(mode(), value)) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PARAM_DIRECT_BASE + value + 16);
+    }
+
+    private static boolean validVisibleFormulaParameter(int mode, int value) {
+        return switch (mode) {
+            case 0, 4 -> value >= 1 && value <= 4;
+            case 1 -> value >= -5 && value <= 5;
+            case 2, 3 -> value >= 1 && value <= 15;
+            default -> false;
+        };
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int mode() { return mode.get(); }
     public int parameter() { return parameter.get(); }
     public int input() { return input.get(); }

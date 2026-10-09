@@ -75,6 +75,15 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
         return true;
     }
 
+    public static boolean setRate(Level level, BlockPos pos, int rate) {
+        if (rate < 1 || rate > 4) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
+        level.setBlock(pos, state.setValue(RATE, rate), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, filter, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state,

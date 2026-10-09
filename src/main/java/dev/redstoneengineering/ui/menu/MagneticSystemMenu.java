@@ -5,6 +5,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.MagneticSystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -31,6 +33,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_PRIMARY_DIRECT_BASE = 8000;
+    public static final int BUTTON_PRIMARY_DIRECT_MAX = 8015;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -51,7 +55,25 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public MagneticSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.MAGNETIC_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        quality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(MagneticSystemLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof ElectromagnetBlock) kind.set(KIND_ELECTROMAGNET);
+        else if (block instanceof PermanentMagnetBlock) kind.set(KIND_PERMANENT);
+        else if (block instanceof InductionCoilBlock) kind.set(KIND_COIL);
+        else if (block instanceof MagneticFieldSensorBlock) kind.set(KIND_FIELD_SENSOR);
+        else if (block instanceof MagneticGradientMeterBlock) kind.set(KIND_GRADIENT);
+        else kind.set(-1);
     }
 
     @Override
@@ -120,7 +142,19 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof PermanentMagnetBlock) {
+        if (id >= BUTTON_PRIMARY_DIRECT_BASE && id <= BUTTON_PRIMARY_DIRECT_MAX) {
+            int value = id - BUTTON_PRIMARY_DIRECT_BASE;
+            if (block instanceof PermanentMagnetBlock) {
+                if (value < 1 || value > 15) return false;
+                level.setBlock(blockPos, state.setValue(PermanentMagnetBlock.STRENGTH, value), Block.UPDATE_CLIENTS);
+                changed = true;
+            } else if (block instanceof InductionCoilBlock coil) {
+                if (value < 1 || value > 4) return false;
+                level.setBlock(blockPos, state.setValue(InductionCoilBlock.TURNS, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, coil, 1);
+                changed = true;
+            } else return false;
+        } else if (block instanceof PermanentMagnetBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int strength = state.getValue(PermanentMagnetBlock.STRENGTH);
                 strength = id == BUTTON_PRIMARY_NEXT ? (strength >= 15 ? 1 : strength + 1) : (strength <= 1 ? 15 : strength - 1);
@@ -154,6 +188,14 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
     }
+
+    /** LDLib2 intent facade; mutations reuse existing server validation. */
+    public boolean setPrimaryFromUi(int value) {
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DIRECT_BASE + value);
+    }
+    public boolean cycleOrientationForward() { return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT); }
+    public boolean cycleInputForward() { return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT); }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
 
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }

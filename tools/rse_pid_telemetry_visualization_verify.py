@@ -58,26 +58,48 @@ for token in (
     if menu and token not in menu:
         errors.append(f"PidControllerMenu missing compact trend sync contract {token!r}")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
+plot = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidTrendPlotElement.java")
 for token in (
     "EngineeringPlot.analogFrame",
     "menu::trendSetpoint",
     "menu::trendProcessValue",
     "menu::trendControlOutput",
-    "authoritative samples",
-    "2t/sample",
 ):
+    if plot and token not in plot:
+        errors.append(f"PidTrendPlotElement missing trend visualization {token!r}")
+
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java")
+for token in ("authoritative samples", "2t/sample", "PidTrendPlotElement"):
     if screen and token not in screen:
-        errors.append(f"PidControllerScreen missing trend visualization {token!r}")
-for forbidden in (
-    "RuntimeIntStore",
-    "PidTelemetryStore",
-    "getBlockState(",
-    "scheduleTick(",
-    "setBlock(",
+        errors.append(f"PidControllerLdUi missing synchronized trend contract {token!r}")
+# Readback cannot present unset AUTO terms as a solved zero, or missing
+# commissioning inputs as valid live PV/SP. Historic plots remain distinct.
+for token in (
+    "runtimeTermsAvailable.set(terms.available() ? 1 : 0)",
+    "public boolean runtimeTermsAvailable()",
 ):
-    if screen and forbidden in screen:
-        errors.append(f"PID client screen must stay synchronized/render-only; found {forbidden!r}")
+    if token not in menu:
+        errors.append(f"PidControllerMenu missing term provenance {token!r}")
+for token in (
+    "autoTermState(m)",
+    "m.runtimeTermsAvailable()",
+    "m.available()?m.setpoint()",
+    "m.available()?Integer.toString(m.error())",
+    "NOT READY • no AUTO solve",
+    "RETAINED LAST AUTO SOLVE",
+    "History samples remain retained after live inputs disappear",
+):
+    if token not in screen:
+        errors.append(f"PidControllerLdUi missing live-versus-retained evidence guard {token!r}")
+if "terms.available()" not in block:
+    # Availability is returned by the RuntimeTerms record; the menu owns the readback.
+    if "boolean available," not in block:
+        errors.append("PID runtime terms no longer expose availability")
+
+for body_name, body in (("PidTrendPlotElement", plot), ("PidControllerLdUi", screen)):
+    for forbidden in ("RuntimeIntStore", "PidTelemetryStore", "getBlockState(", "scheduleTick(", "setBlock("):
+        if body and forbidden in body:
+            errors.append(f"{body_name} must stay synchronized/render-only; found {forbidden!r}")
 
 tests = read("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
 for token in (

@@ -137,7 +137,7 @@ require(
     "PortCompatibility.evaluate",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "8-BIT DATA BUS",
     "SERIAL DATA LINE",
     "DIFFERENTIAL DATA",

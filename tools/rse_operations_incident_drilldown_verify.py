@@ -41,18 +41,19 @@ for token in (
     if menu and token not in menu:
         errors.append(f"OperationsMonitorMenu missing synchronized incident drill-down {token!r}")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 for token in (
     "First-out source",
     "Incident span",
     "Follow-up evidence",
-    "firstOutLocation()",
-    "menu.downstreamObservations()",
-    "menu.abnormalDownstreamObservations()",
-    "menu.evidenceTraceEntries()",
+    "firstOutLocation(m)",
+    "m.downstreamObservations()",
+    "m.abnormalDownstreamObservations()",
+    "m.evidenceTraceEntries()",
 ):
     if screen and token not in screen:
-        errors.append(f"OperationsMonitorScreen missing incident visualization {token!r}")
+        errors.append(f"OperationsMonitorLdUi missing incident visualization {token!r}")
 for forbidden in (
     "RootCauseEvidenceTrace",
     "OperationsIncidentSummary",
@@ -63,7 +64,10 @@ for forbidden in (
     "setBlock(",
 ):
     if screen and forbidden in screen:
-        errors.append(f"Operations incident client screen must remain synchronized/render-only; found {forbidden!r}")
+        errors.append(f"Operations incident LDLib2 HMI must remain synchronized/render-only; found {forbidden!r}")
+
+if host and "extends LdlibEngineeringHostScreen<OperationsMonitorMenu>" not in host:
+    errors.append("OperationsMonitorScreen missing LDLib2 host contract")
 
 tests = read("src/main/java/dev/redstoneengineering/gametest/RseOperationsIncidentGameTests.java")
 for token in (

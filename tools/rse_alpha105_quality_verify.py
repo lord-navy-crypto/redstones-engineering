@@ -61,7 +61,7 @@ require(
     "meanStep100",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
     "stabilityClass",
     "sampleAgeTicks",
     "DISPLAY ONLY",
@@ -125,13 +125,14 @@ require(
     "displaySample",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
     "CAPTURE",
-    "menu.coverage(channel)",
-    "menu.meanStep100(channel)",
-    "menu.periodTicks(channel)",
+    "menu.coverage(0)",
+    "menu.meanStep100(0)",
+    "menu.periodTicks(0)",
     "Cursor Δt",
-    'SAMPLING("Sampling")',
+    "SAMPLING",
+    "DataBindingBuilder.string",
 )
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
@@ -142,7 +143,7 @@ require(
     "displayState",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
     "Capture",
     "coverage=",
     "transition=",

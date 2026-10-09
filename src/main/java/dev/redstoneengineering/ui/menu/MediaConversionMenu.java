@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.MediaConversionLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -39,6 +41,8 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
     private final DataSlot reconstructedLapis = trackedInt();
     private final DataSlot quantizationLoss = trackedInt();
     private final DataSlot commissioningStatus = trackedInt();
+    /** The client knows the block type before it receives real medium evidence. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public MediaConversionMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -47,11 +51,31 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
     public MediaConversionMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.MEDIA_CONVERSION.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        inputQuality.set(PortQuality.NOT_READY.ordinal());
+        outputQuality.set(PortQuality.NOT_READY.ordinal());
+        snapshotReady.set(0);
+        inputFace.set(-1);
+        outputFace.set(-1);
+        sourceSpacing.set(-1);
+        reconstructedLapis.set(-1);
+        quantizationLoss.set(-1);
+        commissioningStatus.set(CommissioningStatus.NOT_READY.code());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else { Block block = level.getBlockState(blockPos).getBlock();
+            mode.set(block instanceof RedstoneToLapisScalerBlock ? MODE_REDSTONE_TO_LAPIS
+                    : block instanceof LapisToRedstoneQuantizerBlock ? MODE_LAPIS_TO_REDSTONE : MODE_UNKNOWN);
+        }
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(MediaConversionLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         int conversionMode = block instanceof RedstoneToLapisScalerBlock ? MODE_REDSTONE_TO_LAPIS
@@ -108,6 +132,7 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
             quantizationLoss.set(CoreMediaDiagnostics.quantizationError(inValue));
         }
         commissioningStatus.set(commissioning(inQuality, outQuality).code());
+        snapshotReady.set(1);
     }
 
     @Override
@@ -142,8 +167,9 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
 
     private static CommissioningStatus commissioning(PortQuality input, PortQuality output) {
         if (isFailure(input) || isFailure(output)) return CommissioningStatus.FAIL;
-        if (input == PortQuality.STALE || input == PortQuality.NO_SIGNAL
-                || output == PortQuality.STALE || output == PortQuality.NO_SIGNAL) return CommissioningStatus.NOT_READY;
+        if (input == PortQuality.STALE || input == PortQuality.NO_SIGNAL || input == PortQuality.NOT_READY
+                || output == PortQuality.STALE || output == PortQuality.NO_SIGNAL || output == PortQuality.NOT_READY)
+            return CommissioningStatus.NOT_READY;
         if (input == PortQuality.SATURATED || output == PortQuality.SATURATED) return CommissioningStatus.MARGINAL;
         return CommissioningStatus.PASS;
     }
@@ -153,6 +179,15 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
                 || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
+    public boolean cycleRxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_RX_NEXT);
+    }
+
+    public boolean cycleTxForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_TX_NEXT);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int mode() { return mode.get(); }
     public boolean redstoneToLapis() { return mode() == MODE_REDSTONE_TO_LAPIS; }
     public boolean lapisToRedstone() { return mode() == MODE_LAPIS_TO_REDSTONE; }

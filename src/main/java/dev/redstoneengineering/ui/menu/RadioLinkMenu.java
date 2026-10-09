@@ -7,6 +7,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.RadioLinkLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -27,6 +29,8 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CHANNEL_NEXT = 1;
     public static final int BUTTON_OUTPUT_LEFT = 2;
     public static final int BUTTON_OUTPUT_RIGHT = 3;
+    public static final int BUTTON_CHANNEL_DIRECT_BASE = 14000;
+    public static final int BUTTON_CHANNEL_DIRECT_MAX = 14003;
 
     private static final String RX_DIAG_KEY = "radio_rx_diag";
     private static final int RX_DIAG_SIZE = 10;
@@ -53,6 +57,8 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     private final DataSlot obstacleHits = trackedInt();
     private final DataSlot distanceBlocks = trackedInt();
     private final DataSlot decodeMargin = trackedInt();
+    /** A primed transmitter/receiver kind is not yet an inspected radio link. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public RadioLinkMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -61,11 +67,29 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     public RadioLinkMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.RADIO_LINK.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        quality.set(PortQuality.NOT_READY.ordinal());
+        snapshotReady.set(0);
+        facing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(RadioLinkLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof RadioTransmitterBlock) kind.set(KIND_TRANSMITTER);
+        else if (block instanceof RadioReceiverBlock) kind.set(KIND_RECEIVER);
+        else kind.set(-1);
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         payload.set(0);
@@ -97,6 +121,7 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
             channel.set(state.getValue(RadioTransmitterBlock.CHANNEL));
             quality.set(observation.quality().ordinal());
             drivers.set(observation.valid() ? 1 : 0);
+            snapshotReady.set(1);
             return;
         }
 
@@ -131,6 +156,7 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
             } else {
                 noise.set(Math.min(100, reception.interference() * 8 + reception.obstacles() * 2));
             }
+            snapshotReady.set(1);
             return;
         }
 
@@ -138,8 +164,11 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     }
 
     private static PortQuality receptionQuality(RadioKernel.Reception reception) {
-        if (!reception.coverageComplete()) return PortQuality.STALE;
+        // A known collision is a real topology conflict even when other
+        // candidates are not loaded. Keep it visible instead of overwriting
+        // it with the weaker incomplete-coverage classification.
         if (reception.collision()) return PortQuality.TOPOLOGY_ERROR;
+        if (!reception.coverageComplete()) return PortQuality.STALE;
         return reception.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
@@ -151,7 +180,29 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof RadioTransmitterBlock) {
+        if (id >= BUTTON_CHANNEL_DIRECT_BASE && id <= BUTTON_CHANNEL_DIRECT_MAX) {
+            int selected = id - BUTTON_CHANNEL_DIRECT_BASE;
+            if (block instanceof RadioTransmitterBlock) {
+                BlockState next = state.setValue(RadioTransmitterBlock.CHANNEL, selected);
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                RadioTransmitterBlock.PayloadObservation observation = RadioTransmitterBlock.payloadObservation(level, blockPos);
+                if (observation.valid()) RadioKernel.updateTransmitter(level, blockPos, selected, observation.value());
+                else RadioKernel.removeTransmitter(level, blockPos);
+                changed = true;
+            } else if (block instanceof RadioReceiverBlock receiver) {
+                int old = state.getValue(RadioReceiverBlock.CHANNEL);
+                RadioKernel.Reception reception = RadioKernel.receivePacket(level, blockPos, selected);
+                BlockState next = state.setValue(RadioReceiverBlock.CHANNEL, selected)
+                        .setValue(DirectionalSignalBlock.OUTPUT, Math.max(0, Math.min(15, reception.value())));
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                level.updateNeighborsAt(blockPos, receiver);
+                int[] diagnostic = RuntimeIntStore.get(level, RX_DIAG_KEY, blockPos, RX_DIAG_SIZE);
+                if (selected != old) diagnostic[5]++;
+                diagnostic[9] = selected;
+                level.scheduleTick(blockPos, receiver, 1);
+                changed = true;
+            } else return false;
+        } else if (block instanceof RadioTransmitterBlock) {
             if (id != BUTTON_CHANNEL_PREVIOUS && id != BUTTON_CHANNEL_NEXT) return false;
             int selected = state.getValue(RadioTransmitterBlock.CHANNEL);
             selected = id == BUTTON_CHANNEL_NEXT ? (selected + 1) % 4 : Math.floorMod(selected - 1, 4);
@@ -187,6 +238,14 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    /** LDLib2 intent facade; channel/output changes stay server-authoritative. */
+    public boolean setChannelFromUi(int value) {
+        if (value < 0 || value > 3) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CHANNEL_DIRECT_BASE + value);
+    }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int payload() { return payload.get(); }
     public int channel() { return channel.get(); }

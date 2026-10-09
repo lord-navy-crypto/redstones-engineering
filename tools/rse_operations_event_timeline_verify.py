@@ -39,18 +39,20 @@ for token in (
     if menu and token not in menu:
         errors.append(f"OperationsMonitorMenu missing server-synchronized event contract {token!r}")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 for token in (
     "PLANT EVENT TIMELINE",
     "FIRST OUT",
-    "menu.eventKindOrdinal",
-    "menu.eventSeverity",
-    "menu.eventAgeTicks",
-    "menu.firstOutSlot()",
+    "m.eventKindOrdinal",
+    "m.eventSeverity",
+    "m.eventAgeTicks",
+    "m.firstOutSlot()",
     "Observer-only",
+    "RseLdUiComponents.authorityFooter()",
 ):
     if screen and token not in screen:
-        errors.append(f"OperationsMonitorScreen missing event visualization {token!r}")
+        errors.append(f"OperationsMonitorLdUi missing event visualization {token!r}")
 for forbidden in (
     "SystemEventTimeline",
     "RuntimeIntStore",
@@ -59,7 +61,10 @@ for forbidden in (
     "setBlock(",
 ):
     if screen and forbidden in screen:
-        errors.append(f"Operations client screen must remain synchronized/render-only; found {forbidden!r}")
+        errors.append(f"Operations LDLib2 HMI must remain synchronized/render-only; found {forbidden!r}")
+
+if host and "extends LdlibEngineeringHostScreen<OperationsMonitorMenu>" not in host:
+    errors.append("OperationsMonitorScreen missing LDLib2 host contract")
 
 registration = read("src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java")
 if registration and 'MENUS.register("operations_monitor"' not in registration:

@@ -64,9 +64,13 @@ if 'version="${mod_version}"' not in mods_template:
 if 'license="${mod_license}"' not in mods_template:
     errors.append("NeoForge metadata must derive the license from ${mod_license}")
 
-for dependency in ("jei", "jade", "geckolib", "cloth_config", "fusion"):
+for dependency in ("jade", "geckolib", "ldlib2"):
     if f'modId="{dependency}"' not in mods_template:
         errors.append(f"required dependency missing from NeoForge metadata: {dependency}")
+
+for obsolete in ("jei", "cloth_config", "fusion"):
+    if f'modId="{obsolete}"' in mods_template:
+        errors.append(f"unused hard dependency returned to NeoForge metadata: {obsolete}")
 
 match = re.search(r"(?m)^Public alpha testing guide:\s*(\S+)\s*$", manifest)
 if not match:
@@ -175,7 +179,7 @@ print(f"  artifact version: {EXPECTED_VERSION}")
 print(f"  Minecraft / NeoForge / Java: {EXPECTED_MINECRAFT} / {EXPECTED_NEOFORGE} / {EXPECTED_JAVA}")
 print(f"  license: {EXPECTED_LICENSE}")
 print("  manifest -> testing guide link: PASS")
-print("  required dependency metadata: PASS")
+print("  evidence-based dependency metadata (Jade + GeckoLib + LDLib2): PASS")
 print("  Gradle publishing syntax: PASS")
 print(f"  Jade provider config translations: {len(jade_provider_ids)} PASS")
 print(f"  block models / RSE texture refs: {model_count} / {rse_texture_refs} PASS")

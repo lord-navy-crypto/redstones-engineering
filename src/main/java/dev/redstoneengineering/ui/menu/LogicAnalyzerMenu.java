@@ -5,6 +5,8 @@ import dev.redstoneengineering.block.LogicAnalyzerBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.LogicAnalyzerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -22,6 +24,12 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CURSOR_A = 5;
     public static final int BUTTON_CURSOR_B = 6;
     public static final int BUTTON_CLEAR = 7;
+    public static final int BUTTON_THRESHOLD_DIRECT_BASE = 17000;
+    public static final int BUTTON_THRESHOLD_DIRECT_MAX = 17015;
+    public static final int BUTTON_CURSOR_A_DIRECT_BASE = 17100;
+    public static final int BUTTON_CURSOR_A_DIRECT_MAX = 17115;
+    public static final int BUTTON_CURSOR_B_DIRECT_BASE = 17200;
+    public static final int BUTTON_CURSOR_B_DIRECT_MAX = 17215;
 
     private final DataSlot threshold = trackedInt();
     private final DataSlot sampleCount = trackedInt();
@@ -32,6 +40,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot cursorB = trackedInt();
 
     private final DataSlot[] coverage = new DataSlot[4];
+    private final DataSlot[] validSamples = new DataSlot[4];
     private final DataSlot[] duty = new DataSlot[4];
     private final DataSlot[] transitionRate = new DataSlot[4];
     private final DataSlot[] rising = new DataSlot[4];
@@ -62,11 +71,15 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.LOGIC_ANALYZER.get(), containerId, inventory, pos,
                 RedstoneEngineering.LOGIC_ANALYZER.get());
         for (int channel = 0; channel < 4; channel++) {
-            coverage[channel] = trackedInt(); duty[channel] = trackedInt(); transitionRate[channel] = trackedInt();
+            coverage[channel] = trackedInt(); validSamples[channel] = trackedInt();
+            duty[channel] = trackedInt(); transitionRate[channel] = trackedInt();
             rising[channel] = trackedInt(); falling[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(LogicAnalyzerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -80,7 +93,9 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         captureState.set(analyzer.armed() ? 1 : analyzer.triggered() ? 2 : 0);
         cursorA.set(analyzer.cursorA()); cursorB.set(analyzer.cursorB());
         for (int channel = 0; channel < 4; channel++) {
-            coverage[channel].set(analyzer.coveragePercent(channel)); duty[channel].set(analyzer.dutyPercent(channel));
+            coverage[channel].set(analyzer.coveragePercent(channel));
+            validSamples[channel].set(analyzer.validSamples(channel));
+            duty[channel].set(analyzer.dutyPercent(channel));
             transitionRate[channel].set(analyzer.transitionRatePercent(channel)); rising[channel].set(analyzer.rising(channel));
             falling[channel].set(analyzer.falling(channel));
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot].set(analyzer.displayState(channel, slot));
@@ -100,9 +115,58 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = LogicAnalyzerBlock.applyUiAction(level, blockPos, id);
+        boolean changed;
+        if (id >= BUTTON_THRESHOLD_DIRECT_BASE && id <= BUTTON_THRESHOLD_DIRECT_MAX) {
+            int value = id - BUTTON_THRESHOLD_DIRECT_BASE;
+            if (value < 1 || value > 15) return false;
+            BlockState state = level.getBlockState(blockPos);
+            if (!(state.getBlock() instanceof LogicAnalyzerBlock block)) return false;
+            level.setBlock(blockPos, state.setValue(LogicAnalyzerBlock.THRESHOLD, value), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, block, 1);
+            changed = true;
+        } else if (id >= BUTTON_CURSOR_A_DIRECT_BASE && id <= BUTTON_CURSOR_A_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof LogicAnalyzerBlockEntity analyzer) {
+            changed = analyzer.setCursorA(id - BUTTON_CURSOR_A_DIRECT_BASE);
+        } else if (id >= BUTTON_CURSOR_B_DIRECT_BASE && id <= BUTTON_CURSOR_B_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof LogicAnalyzerBlockEntity analyzer) {
+            changed = analyzer.setCursorB(id - BUTTON_CURSOR_B_DIRECT_BASE);
+        } else {
+            changed = LogicAnalyzerBlock.applyUiAction(level, blockPos, id);
+        }
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
+    }
+
+    /** LDLib2 HMI intent facade; all mutations reuse the existing validated server path. */
+    public boolean armOrHold() {
+        return clickMenuButton(playerInventory.player, BUTTON_ARM);
+    }
+
+    public boolean cycleTriggerChannel() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIGGER_CHANNEL);
+    }
+
+    public boolean cycleTriggerEdge() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIGGER_EDGE);
+    }
+
+    public boolean clearCapture() {
+        return clickMenuButton(playerInventory.player, BUTTON_CLEAR);
+    }
+
+    public boolean setThresholdFromUi(int value) {
+        if (value < 1 || value > 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_THRESHOLD_DIRECT_BASE + value);
+    }
+
+    public boolean setCursorAFromUi(int value) {
+        if (value < 0 || value >= LogicAnalyzerBlockEntity.DISPLAY_SAMPLES) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CURSOR_A_DIRECT_BASE + value);
+    }
+
+    public boolean setCursorBFromUi(int value) {
+        if (value < 0 || value >= LogicAnalyzerBlockEntity.DISPLAY_SAMPLES) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CURSOR_B_DIRECT_BASE + value);
     }
 
     public int threshold() { return threshold.get(); }
@@ -113,6 +177,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public int cursorA() { return cursorA.get(); }
     public int cursorB() { return cursorB.get(); }
     public int coverage(int channel) { return coverage[channel].get(); }
+    public int validSamples(int channel) { return validSamples[channel].get(); }
     public int duty(int channel) { return duty[channel].get(); }
     public int transitionRate(int channel) { return transitionRate[channel].get(); }
     public int rising(int channel) { return rising[channel].get(); }

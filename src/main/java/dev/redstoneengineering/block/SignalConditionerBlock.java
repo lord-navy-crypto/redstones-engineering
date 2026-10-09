@@ -147,6 +147,34 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         return true;
     }
 
+    /**
+     * Exact server-authoritative parameter entry using the value shown in the governing equation.
+     * OFFSET accepts the signed bias b (-5..+5); other modes accept their direct positive coefficient.
+     */
+    public static boolean setFormulaParameter(Level level, BlockPos pos, int formulaValue) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
+
+        int mode = state.getValue(MODE);
+        int rawParam = switch (mode) {
+            case 0 -> formulaValue >= 1 && formulaValue <= 4 ? formulaValue : -1;
+            case 1 -> formulaValue >= -5 && formulaValue <= 5 ? formulaValue + 5 : -1;
+            case 2, 3 -> formulaValue >= 1 && formulaValue <= 15 ? formulaValue : -1;
+            case 4 -> formulaValue >= 1 && formulaValue <= 4 ? formulaValue : -1;
+            default -> -1;
+        };
+        if (rawParam < 0) return false;
+
+        BlockState next = state.setValue(PARAM, rawParam);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, conditioner);
+        level.updateNeighborsAt(pos.relative(inputDirection(next)), conditioner);
+        level.updateNeighborsAt(pos.relative(outputDirection(next)), conditioner);
+        level.scheduleTick(pos, conditioner, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {

@@ -14,7 +14,7 @@ def read(rel):
 
 block = read("src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
 record = read("src/main/java/dev/redstoneengineering/diagnostics/SignalCalibrationTrialRecord.java")
 comparison = read("src/main/java/dev/redstoneengineering/diagnostics/SignalCalibrationTrialComparison.java")
 store = read("src/main/java/dev/redstoneengineering/diagnostics/SignalCalibrationTrialStore.java")
@@ -124,20 +124,46 @@ for token in (
 
 for token in (
     "PIONEER WORKFLOW • INTERNAL REFERENCE CALIBRATION TRIAL",
-    "e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref",
-    "Reference −",
-    "Reference +",
+    "e_ref needs per-sample calibrated history",
+    '"x_ref","0..15 • direct entry"',
     "Trial baseline",
     "Trial candidate",
     "Clear trial",
     "measurement coverage=",
     "Internal RSE reference comparison only; this does not establish external metrological traceability.",
+    "RseLdUiComponents.authorityFooter()",
 ):
     if token not in screen:
-        errors.append(f"SignalAnalyzerScreen missing Wave-12 HMI token {token!r}")
+        errors.append(f"SignalAnalyzerLdUi missing Wave-12 HMI token {token!r}")
+
+for token in (
+    "BUTTON_REFERENCE_DIRECT_BASE",
+    "setReferenceFromUi",
+    "captureTrialBaseline",
+    "captureTrialCandidate",
+    "clearTrial",
+):
+    if token not in menu:
+        errors.append(f"SignalAnalyzerMenu missing Wave-12 LDLib2 intent token {token!r}")
+
+# Evidence must stay visible and reject invalid or stale measurement substitution.
+for token in (
+    "historyEvidencePanel(m)",
+    "SERVER RETAINED HISTORY",
+    "m.totalSamples()",
+    "m.modeSwitches()",
+    "m.calibrationSwitches()",
+    "m.referenceSwitches()",
+    "m.sampleAgeTicks()>=0 && m.sampleAgeTicks()<=4",
+    "NO SIGNAL • measurement unverified",
+    "NOT READY • valid raw input required",
+    "per-sample calibrated history",
+):
+    if token not in screen:
+        errors.append(f"SignalAnalyzerLdUi missing synchronized history/freshness token {token!r}")
 
 if "dev.redstoneengineering.physics" in screen:
-    errors.append("SignalAnalyzerScreen must remain presentation-only")
+    errors.append("SignalAnalyzerLdUi must remain presentation-only")
 
 for token in (
     "lowerReferenceErrorIsImproved",

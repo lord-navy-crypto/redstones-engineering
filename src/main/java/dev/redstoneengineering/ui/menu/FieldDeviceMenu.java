@@ -15,6 +15,8 @@ import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.EnhancedFieldDeviceLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -122,6 +124,9 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_NEXT = 10;
     public static final int BUTTON_OUTPUT_PREVIOUS = 11;
     public static final int BUTTON_OUTPUT_NEXT = 12;
+    /** Exact engineering-value entry for lightweight field-device controls. */
+    public static final int BUTTON_PRIMARY_DIRECT_BASE = 2000;
+    public static final int BUTTON_PRIMARY_DIRECT_MAX = 2127;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -135,6 +140,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot dataValid = trackedInt();
     private final DataSlot quality = trackedInt();
     private final DataSlot evidenceQuality = trackedInt();
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot driverCount = trackedInt();
     private final DataSlot seriesConfigurable = trackedInt();
     private final DataSlot inputEndpoint = trackedInt();
@@ -148,12 +154,44 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         super(EngineeringUiRegistration.FIELD_DEVICE.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiShape(level.getBlockState(blockPos));
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(EnhancedFieldDeviceLdUi.create(this, inventory.player));
+        }
+    }
+
+    /**
+     * UI tree construction happens before vanilla DataSlot synchronization.
+     * Prime only immutable/declared presentation shape on the client, never runtime
+     * physics or evidence; the server remains the sole source of measurements.
+     * Without this, initial KIND_UNKNOWN hides real controls for most devices.
+     */
+    private void primeClientUiShape(BlockState state) {
+        snapshotReady.set(0);
+        Block block = state.getBlock();
+        kind.set(kindOf(block));
+        seriesConfigurable.set(block instanceof DirectionalSignalBlock
+                || block instanceof DirectionalDomainBlock
+                || block instanceof DirectionalRedstoneEndpointBlock
+                || block instanceof SignalProbeBlock
+                || block instanceof RedstoneCableTerminalBlock ? 1 : 0);
+        inputEndpoint.set(0);
+        outputEndpoint.set(0);
+        if (endpointRoutable(block) && block instanceof EngineeringPortProvider provider) {
+            for (var port : provider.engineeringPorts(state)) {
+                if (port.direction() == PortDirection.INPUT || port.direction() == PortDirection.BIDIRECTIONAL)
+                    inputEndpoint.set(1);
+                if (port.direction() == PortDirection.OUTPUT || port.direction() == PortDirection.BIDIRECTIONAL)
+                    outputEndpoint.set(1);
+            }
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
+        snapshotReady.set(1);
         kind.set(kindOf(block));
         primary.set(0);
         secondary.set(0);
@@ -858,7 +896,9 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT
+        if (id >= BUTTON_PRIMARY_DIRECT_BASE && id <= BUTTON_PRIMARY_DIRECT_MAX) {
+            changed = applyDirectPrimaryEngineeringValue(block, state, id - BUTTON_PRIMARY_DIRECT_BASE);
+        } else if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT
                 || id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
             boolean clockwise = id == BUTTON_INPUT_NEXT || id == BUTTON_OUTPUT_NEXT;
             boolean input = id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT;
@@ -1006,6 +1046,89 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    private boolean applyDirectPrimaryEngineeringValue(Block block, BlockState state, int value) {
+        if (block instanceof SignalProbeBlock) {
+            if (value < 0 || value > 3) return false;
+            level.setBlock(blockPos, state.setValue(SignalProbeBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
+            return true;
+        }
+        if (block instanceof PrecisionFilterBlock filter) {
+            if (value < 1 || value > 4) return false;
+            level.setBlock(blockPos, state.setValue(PrecisionFilterBlock.RATE, value), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, filter, 1);
+            return true;
+        }
+        if (block instanceof RedstoneReferenceSourceBlock source) {
+            if (value < 0 || value > 15) return false;
+            BlockState next = state.setValue(RedstoneReferenceSourceBlock.POWER, value);
+            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+            Direction front = next.getValue(DirectionalRedstoneEndpointBlock.FACING);
+            level.updateNeighborsAt(blockPos, source);
+            level.updateNeighborsAt(blockPos.relative(front), source);
+            return true;
+        }
+        if (block instanceof LapisPrecisionSourceBlock) {
+            if (value < 0 || value > 100 || value % 5 != 0) return false;
+            level.setBlock(blockPos, state.setValue(LapisPrecisionSourceBlock.VALUE, value), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) DomainNetwork.recomputeLapis(server, blockPos);
+            return true;
+        }
+        if (block instanceof MechanicalExciterBlock) {
+            return MechanicalExciterBlock.setFrequency(level, blockPos, value);
+        }
+        if (block instanceof HydroacousticExciterBlock) {
+            return HydroacousticExciterBlock.setFrequency(level, blockPos, value);
+        }
+        if (block instanceof DigitalRegeneratorBlock regenerator) {
+            if (value < 0 || value > 2) return false;
+            level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, value), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, regenerator, 1);
+            return true;
+        }
+        if (block instanceof PressureRegulatorBlock regulator) {
+            if (value < 25 || value > 100 || value % 25 != 0) return false;
+            level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, value / 25), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
+            return true;
+        }
+        if (block instanceof PneumaticReliefValveBlock) {
+            if (value < 25 || value > 100 || value % 25 != 0) return false;
+            level.setBlock(blockPos, state.setValue(PneumaticReliefValveBlock.SETPOINT, value / 25), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
+            return true;
+        }
+        if (block instanceof PermanentMagnetBlock) {
+            if (value < 1 || value > 15) return false;
+            level.setBlock(blockPos, state.setValue(PermanentMagnetBlock.STRENGTH, value), Block.UPDATE_CLIENTS);
+            return true;
+        }
+        if (block instanceof InductionCoilBlock coil) {
+            if (value < 1 || value > 4) return false;
+            level.setBlock(blockPos, state.setValue(InductionCoilBlock.TURNS, value), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, coil, 1);
+            return true;
+        }
+        if (block instanceof OpticalEmitterBlock) {
+            if (value < 0 || value > 15) return false;
+            level.setBlock(blockPos, state.setValue(OpticalEmitterBlock.INTENSITY, value), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
+            return true;
+        }
+        if (block instanceof OpticalChannelFilterBlock filter) {
+            if (value < 0 || value > 15) return false;
+            level.setBlock(blockPos, state.setValue(OpticalChannelFilterBlock.TARGET, value), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, filter, 1);
+            return true;
+        }
+        if (block instanceof OpticalAttenuatorBlock attenuator) {
+            if (value < 0 || value > 8) return false;
+            level.setBlock(blockPos, state.setValue(OpticalAttenuatorBlock.LOSS, value), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, attenuator, 1);
+            return true;
+        }
+        return false;
+    }
+
     private boolean rotateEndpoint(Block block, boolean input, boolean clockwise) {
         if (input && inputEndpoint.get() == 0) return false;
         if (!input && outputEndpoint.get() == 0) return false;
@@ -1110,6 +1233,48 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         return KIND_UNKNOWN;
     }
 
+    /** LDLib2 HMI intent facade; every mutation delegates to the existing validated button path. */
+    public boolean applyPrimaryEngineeringValueFromUi(int value) {
+        if (value < 0 || value > BUTTON_PRIMARY_DIRECT_MAX - BUTTON_PRIMARY_DIRECT_BASE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DIRECT_BASE + value);
+    }
+
+    public boolean decreasePrimaryFromUi() {
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DECREASE);
+    }
+
+    public boolean increasePrimaryFromUi() {
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_INCREASE);
+    }
+
+    public boolean toggleFromUi() {
+        return clickMenuButton(playerInventory.player, BUTTON_TOGGLE);
+    }
+
+    public boolean presetFromUi(int value) {
+        int button = switch (value) {
+            case 0 -> BUTTON_PRESET_0;
+            case 5 -> BUTTON_PRESET_5;
+            case 10 -> BUTTON_PRESET_10;
+            case 15 -> BUTTON_PRESET_15;
+            default -> -1;
+        };
+        return button >= 0 && clickMenuButton(playerInventory.player, button);
+    }
+
+    public boolean cycleDirectionForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_CW);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_NEXT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_NEXT);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }
     public int secondary() { return secondary.get(); }
@@ -1121,10 +1286,16 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean topologyValid() { return topologyValid.get() != 0; }
     public boolean dataValid() { return dataValid.get() != 0; }
     public int qualityPercent() { return quality.get(); }
+    /** -1 is an explicit absence of per-port quality, never VALID (ordinal 0). */
+    public boolean evidenceQualityKnown() {
+        int index = evidenceQuality.get();
+        return index >= 0 && index < PortQuality.values().length;
+    }
+
     public PortQuality evidenceQuality() {
+        int index = evidenceQuality.get();
         PortQuality[] values = PortQuality.values();
-        int index = Math.max(0, Math.min(values.length - 1, evidenceQuality.get()));
-        return values[index];
+        return index >= 0 && index < values.length ? values[index] : PortQuality.NOT_READY;
     }
     public int driverCount() { return driverCount.get(); }
     public boolean seriesConfigurable() { return seriesConfigurable.get() != 0; }

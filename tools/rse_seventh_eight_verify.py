@@ -144,7 +144,7 @@ for token in (
 ):
     require(menu, token)
 
-screen = "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java"
+screen = "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java"
 for token in (
     "HONEY VIBRATION DAMPER",
     "SCULK VIBRATION INTERFACE",

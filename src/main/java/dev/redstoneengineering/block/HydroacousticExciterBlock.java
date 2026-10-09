@@ -137,6 +137,17 @@ public class HydroacousticExciterBlock extends Block implements EngineeringPortP
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
+    /** Exact server-authoritative frequency selection used by the engineering HMI. */
+    public static boolean setFrequency(Level level, BlockPos pos, int frequency) {
+        if (level.isClientSide || frequency < 1 || frequency > 15) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof HydroacousticExciterBlock exciter)) return false;
+        BlockState next = state.setValue(FREQUENCY, frequency);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        exciter.updateExcitation(next, level, pos);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit

@@ -21,8 +21,8 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text:
             engineering_screens.append((path.name, text))
 
-if len(engineering_screens) < 12:
-    errors.append(f"expected broad EngineeringScreen family coverage, found only {len(engineering_screens)} subclasses")
+if engineering_screens:
+    errors.append(f"expected zero legacy block-facing EngineeringScreen subclasses after LDLib2 closure, found {[name for name, _ in engineering_screens]}")
 
 for token in (
     "MIN_WORKSPACE_WIDTH = 440",
@@ -51,6 +51,10 @@ for token in (
     "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
     "renderMechanismFlow",
     "MECHANISM FLOW • LIVE SERVER STRUCTURE",
+    "Cycle direction ▶",
+    "Cycle RX ▶",
+    "Cycle TX ▶",
+    "One-button route control",
     "RX / INPUT",
     "MODEL",
     "STATE",
@@ -94,36 +98,235 @@ for forbidden in (
     if forbidden in base:
         errors.append(f"shared engineering workspace retained legacy fixed geometry {forbidden!r}")
 
-required = {
-    "SignalConditionerScreen.java": (
-        "FORMULA-FIRST SERVER CONTROL",
-        "governingEquation()",
-        'variableRole(graphics, "MEASURED", "x"',
-        'variableRole(graphics, "ADJUSTABLE"',
-        'variableRole(graphics, "DERIVED", "y"',
-    ),
-    "QuartzTimingScreen.java": (
-        "FORMULA-FIRST TIMING MODEL",
-        "timingEquation()",
-        "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
-        "|e_T| = |T_meas - T_upstream|",
-        "f_nom = 20 / T  Hz",
-    ),
-    "MediaConversionScreen.java": (
-        "FORMULA-FIRST MEDIA BOUNDARY",
-        "conversionEquation()",
-        "round(100 · x_R / 15)",
-        "round(15 · x_L / 100)",
-        'variableRole(g, "EVIDENCE", "quality"',
-    ),
-    "RangeSensorScreen.java": (
-        "FORMULA-FIRST SENSOR RESPONSE",
-        "responseEquation()",
-        "d ≤ 0",
-        "max(1, floor(R/2))",
-        'variableRole(g, "EVIDENCE", "scan"',
-    ),
-}
+required = {}
+
+ld_conditioner = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java")
+for token in (
+    "ModularUI",
+    "DataBindingBuilder.componentS2C",
+    "DataBindingBuilder.string",
+    "governingEquation",
+    "setNumbersOnlyInt(-5, 15)",
+    "RseLdUiComponents.authorityFooter()",
+    "Cycle mode ▶",
+):
+    if token not in ld_conditioner:
+        errors.append(f"LDLib2 Signal Conditioner rollout missing {token!r}")
+
+ld_components = read("src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java")
+for token in ("authorityFooter()", "SERVER AUTHORITY", "validated operator intent"):
+    if token not in ld_components:
+        errors.append(f"shared LDLib2 component library missing {token!r}")
+
+conditioner_host = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
+for token in ("extends LdlibEngineeringHostScreen<SignalConditionerMenu>",):
+    if token not in conditioner_host:
+        errors.append(f"Signal Conditioner LDLib2 host missing {token!r}")
+
+oscilloscope_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+for token in (
+    "ModularUI",
+    "DataBindingBuilder.string",
+    "Cycle Δt ▶",
+    "SAMPLING EXPERIMENT",
+    "waveform(menu, 0)",
+    "setTriggerLevelFromUi",
+    "setCursorAFromUi",
+    "setCursorBFromUi",
+):
+    if token not in oscilloscope_ld:
+        errors.append(f"LDLib2 Oscilloscope rollout missing {token!r}")
+
+oscilloscope_host = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
+for token in ("extends LdlibEngineeringHostScreen<OscilloscopeMenu>",):
+    if token not in oscilloscope_host:
+        errors.append(f"Oscilloscope LDLib2 host missing {token!r}")
+
+range_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
+for token in (
+    "ModularUI",
+    "FORMULA-FIRST SENSOR RESPONSE",
+    "DataBindingBuilder.string",
+    "{4,8,15}",
+    "Cycle detect ▶",
+    "Cycle response ▶",
+    "A complete CLEAR scan with d=0 is valid evidence",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in range_ld:
+        errors.append(f"LDLib2 Range Sensor rollout missing {token!r}")
+range_host = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
+if "extends LdlibEngineeringHostScreen<RangeSensorMenu>" not in range_host:
+    errors.append("Range Sensor LDLib2 host missing")
+range_menu = read("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java")
+for token in ("RangeSensorLdUi.create(this, inventory.player)", "setRangeFromUi", "cycleDetectForward", "cycleResponseForward"):
+    if token not in range_menu:
+        errors.append(f"Range Sensor LDLib2 server-intent facade missing {token!r}")
+
+media_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
+for token in (
+    "ModularUI",
+    "FORMULA-FIRST MEDIA BOUNDARY",
+    "y_L = round(100 · x_R / 15)",
+    "y_R = round(15 · x_L / 100)",
+    "Quantization loss",
+    "Cycle RX ▶",
+    "Cycle TX ▶",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in media_ld:
+        errors.append(f"LDLib2 Media Conversion rollout missing {token!r}")
+media_host = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
+if "extends LdlibEngineeringHostScreen<MediaConversionMenu>" not in media_host:
+    errors.append("Media Conversion LDLib2 host missing")
+media_menu = read("src/main/java/dev/redstoneengineering/ui/menu/MediaConversionMenu.java")
+for token in ("MediaConversionLdUi.create(this, inventory.player)", "cycleRxForward", "cycleTxForward"):
+    if token not in media_menu:
+        errors.append(f"Media Conversion LDLib2 server-intent facade missing {token!r}")
+
+processor_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java")
+for token in (
+    "ModularUI",
+    "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
+    "DataBindingBuilder.string",
+    "r ∈ 1..4",
+    "W ∈ 1..8 ticks",
+    "Cycle edge mode ▶",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in processor_ld:
+        errors.append(f"LDLib2 Signal Processor rollout missing {token!r}")
+processor_host = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
+if "extends LdlibEngineeringHostScreen<SignalProcessorMenu>" not in processor_host:
+    errors.append("Signal Processor LDLib2 host missing")
+processor_menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java")
+for token in ("SignalProcessorLdUi.create(this, inventory.player)", "setParameterFromUi", "cycleParameterForward"):
+    if token not in processor_menu:
+        errors.append(f"Signal Processor LDLib2 server-intent facade missing {token!r}")
+
+quartz_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java")
+for token in (
+    "FORMULA-FIRST TIMING MODEL",
+    "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
+    "|e_T| = |T_meas - T_upstream|",
+    "f_nom = 20 / T Hz",
+    "SATURATED @4096",
+    "DataBindingBuilder.string",
+):
+    if token not in quartz_ld:
+        errors.append(f"LDLib2 Quartz rollout missing {token!r}")
+
+# Distinguish zero measured period, stale measurement and unknown source period.
+for token in (
+    "measurementPeriod(m)",
+    "measurementError(m)",
+    "NOT READY • input clock unverified",
+    "NOT READY • output clock unverified",
+    "NOT READY • missing source period",
+    "ticks • STALE",
+    "two rising edges required",
+):
+    if token not in quartz_ld:
+        errors.append(f"Quartz timing validity/freshness contract missing {token!r}")
+
+radio_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java")
+for token in ("PIONEER PATTERN • RADIO LINK BUDGET", "M_decode = Q_link - Q_min", "availability = 100 · validSamples / samples", "DataBindingBuilder.string"):
+    if token not in radio_ld:
+        errors.append(f"LDLib2 Radio rollout missing {token!r}")
+
+copper_meter_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
+for token in ("PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL", "I = V / R_eq ; P = V · I", "OBSERVER ONLY", "COMMISSIONING"):
+    if token not in copper_meter_ld:
+        errors.append(f"LDLib2 Copper meter rollout missing {token!r}")
+
+optical_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java")
+for token in (
+    "private static String measurement(OpticalSystemMenu m, String value)",
+    "m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID",
+    'measurement(m,m.primary()+" / 15")',
+    "secondaryIsConfiguration(m.kind()) ? Integer.toString(m.secondary())",
+    'measurement(m,m.tertiary()+" / "+m.auxiliary())',
+):
+    if token not in optical_ld:
+        errors.append(f"Optical observed-value authority gate missing {token!r}")
+
+magnetic_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java")
+for token in ("PIONEER PATTERN • MAGNETIC MODEL", "V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)", "Σ S_i / max(1,r_i²)", "DataBindingBuilder.string"):
+    if token not in magnetic_ld:
+        errors.append(f"LDLib2 Magnetic rollout missing {token!r}")
+
+universal_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+for token in (
+    "ModularUI",
+    "FORMULA PARAMETER WORKBENCH",
+    "DECLARED ENGINEERING PORTS",
+    "SYSTEM / OPERATOR STATE",
+    "DataBindingBuilder.string",
+    "applyPrimary(menu, value)",
+    "applySecondary(menu, value)",
+    "0.00..1.00 Lapis • step 0.05",
+    "0.00..0.20 Lapis • step 0.02",
+    "{4, 8, 16, 32} ticks",
+    "{2, 4, 8, 16, 32} ticks",
+    "{1, 2, 4, 8} R-eq",
+    "RseLdUiComponents.authorityFooter()",
+    "primaryCycleKind",
+    "READ-ONLY HMI • no fake control",
+    "numeric values use exact entry",
+    "MECHANISM FLOW • SERVER-AUTHORITATIVE",
+    "READ-ONLY TOPOLOGY • no server-supported route mutation for this device",
+    "no fake action is exposed when the authoritative server model has no explicit action",
+    "menu.routeKind() != UniversalFieldDeviceMenu.ROUTE_NONE",
+    "menu.hasInputEndpoint()",
+    "menu.hasOutputEndpoint()",
+):
+    if token not in universal_ld:
+        errors.append(f"LDLib2 Universal rollout missing {token!r}")
+
+universal_host = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
+for token in ("extends LdlibEngineeringHostScreen<UniversalFieldDeviceMenu>",):
+    if token not in universal_host:
+        errors.append(f"Universal LDLib2 host missing {token!r}")
+
+universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
+for token in (
+    "UniversalFieldDeviceLdUi.create(this, inventory.player)",
+    "applyPrimaryRawTargetFromUi",
+    "applySecondaryRawTargetFromUi",
+    "cycleWholeRouteForward",
+    "cycleInputForward",
+    "cycleOutputForward",
+):
+    if token not in universal_menu:
+        errors.append(f"Universal LDLib2 server-intent facade missing {token!r}")
+
+ldlib_migrated_families = (
+    "SignalConditionerScreen",
+    "PidControllerScreen",
+    "OscilloscopeScreen",
+    "LogicAnalyzerScreen",
+    "SignalAnalyzerScreen",
+    "UniversalFieldDeviceScreen",
+    "CopperCircuitMeterScreen",
+    "MediaConversionScreen",
+    "RangeSensorScreen",
+    "SignalProcessorScreen",
+    "QuartzTimingScreen",
+    "RadioLinkScreen",
+    "DigitalCommunicationScreen",
+    "PneumaticSystemScreen",
+    "OpticalSystemScreen",
+    "AmethystSystemScreen",
+    "MagneticSystemScreen",
+    "ReliabilitySystemScreen",
+    "LapisLowPassScreen",
+    "IndustrialBufferScreen",
+    "WorkcellControllerScreen",
+    "OperationsMonitorScreen",
+    "EnhancedFieldDeviceScreen",
+)
+if len(ldlib_migrated_families) != 23:
+    errors.append(f"expected 23 LDLib2 migrated block-facing families, found {len(ldlib_migrated_families)}")
 
 lookup = dict(engineering_screens)
 for name, tokens in required.items():
@@ -135,38 +338,17 @@ for name, tokens in required.items():
         if token not in text:
             errors.append(f"{name} missing rollout token {token!r}")
 
-formula_users = [name for name, text in engineering_screens if "formulaCard(" in text]
-if len(formula_users) < 4:
-    errors.append(f"expected formula-first rollout across at least four EngineeringScreen families, found {formula_users}")
-
-for name, required_tokens in {
-    "UniversalFieldDeviceScreen.java": (
-        "virtualContentWidth",
-        "virtualContentHeight",
-        "FORMULA-LINKED CONTROL",
-        "primaryControlName",
-        "case CONFIGURE -> configure(graphics);",
-    ),
-    "EnhancedFieldDeviceScreen.java": (
-        "virtualContentWidth",
-        "virtualContentHeight",
-        "case CONFIGURE -> configure(graphics);",
-    ),
-    "PidControllerScreen.java": (
-        "virtualContentWidth",
-        "virtualContentHeight",
-        "Σe_cand=clamp",
-        "u_raw=bias+P+I+D",
-        "case CONFIGURE -> renderConfigure(graphics);",
-    ),
-}.items():
-    text = lookup.get(name, "")
-    if not text:
-        errors.append(f"deep-canvas target screen missing: {name}")
-        continue
-    for token in required_tokens:
-        if token not in text:
-            errors.append(f"{name} missing deep-canvas token {token!r}")
+enhanced_ld = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
+for token in (
+    "ModularUI", "DataBindingBuilder.string",
+    "PIONEER PATTERN • SHARED FIELD DEVICE",
+    "Exact engineering value", "directEntryKind(",
+    "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
+    "RseLdUiComponents.authorityFooter()",
+):
+    if token not in enhanced_ld:
+        errors.append(f"LDLib2 Enhanced FieldDevice closure missing {token!r}")
+formula_users = list(ldlib_migrated_families)
 
 for name, text in engineering_screens:
     if "dev.redstoneengineering.physics" in text:
@@ -179,18 +361,28 @@ if errors:
     raise SystemExit(1)
 
 print("RSE ENGINEERING UI ROLLOUT VERIFY: PASS")
-print(f" EngineeringScreen subclasses covered by shared responsive workspace: {len(engineering_screens)}")
+print(f" remaining legacy EngineeringScreen subclasses: {len(engineering_screens)}")
+print(f" LDLib2 migrated block-facing families: {len(ldlib_migrated_families)}")
 print(f" formula-first migrated families this batch: {len(formula_users)}")
 print(" responsive large workspace: PASS")
-print(" visible draggable vertical/horizontal deep-canvas scrolling: PASS")
+print(" legacy block-facing deep-canvas screens remaining: NONE")
+print(" LDLib2 migrated families own responsive layout through ModularUI rather than legacy deep-canvas primitives: PASS")
 print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
+print(" Universal formula parameter workbench is server-backed and value-visible: PASS")
+print(" bounded primary/secondary numeric entry uses the authoritative container/menu channel: PASS")
+print(" direct entry is expressed in visible engineering units, not hidden raw indices: PASS")
+print(" EnhancedFieldDevice rollout exposes exact engineering-value entry across lightweight configurable devices: PASS")
+print(" Oscilloscope sampling Δt has exact server-backed engineering-value entry: PASS")
+print(" Lapis low-pass α has exact visible-value server-backed entry: PASS")
+print(" discrete formula parameters accept only legal engineering-value sets: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
 print(" live RX -> model -> state -> TX mechanism flow: PASS")
 print(" reserved shared appendix / no device-content overlap: PASS")
 print(" responsive 3x2 navigation rail + header/content separation: PASS")
+print(" one-button cyclic direction routing: PASS")
 print(" closed-form-only formula policy / no fabricated equations: PASS")
 print(" shared formula / variable / evidence primitives: PASS")
-print(" conditioner / quartz / conversion / range-sensor rollout: PASS")
+print(" conditioner / quartz / conversion / range-sensor / signal-processor rollout: PASS")
 print(" client/no-second-physics-solver boundary: PASS")

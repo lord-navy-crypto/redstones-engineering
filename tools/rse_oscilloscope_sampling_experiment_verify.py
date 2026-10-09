@@ -17,6 +17,9 @@ be = read("src/main/java/dev/redstoneengineering/blockentity/OscilloscopeBlockEn
 block = read("src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java")
 screen = read("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java")
+hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java")
+plot = read("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopePlotElement.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/ldlib/LdlibEngineeringHostScreen.java")
 gametest = read("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
 
 for token in (
@@ -69,7 +72,7 @@ for token in (
         errors.append(f"oscilloscope menu missing frozen evidence synchronization {token!r}")
 
 for token in (
-    'EXPERIMENT("Experiment")',
+    "SAMPLING EXPERIMENT",
     "Capture baseline",
     "Capture candidate",
     "Clear experiment",
@@ -80,18 +83,26 @@ for token in (
     "≥5 → PASS",
     "not proof that the original source is alias-free",
     "vanilla Redstone clock is a valid source",
+    "samplingExperimentStatus(menu.experimentStatus())",
+    "RseLdUiComponents.formulaCard",
 ):
-    if token not in screen:
-        errors.append(f"oscilloscope experiment HMI missing {token!r}")
+    if token not in hmi:
+        errors.append(f"oscilloscope LDLib2 experiment HMI missing {token!r}")
 
+for token in ("extends LdlibEngineeringHostScreen<OscilloscopeMenu>",):
+    if token not in screen:
+        errors.append(f"oscilloscope experiment host missing {token!r}")
+
+client_surface = "\n".join((screen, hmi, plot, host))
 for forbidden in (
     "dev.redstoneengineering.physics",
     "RuntimeIntStore",
     "scheduleTick(",
     "setBlock(",
+    "level.getBlockState(",
 ):
-    if forbidden in screen:
-        errors.append(f"experiment screen violates client authority boundary with {forbidden!r}")
+    if forbidden in client_surface:
+        errors.append(f"experiment LDLib2 presentation violates client authority boundary with {forbidden!r}")
 
 for token in (
     "oscilloscopeSamplingExperimentFreezesComparableEvidence",
@@ -115,7 +126,7 @@ print(" immutable frozen baseline/candidate records: PASS")
 print(" save/reload experiment evidence: PASS")
 print(" server-owned PASS/MARGINAL/FAIL/NOT_READY verdict: PASS")
 print(" baseline survives timebase/live-capture invalidation: PASS")
-print(" formula-first comparison workspace: PASS")
+print(" LDLib2 formula-first frozen-evidence comparison workspace: PASS")
 print(" explicit aliasing caveat / no false ground-truth claim: PASS")
 print(" client/no-second-solver boundary: PASS")
 print(" executable experiment GameTest source: PASS")
