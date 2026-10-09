@@ -29,6 +29,7 @@ public final class SignalAnalyzerLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref"),
+                                        measurementPanel(m),
                                         new SignalAnalyzerPlotElement(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
@@ -96,6 +97,11 @@ public final class SignalAnalyzerLdUi {
                 RseLdUiComponents.liveRow("LIFETIME","last / max Δ",()->m.lastDelta()+" / "+m.maxDelta()),
                 RseLdUiComponents.liveRow("STATE","stable age",()->m.stableAgeTicks()+" ticks"),
                 RseLdUiComponents.liveRow("STATE","variation",()->stabilityClass(m)),
+                RseLdUiComponents.liveRow("EVIDENCE","valid rolling samples",()->m.validWindowCount()+"/"+m.windowCount()),
+                RseLdUiComponents.liveRow("METROLOGY","reference residual",()->
+                        m.validWindowCount()>0 && m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                                ? decimal100(m.average100()-100*m.reference())+" levels"
+                                : "NOT READY • valid window required"),
                 new Label().setText("Rolling statistics are synchronized server evidence; numeric zero remains distinct from missing evidence.")
         );
         return p;
@@ -112,10 +118,13 @@ public final class SignalAnalyzerLdUi {
                 ),
                 RseLdUiComponents.liveRow("TRIAL","baseline",()->m.trialBaselineSequence()>0?"#"+m.trialBaselineSequence():"NOT CAPTURED"),
                 RseLdUiComponents.liveRow("TRIAL","candidate",()->m.trialCandidateSequence()>0?"#"+m.trialCandidateSequence():"NOT CAPTURED"),
-                RseLdUiComponents.liveRow("EVIDENCE","trend",()->trialName(m.trialTrend())),
-                RseLdUiComponents.liveRow("DELTA","|error| / clip",()->decimal100(m.trialErrorDelta100())+" / "+signed(m.trialClippingDelta())),
-                RseLdUiComponents.liveRow("DELTA","span / meanStep",()->signed(m.trialSpanDelta())+" / "+decimal100(m.trialMeanStepDelta100())),
-                RseLdUiComponents.liveRow("DELTA","calibration",()->signed(m.trialCalibrationDelta())),
+                RseLdUiComponents.liveRow("EVIDENCE","trend",()->trialReady(m)?trialName(m.trialTrend()):"NOT READY"),
+                RseLdUiComponents.liveRow("DELTA","|error| / clip",()->trialReady(m)
+                        ?decimal100(m.trialErrorDelta100())+" / "+signed(m.trialClippingDelta()):"NOT READY"),
+                RseLdUiComponents.liveRow("DELTA","span / meanStep",()->trialReady(m)
+                        ?signed(m.trialSpanDelta())+" / "+decimal100(m.trialMeanStepDelta100()):"NOT READY"),
+                RseLdUiComponents.liveRow("DELTA","calibration",()->trialReady(m)
+                        ?signed(m.trialCalibrationDelta()):"NOT READY"),
                 new Label().setText("Internal RSE reference comparison only; this does not establish external metrological traceability.")
         );
         return p;
@@ -135,8 +144,16 @@ public final class SignalAnalyzerLdUi {
         return f;
     }
 
+    private static boolean trialReady(SignalAnalyzerMenu m){
+        return m.trialBaselineSequence()>0 && m.trialCandidateSequence()>0 && m.trialTrend()!=null;
+    }
+
     private static String stabilityClass(SignalAnalyzerMenu m){
-        if(m.windowCount()<4) return "WARMUP";
+        // A recorded zero is only steady when the window contains valid samples.
+        // Empty/default evidence must never be interpreted as zero variation.
+        if(m.validWindowCount()==0 || m.measurementQuality()!=dev.redstoneengineering.core.port.PortQuality.VALID)
+            return "UNVERIFIED • "+m.measurementQuality().name();
+        if(m.windowCount()<4 || m.validWindowCount()<4) return "WARMUP";
         if(m.peakToPeak()==0 && m.meanStep100()==0) return "STEADY";
         if(m.peakToPeak()<=1 && m.meanStep100()<=50) return "STABLE";
         if(m.peakToPeak()<=5 && m.meanStep100()<=200) return "DYNAMIC";
