@@ -118,9 +118,45 @@ public final class OscilloscopeLdUi {
                                 + " • period=" + menu.periodTicks(1) + "t"),
                 RseLdUiComponents.liveRow("EVIDENCE", "CAPTURE", () ->
                         menu.sampleCount() + " samples • " + captureState(menu.captureState())),
+                channelPhysics(menu, 0),
+                channelPhysics(menu, 1),
                 RseLdUiComponents.liveRow("DERIVED", "Cursor Δt", () ->
-                        Math.abs(menu.cursorB() - menu.cursorA()) * menu.samplePeriodTicks() + " ticks")
+                        menu.sampleCount()>0
+                                ? Math.abs(menu.cursorB() - menu.cursorA()) * menu.samplePeriodTicks() + " ticks"
+                                : "NOT READY • capture samples first")
         );
+    }
+
+    /** Physical summary of the already captured channel statistics, no client resampling. */
+    private static UIElement channelPhysics(OscilloscopeMenu menu, int channel) {
+        String name = channel == 0 ? "A" : "B";
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.paddingAll(5).gapAll(3));
+        panel.addChild(new Label().setText("CHANNEL " + name + " • RETAINED MEASUREMENT"));
+        panel.addChild(RseLdUiComponents.liveRow("EVIDENCE", "probe / coverage",
+                () -> menu.probeCount(channel) + " / " + menu.coverage(channel) + "%"));
+        panel.addChild(RseLdUiComponents.liveRow("MEASURED", "min / max / peak-to-peak",
+                () -> menu.coverage(channel)>0
+                        ? menu.minimum(channel) + " / " + menu.maximum(channel) + " / " + menu.peakToPeak(channel)
+                        : "NOT READY • no valid coverage"));
+        panel.addChild(RseLdUiComponents.liveRow("STATISTIC", "mean / mean step",
+                () -> menu.coverage(channel)>0
+                        ? fixed100(menu.average100(channel)) + " / " + fixed100(menu.meanStep100(channel))
+                        : "NOT READY"));
+        panel.addChild(RseLdUiComponents.liveRow("PERIOD", "samples / ticks",
+                () -> menu.periodSamples(channel)>0 && menu.periodTicks(channel)>0
+                        ? menu.periodSamples(channel) + " / " + menu.periodTicks(channel) + " ticks"
+                        : "NOT RESOLVED"));
+        panel.addChild(RseLdUiComponents.liveRow("FREQUENCY", "f_observed",
+                () -> menu.frequencyMilliHz(channel)>0
+                        ? formatHz(menu.frequencyMilliHz(channel)) : "NOT RESOLVED"));
+        panel.addChild(RseLdUiComponents.liveRow("ALIASING", "quality",
+                () -> alias(menu.aliasRisk(channel)) + " • f_N=" + formatHz(menu.nyquistMilliHz())));
+        return panel;
+    }
+
+    private static String fixed100(int hundredths) {
+        return String.format(java.util.Locale.ROOT, "%.2f", hundredths/100.0);
     }
 
     private static UIElement samplingControls(OscilloscopeMenu menu) {
@@ -210,6 +246,26 @@ public final class OscilloscopeLdUi {
                         "baseline=" + alias(menu.baselineAliasRisk()) + " • candidate=" + alias(menu.candidateAliasRisk())),
                 RseLdUiComponents.liveRow("EVIDENCE", "status", () ->
                         samplingExperimentStatus(menu.experimentStatus())),
+                RseLdUiComponents.liveRow("BASELINE", "coverage / f_observed", () ->
+                        menu.baselinePresent()
+                                ? menu.baselineCoverage()+"% / "+observedFrequency(menu.baselineFrequencyMilliHz())
+                                : "NOT CAPTURED"),
+                RseLdUiComponents.liveRow("CANDIDATE", "coverage / f_observed", () ->
+                        menu.candidatePresent()
+                                ? menu.candidateCoverage()+"% / "+observedFrequency(menu.candidateFrequencyMilliHz())
+                                : "NOT CAPTURED"),
+                RseLdUiComponents.liveRow("BASELINE", "mean step", () ->
+                        menu.baselinePresent()&&menu.baselineMeanStep100()>=0
+                                ? fixed100(menu.baselineMeanStep100()) : "NOT READY"),
+                RseLdUiComponents.liveRow("CANDIDATE", "mean step", () ->
+                        menu.candidatePresent()&&menu.candidateMeanStep100()>=0
+                                ? fixed100(menu.candidateMeanStep100()) : "NOT READY"),
+                RseLdUiComponents.liveRow("DELTA", "samples/cycle", () ->
+                        menu.baselinePresent()&&menu.candidatePresent()
+                                ? signed(menu.experimentSamplesDelta()) : "NOT READY"),
+                RseLdUiComponents.liveRow("DELTA", "observed frequency", () ->
+                        menu.baselinePresent()&&menu.candidatePresent()
+                                ? signedHz(menu.experimentFrequencyDeltaMilliHz()) : "NOT READY"),
                 new Label().setText("Nyquist/observed-frequency evidence is not proof that the original source is alias-free."),
                 new Label().setText("A vanilla Redstone clock is a valid source for the sampling experiment.")
         );
@@ -222,6 +278,10 @@ public final class OscilloscopeLdUi {
                 RseLdUiComponents.liveRow("NETWORK", "channels", () ->
                         "valid=" + menu.validChannels() + " • active=" + menu.activeChannels()
                                 + " • duplicate=" + menu.duplicateChannels()),
+                RseLdUiComponents.liveRow("EVIDENCE", "topology coverage", () ->
+                        menu.bounded() ? "BOUNDED NETWORK SCAN" : "INCOMPLETE • no topology certification"),
+                RseLdUiComponents.liveRow("SHIELDING", "shielded / unshielded cable", () ->
+                        menu.shieldedCableNodes()+" / "+menu.unshieldedCableNodes()),
                 RseLdUiComponents.liveRow("EVIDENCE", "Interference", () ->
                         "exposure=" + menu.interferenceExposure() + "% • confidence="
                                 + menu.interferenceConfidence() + "% • shielding=" + menu.shieldingCoverage() + "%"),
@@ -257,6 +317,18 @@ public final class OscilloscopeLdUi {
             setter.test(Integer.parseInt(value));
         } catch (NumberFormatException ignored) {
         }
+    }
+
+    private static String observedFrequency(int milliHz) {
+        return milliHz>=0?formatHz(milliHz):"NOT RESOLVED";
+    }
+
+    private static String signed(int value) {
+        return value>0?"+"+value:Integer.toString(value);
+    }
+
+    private static String signedHz(int milliHz) {
+        return (milliHz>0?"+":"")+formatHz(milliHz);
     }
 
     private static String waveform(OscilloscopeMenu menu, int channel) {
