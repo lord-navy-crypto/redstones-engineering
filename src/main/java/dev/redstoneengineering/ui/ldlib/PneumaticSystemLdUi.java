@@ -26,11 +26,12 @@ public final class PneumaticSystemLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.title("PIONEER PATTERN • PNEUMATIC MODEL"),
-                                        RseLdUiComponents.formulaCard(()->equation(m))
+                                        RseLdUiComponents.formulaCard(()->equation(m)),
+                                        overview(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
-                                        overview(m),
-                                        controls(m)
+                                        controls(m),
+                                        pneumaticMechanism(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         diagnostics(m),
@@ -45,8 +46,8 @@ public final class PneumaticSystemLdUi {
     private static UIElement overview(PneumaticSystemMenu m){
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         p.addChildren(
-                RseLdUiComponents.liveRow("MEASURED","primary",()->Integer.toString(m.primary())),
-                RseLdUiComponents.liveRow("MEASURED","secondary",()->Integer.toString(m.secondary())),
+                RseLdUiComponents.liveRow("MEASURED",primaryMetric(m.kind()),()->Integer.toString(m.primary())),
+                RseLdUiComponents.liveRow("MEASURED",secondaryMetric(m.kind()),()->secondarySnapshot(m)),
                 RseLdUiComponents.liveRow("EVIDENCE","quality",()->m.inputQuality().name()+" → "+m.outputQuality().name())
         );
         if(m.kind()==PneumaticSystemMenu.KIND_FLOW_METER){
@@ -60,10 +61,85 @@ public final class PneumaticSystemLdUi {
                     RseLdUiComponents.liveRow("ACTUATOR","position/target",()->m.secondary()+" / "+m.tertiary()),
                     RseLdUiComponents.liveRow("PATH","Supply / cylinder P",()->m.cylinderSupply()+" / "+m.primary()),
                     RseLdUiComponents.liveRow("PATH","Path loss",()->m.cylinderObservedLoss()+" = line "+m.cylinderLineLoss()+" + restriction "+m.cylinderRestrictionLoss()),
+                    RseLdUiComponents.liveRow("PATH","winning path edges",()->Integer.toString(m.cylinderPathEdges())),
                     RseLdUiComponents.liveRow("RESPONSE","Response / remaining",()->m.cylinderResponsePeriod()+"t / "+m.cylinderRemainingTicks()+"t"),
                     RseLdUiComponents.liveRow("RESPONSE","velocity/error",()->m.cylinderVelocity()+" / "+m.cylinderError()),
                     RseLdUiComponents.liveRow("HISTORY","stall/reversal/samples",()->m.cylinderStallTicks()+" / "+m.cylinderReversals()+" / "+m.cylinderSamples())
             );
+        }
+        return p;
+    }
+
+    /** Slot interpretation is device-specific; no new network solver runs in UI. */
+    private static String primaryMetric(int kind) {
+        return switch (kind) {
+            case PneumaticSystemMenu.KIND_COMPRESSOR -> "command u_R";
+            case PneumaticSystemMenu.KIND_PIPE, PneumaticSystemMenu.KIND_REGULATOR -> "P_network";
+            case PneumaticSystemMenu.KIND_RESERVOIR -> "P_stored";
+            case PneumaticSystemMenu.KIND_FLOW_METER -> "flow proxy";
+            case PneumaticSystemMenu.KIND_CYLINDER -> "P_cylinder";
+            default -> "P_in";
+        };
+    }
+
+    private static String secondaryMetric(int kind) {
+        return switch (kind) {
+            case PneumaticSystemMenu.KIND_COMPRESSOR -> "P_commanded";
+            case PneumaticSystemMenu.KIND_RESERVOIR -> "P_network";
+            case PneumaticSystemMenu.KIND_REGULATOR -> "P_set";
+            case PneumaticSystemMenu.KIND_RECEIVER -> "Redstone output";
+            case PneumaticSystemMenu.KIND_FLOW_METER -> "pressure drop";
+            case PneumaticSystemMenu.KIND_CYLINDER -> "position";
+            case PneumaticSystemMenu.KIND_PIPE -> "no second scalar";
+            default -> "P_out";
+        };
+    }
+
+    private static String secondarySnapshot(PneumaticSystemMenu m) {
+        return m.kind() == PneumaticSystemMenu.KIND_PIPE
+                ? "N/A • node pressure is shown above" : Integer.toString(m.secondary());
+    }
+
+    private static UIElement pneumaticMechanism(PneumaticSystemMenu m) {
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(4));
+        p.addChild(RseLdUiComponents.title("PIONEER • INTERNAL PHYSICAL MECHANISM"));
+        switch(m.kind()) {
+            case PneumaticSystemMenu.KIND_COMPRESSOR -> p.addChildren(
+                    RseLdUiComponents.liveRow("INPUT","Redstone command",()->m.primary()+" / 15"),
+                    RseLdUiComponents.liveRow("SOURCE","commanded pressure",()->m.secondary()+" / 100"),
+                    RseLdUiComponents.liveRow("SOLVER","network pressure",()->m.tertiary()+" / 100"));
+            case PneumaticSystemMenu.KIND_REGULATOR -> p.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE","setpoint",()->m.secondary()+" / 100"),
+                    RseLdUiComponents.liveRow("MODEL","setpoint index",()->Integer.toString(m.tertiary())),
+                    RseLdUiComponents.liveRow("SOLVER","network pressure",()->m.primary()+" / 100"));
+            case PneumaticSystemMenu.KIND_FLOW_METER -> p.addChildren(
+                    RseLdUiComponents.liveRow("MEASURED","flow proxy",()->Integer.toString(m.primary())),
+                    RseLdUiComponents.liveRow("MEASURED","meter ΔP",()->Integer.toString(m.secondary())),
+                    RseLdUiComponents.liveRow("MEASURED","inlet / outlet pressure",()->m.tertiary()+" / "+m.auxiliary()),
+                    RseLdUiComponents.liveRow("EVIDENCE","meter samples",()->Integer.toString(m.stateFlag())),
+                    RseLdUiComponents.liveRow("EVIDENCE","up / down witness",()->m.upstreamQuality().name()+" / "+m.downstreamQuality().name()));
+            case PneumaticSystemMenu.KIND_PROPORTIONAL -> p.addChildren(
+                    RseLdUiComponents.liveRow("CONTROL","external opening index",()->m.tertiary()+" / 15"),
+                    RseLdUiComponents.liveRow("MODEL","local pressure drop",()->Math.max(0,m.primary()-m.secondary())+" pressure units"),
+                    RseLdUiComponents.liveRow("SOLVER","network node pressure",()->m.auxiliary()+" / 100"));
+            case PneumaticSystemMenu.KIND_RELIEF -> p.addChildren(
+                    RseLdUiComponents.liveRow("ADJUSTABLE","vent threshold P_set",()->m.tertiary()+" / 100"),
+                    RseLdUiComponents.liveRow("EVENTS","vent count",()->Integer.toString(m.auxiliary())),
+                    RseLdUiComponents.liveRow("STATE","relief valve",()->m.stateFlag()==1?"VENTING":"ARMED"));
+            case PneumaticSystemMenu.KIND_CYLINDER -> p.addChildren(
+                    RseLdUiComponents.liveRow("PATH","source pressure",()->m.cylinderSupply()+" / 100"),
+                    RseLdUiComponents.liveRow("PATH","physical path edges",()->Integer.toString(m.cylinderPathEdges())),
+                    RseLdUiComponents.liveRow("PATH","loss (line + restriction)",()->m.cylinderLineLoss()+" + "+m.cylinderRestrictionLoss()),
+                    RseLdUiComponents.liveRow("ACTUATOR","target / position",()->m.tertiary()+" / "+m.secondary()),
+                    RseLdUiComponents.liveRow("ACTUATOR","velocity / error",()->m.cylinderVelocity()+" / "+m.cylinderError()),
+                    RseLdUiComponents.liveRow("EVIDENCE","retained samples",()->Integer.toString(m.cylinderSamples())));
+            case PneumaticSystemMenu.KIND_RESERVOIR -> p.addChildren(
+                    RseLdUiComponents.liveRow("STORAGE","P_stored / P_line",()->m.primary()+" / "+m.secondary()),
+                    RseLdUiComponents.fixedRow("rate",()->"5 charge / 10t; 1 leak / 10t",
+                            "Server-discrete storage model, not continuous fluid dynamics"));
+            default -> p.addChild(RseLdUiComponents.fixedRow("mechanism",()->"SERVER PRESSURE / ROUTE",
+                    "No fabricated valve dynamics; the upstream and downstream witness comes from the server"));
         }
         return p;
     }
