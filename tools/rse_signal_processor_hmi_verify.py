@@ -76,6 +76,19 @@ for token in (
 require(field_ui, "block instanceof PrecisionFilterBlock || block instanceof EdgeDetectorBlock || block instanceof PulseShaperBlock", "FieldDeviceUi.java")
 require(field_ui, "new SignalProcessorMenu(id, inv, pos)", "FieldDeviceUi.java")
 
+# A filter numerically matching a zero input is not proof of a wired
+# signal. Unknown kinds must not receive fake adjustable controls.
+for token in (
+    "ZERO NUMERICAL LAG • input presence unverified",
+    "Equality x=y is not evidence",
+    "m.initialized()",
+    "NOT READY • no input baseline",
+    "No server-side adjustable parameter exists for this device",
+):
+    require(ld_ui, token, "SignalProcessorLdUi.java")
+if '"SETTLED":"SETTLING"' in ld_ui:
+    errors.append("Signal Processor displays numeric equality as verified filter health")
+
 # Guard against reintroducing duplicate direct parameter mutation in the dedicated HMI.
 for forbidden in (
     "state.setValue(PrecisionFilterBlock.RATE",
