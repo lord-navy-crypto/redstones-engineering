@@ -118,6 +118,8 @@ public final class OscilloscopeLdUi {
                                 + " • period=" + menu.periodTicks(1) + "t"),
                 RseLdUiComponents.liveRow("EVIDENCE", "CAPTURE", () ->
                         menu.sampleCount() + " samples • " + captureState(menu.captureState())),
+                RseLdUiComponents.liveRow("EVIDENCE", "capture present", () ->
+                        menu.sampleCount()>0 ? "YES • verify cursor samples per channel" : "NO • await samples"),
                 RseLdUiComponents.liveRow("TRIGGER", "armed / source / threshold", () ->
                         captureState(menu.captureState()) + " • " + triggerMode(menu.triggerMode())
                                 + " on CH-" + (menu.triggerChannel() == 0 ? "A" : "B")
