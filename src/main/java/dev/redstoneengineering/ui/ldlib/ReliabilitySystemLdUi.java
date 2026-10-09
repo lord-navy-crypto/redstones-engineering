@@ -27,6 +27,7 @@ public final class ReliabilitySystemLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(() -> reliabilityEquation(m)),
+                                        mechanismPanel(m),
                                         statePanel(m)
                                 ),
                                 RseLdUiComponents.workspacePage(
@@ -124,16 +125,68 @@ public final class ReliabilitySystemLdUi {
         return p;
     }
 
+    /** Live operands are server snapshots; the HMI never re-votes or drives a permit. */
+    private static UIElement mechanismPanel(ReliabilitySystemMenu m) {
+        var p = new UIElement().addClass("panel_bg");
+        p.layout(l -> l.paddingAll(5).gapAll(3));
+        p.addChildren(
+                new Label().setText("LIVE RELIABILITY MECHANISM • SYNCHRONIZED INPUTS"),
+                RseLdUiComponents.liveRow("MODEL", "device", () -> deviceName(m.kind())),
+                RseLdUiComponents.liveRow("MODEL", "operands", () -> switch (m.kind()) {
+                    case ReliabilitySystemMenu.KIND_WATCHDOG ->
+                            "age=" + m.primary() + "t / timeout=" + m.secondary() + "t";
+                    case ReliabilitySystemMenu.KIND_SERVO ->
+                            "x_cmd=" + m.secondary() + " / x=" + m.primary()
+                                    + " / slew=" + m.extraC() + " units/t";
+                    case ReliabilitySystemMenu.KIND_POSITION_SENSOR ->
+                            "measured=" + m.primary() + " / feedback=" + m.secondary();
+                    case ReliabilitySystemMenu.KIND_VOTER ->
+                            "valid=" + m.secondary() + "/3 / spread=" + m.tertiary()
+                                    + " / tolerance=" + m.auxiliary();
+                    case ReliabilitySystemMenu.KIND_FAULT_LATCH ->
+                            "T_fault=" + m.secondary() + " / latched=" + (m.extraA() != 0);
+                    default -> "UNSUPPORTED";
+                }),
+                RseLdUiComponents.liveRow("DECISION", "server evidence", () -> stateName(m))
+        );
+        return p;
+    }
+
     private static UIElement evidencePanel(ReliabilitySystemMenu m) {
         var p = new UIElement().addClass("panel_bg");
         p.layout(l -> l.paddingAll(5).gapAll(3));
         p.addChildren(
-                new Label().setText("RELIABILITY EVIDENCE"),
-                RseLdUiComponents.liveRow("COUNTER", "events A", () -> Integer.toString(m.tertiary())),
-                RseLdUiComponents.liveRow("COUNTER", "events B", () -> Integer.toString(m.auxiliary())),
-                RseLdUiComponents.liveRow("COUNTER", "retained A/B", () -> m.extraA() + " / " + m.extraB()),
-                RseLdUiComponents.liveRow("STATE", "device", () -> stateName(m)),
-                new Label().setText("Counters are retained server evidence; opening the HMI never manufactures events.")
+                new Label().setText("DEVICE-SPECIFIC RELIABILITY EVIDENCE"),
+                RseLdUiComponents.liveRow("QUALITY", "source", () -> m.quality().name()),
+                RseLdUiComponents.liveRow("EVIDENCE", "retained / observed", () -> switch (m.kind()) {
+                    case ReliabilitySystemMenu.KIND_WATCHDOG ->
+                            "timeouts=" + m.tertiary() + " / heartbeat transitions=" + m.auxiliary();
+                    case ReliabilitySystemMenu.KIND_SERVO ->
+                            "soft-limit hits=" + m.extraB() + " / braking=" + (m.extraA() != 0);
+                    case ReliabilitySystemMenu.KIND_POSITION_SENSOR ->
+                            "metrology samples=" + m.tertiary() + " / quality=" + m.quality().name();
+                    case ReliabilitySystemMenu.KIND_VOTER ->
+                            "max spread=" + m.extraA() + " / disagreement events=" + m.extraB();
+                    case ReliabilitySystemMenu.KIND_FAULT_LATCH ->
+                            "trips=" + m.tertiary() + " / resets=" + m.auxiliary();
+                    default -> "UNAVAILABLE";
+                }),
+                RseLdUiComponents.liveRow("SAFETY", "decision detail", () -> switch (m.kind()) {
+                    case ReliabilitySystemMenu.KIND_WATCHDOG ->
+                            m.extraA() > 0 ? "TIMEOUT ALARM • output=15" : "NO TIMEOUT OUTPUT • not proof of heartbeat";
+                    case ReliabilitySystemMenu.KIND_SERVO ->
+                            "velocity=" + m.tertiary() + " / error=" + m.auxiliary();
+                    case ReliabilitySystemMenu.KIND_POSITION_SENSOR ->
+                            "observer only • no configurable coefficient";
+                    case ReliabilitySystemMenu.KIND_VOTER ->
+                            "quorum=" + m.secondary() + "/3 • "
+                                    + (m.quality() == PortQuality.VALID ? "AGREEMENT VALID"
+                                    : "UNVERIFIED / DEGRADED • never mark healthy from zero");
+                    case ReliabilitySystemMenu.KIND_FAULT_LATCH ->
+                            "latched=" + (m.extraA() != 0) + " / reset input active=" + (m.extraB() != 0);
+                    default -> "UNAVAILABLE";
+                }),
+                new Label().setText("Counts and flags are retained server evidence; zero is never treated as proof of sensor presence.")
         );
         return p;
     }
@@ -178,7 +231,7 @@ public final class ReliabilitySystemLdUi {
     private static String reliabilityEquation(ReliabilitySystemMenu m) {
         return switch (m.kind()) {
             case ReliabilitySystemMenu.KIND_WATCHDOG ->
-                    "alarm = (heartbeat seen ∧ age ≥ timeout) ? 15 : 0";
+                    "alarm = (age ≥ timeout) ? 15 : 0 • heartbeat provenance separate";
             case ReliabilitySystemMenu.KIND_SERVO ->
                     "POSITION: e=x_cmd-x, |Δx|≤slew ; VELOCITY: command maps to signed velocity";
             case ReliabilitySystemMenu.KIND_VOTER ->
@@ -196,6 +249,8 @@ public final class ReliabilitySystemLdUi {
      */
     private static String stateName(ReliabilitySystemMenu m) {
         PortQuality quality = m.quality();
+        if (m.kind() == ReliabilitySystemMenu.KIND_VOTER && quality == PortQuality.FAULT)
+            return "DEGRADED VOTE • QUORUM OR DISAGREEMENT FAULT";
         if (quality == PortQuality.FAULT || quality == PortQuality.DOMAIN_MISMATCH
                 || quality == PortQuality.TOPOLOGY_ERROR) {
             return "EVIDENCE FAULT • " + quality.name();
@@ -206,7 +261,7 @@ public final class ReliabilitySystemLdUi {
         }
         if (quality == PortQuality.SATURATED) return "SATURATED • CHECK INPUT";
         return switch (m.kind()) {
-            case ReliabilitySystemMenu.KIND_WATCHDOG -> m.extraA() > 0 ? "TIMEOUT" : "HEALTHY";
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> m.extraA() > 0 ? "TIMEOUT" : "NO TIMEOUT • HEARTBEAT UNPROVEN";
             case ReliabilitySystemMenu.KIND_SERVO -> m.extraA() == 1 ? "BRAKING" : m.auxiliary() == 0 ? "AT COMMAND" : "MOVING / ERROR";
             case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> "MEASUREMENT VALID";
             case ReliabilitySystemMenu.KIND_VOTER -> m.extraC() == 1 ? "DEGRADED" : "NOMINAL";
