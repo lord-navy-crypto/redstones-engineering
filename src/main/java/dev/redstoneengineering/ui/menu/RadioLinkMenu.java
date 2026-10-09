@@ -65,6 +65,10 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     public RadioLinkMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.RADIO_LINK.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        quality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         else primeClientUiKind(level.getBlockState(blockPos).getBlock());
         if ((Object) this instanceof IModularUIHolderMenu holder) {
