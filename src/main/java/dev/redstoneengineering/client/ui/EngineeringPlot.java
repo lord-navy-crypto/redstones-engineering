@@ -46,7 +46,7 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (sampleCount <= 0 || maximum <= minimum) return;
+        if (sampleCount <= 0 || maximum <= minimum || width < 3 || height < 3) return;
         int previousX = -1;
         int previousY = -1;
         int denominator = Math.max(1, sampleCount - 1);
@@ -58,13 +58,14 @@ public final class EngineeringPlot {
                 previousY = -1;
                 continue;
             }
-            int px = x + Math.round(slot * width / (float) denominator);
-            int py = y + height - Math.round((sample - minimum) * height / (float) span);
+            // Pixel rectangles are half-open. Never draw onto the next widget.
+            int px = x + Math.round(slot * (width - 1) / (float) denominator);
+            int py = y + (height - 1) - Math.round((sample - minimum) * (height - 1) / (float) span);
             if (previousX >= 0) {
                 graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
                 graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
             }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
+            boundedPoint(graphics, px, py, x, y, width, height, color);
             previousX = px;
             previousY = py;
         }
@@ -80,26 +81,26 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (sampleCount <= 0) return;
+        if (sampleCount <= 0 || width < 3 || height < 3) return;
         int previousX = -1;
         int previousY = -1;
         int denominator = Math.max(1, sampleCount - 1);
         for (int slot = 0; slot < sampleCount; slot++) {
             int state = stateAt.applyAsInt(slot);
-            int px = x + Math.round(slot * width / (float) denominator);
+            int px = x + Math.round(slot * (width - 1) / (float) denominator);
             if (state < 0) {
                 int invalidY = y + height / 2;
-                graphics.fill(px - 1, invalidY, px + 2, invalidY + 2, INVALID);
+                boundedPoint(graphics, px, invalidY, x, y, width, height, INVALID);
                 previousX = -1;
                 previousY = -1;
                 continue;
             }
-            int py = state > 0 ? y : y + height;
+            int py = state > 0 ? y : y + height - 1;
             if (previousX >= 0) {
                 graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
                 graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
             }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
+            boundedPoint(graphics, px, py, x, y, width, height, color);
             previousX = px;
             previousY = py;
         }
@@ -115,11 +116,11 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (sampleCount <= 1) return;
-        int bounded = Math.max(0, Math.min(sampleCount - 1, slot));
-        int px = x + Math.round(bounded * width / (float) (sampleCount - 1));
+        if (sampleCount <= 1 || width < 1 || height < 1 || slot < 0 || slot >= sampleCount) return;
+        int px = x + Math.round(slot * (width - 1) / (float) (sampleCount - 1));
         graphics.fill(px, y, px + 1, y + height, color);
-        graphics.fill(px - 2, y, px + 3, y + 2, color);
+        graphics.fill(Math.max(x, px - 2), y, Math.min(x + width, px + 3),
+                Math.min(y + height, y + 2), color);
     }
 
     public static void horizontalMarker(
@@ -133,11 +134,18 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (maximum <= minimum) return;
+        if (maximum <= minimum || width < 1 || height < 1) return;
         int bounded = Math.max(minimum, Math.min(maximum, value));
-        int py = y + height - Math.round((bounded - minimum) * height / (float) (maximum - minimum));
+        int py = y + (height - 1) - Math.round((bounded - minimum) * (height - 1) / (float) (maximum - minimum));
         for (int px = x; px < x + width; px += 4) {
             graphics.fill(px, py, Math.min(px + 2, x + width), py + 1, color);
         }
+    }
+
+    /** Clamp the 3px sample marker to the trace's own allocated rectangle. */
+    private static void boundedPoint(GuiGraphics graphics, int px, int py,
+                                     int x, int y, int width, int height, int color) {
+        graphics.fill(Math.max(x, px - 1), Math.max(y, py - 1),
+                Math.min(x + width, px + 2), Math.min(y + height, py + 2), color);
     }
 }
