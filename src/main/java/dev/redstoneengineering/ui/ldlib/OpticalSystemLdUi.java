@@ -46,13 +46,21 @@ public final class OpticalSystemLdUi {
         p.addChildren(
                 new Label().setText("PIONEER PATTERN • OPTICAL MODEL"),
                 RseLdUiComponents.liveRow("DEVICE","type",()->name(m.kind())),
-                RseLdUiComponents.liveRow(m.kind()==OpticalSystemMenu.KIND_EMITTER?"ADJUSTABLE":"MEASURED", primaryMetric(m.kind()),()->m.primary()+" / 15"),
-                RseLdUiComponents.liveRow(secondaryIsConfiguration(m.kind())?"ADJUSTABLE":"MEASURED", secondaryMetric(m.kind()),()->Integer.toString(m.secondary())),
+                RseLdUiComponents.liveRow(m.kind()==OpticalSystemMenu.KIND_EMITTER?"ADJUSTABLE":"MEASURED", primaryMetric(m.kind()),()->measurement(m,m.primary()+" / 15")),
+                RseLdUiComponents.liveRow(secondaryIsConfiguration(m.kind())?"ADJUSTABLE":"MEASURED", secondaryMetric(m.kind()),()->
+                        secondaryIsConfiguration(m.kind()) ? Integer.toString(m.secondary())
+                                : measurement(m,Integer.toString(m.secondary()))),
                 RseLdUiComponents.liveRow("EVIDENCE","input / source quality",()->m.quality().name()),
-                RseLdUiComponents.liveRow("DERIVED",tertiaryMetric(m.kind()),()->m.tertiary()+" / "+m.auxiliary()),
-                new Label().setText("Optical controls remain server-authoritative; the client never performs a second optical propagation solve.")
+                RseLdUiComponents.liveRow("DERIVED",tertiaryMetric(m.kind()),()->measurement(m,m.tertiary()+" / "+m.auxiliary())),
+                new Label().setText("Optical controls remain server-authoritative; the client never performs a second optical propagation solve."),
+                new Label().setText("Missing optical source evidence is not a measured zero; configuration remains independently readable.")
         );
         return p;
+    }
+
+    private static String measurement(OpticalSystemMenu m, String value) {
+        return m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                ? value : "NOT READY • "+m.quality().name();
     }
 
     private static UIElement parameterPanel(OpticalSystemMenu m) {
