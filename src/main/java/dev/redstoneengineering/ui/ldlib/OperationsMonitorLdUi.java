@@ -70,7 +70,7 @@ public final class OperationsMonitorLdUi {
                         m.snapshotReady() ? formatTicks(m.downtimeTicks()) : "NOT READY • no server history"),
                 RseLdUiComponents.liveRow("DERIVED", "state", () -> m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
                 RseLdUiComponents.liveRow("DERIVED", "dominant constraint", () -> m.snapshotReady() && m.telemetryReady() ? m.dominantConstraint().name() : "UNVERIFIED • input evidence missing"),
-                new Label().setText("FIXED STATE BANDS • queue≥13 OVERLOADED • queue≥9 CONGESTED • stopped+queued 600t ⇒ FAILED")
+                RseLdUiComponents.note("FIXED STATE BANDS • queue≥13 OVERLOADED • queue≥9 CONGESTED • stopped+queued 600t ⇒ FAILED")
         );
     }
 
@@ -99,9 +99,9 @@ public final class OperationsMonitorLdUi {
                                         +" • "+(m.worldPlantBoundResources()>0 ? resourceHealthPercent(m)+"%" : "NO BOUND RESOURCES")
                                 : "NOT READY • world plant not inspected"),
                 new Label().setText("WORLD PLANT STATE • PLANT KPIs • INCOMPLETE"),
-                new Label().setText("Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING"),
+                RseLdUiComponents.note("Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING"),
                 new Label().setText("FPY / reject / rework — / — / —"),
-                new Label().setText("Availability / failures — / — • Queue/job history is not persisted yet")
+                RseLdUiComponents.note("Availability / failures — / — • Queue/job history is not persisted yet")
         );
     }
 
@@ -146,7 +146,7 @@ public final class OperationsMonitorLdUi {
                     () -> eventText(m, index)
             ));
         }
-        panel.addChild(new Label().setText("Observer-only • oldest → newest synchronized chronology; no client event store"));
+        panel.addChild(RseLdUiComponents.note("Observer-only • oldest → newest synchronized chronology; no client event store"));
         return panel;
     }
 
@@ -154,36 +154,37 @@ public final class OperationsMonitorLdUi {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("ELECTRICAL / COPPER RELIABILITY EVIDENCE"),
                 RseLdUiComponents.liveRow("PROTECTION", "Electrical trips / recovered", () ->
-                        m.electricalTripCount() + " / " + m.electricalRecoveryCount()),
+                        m.snapshotReady() ? m.electricalTripCount() + " / " + m.electricalRecoveryCount() : "NOT READY • event ledger pending"),
                 RseLdUiComponents.liveRow("PROTECTION", "Protection status", () ->
-                        m.electricalActiveTripCount() > 0
-                                ? "ACTIVE TRIP • repeat=" + m.electricalRepeatTripCount()
-                                : "READY • repeat=" + m.electricalRepeatTripCount()),
+                        !m.snapshotReady() ? "NOT READY • protection ledger pending"
+                                : m.electricalActiveTripCount() > 0
+                                    ? "ACTIVE TRIP • repeat=" + m.electricalRepeatTripCount()
+                                    : "READY • repeat=" + m.electricalRepeatTripCount()),
                 RseLdUiComponents.liveRow("PROTECTION", "Electrical downtime", () ->
-                        formatTicks(m.electricalDowntimeTicks())),
-                new Label().setText("MTBF/MTTR withheld • durable operating exposure / repair-cycle evidence not persisted"),
+                        m.snapshotReady() ? formatTicks(m.electricalDowntimeTicks()) : "NOT READY • unavailable"),
+                RseLdUiComponents.note("MTBF/MTTR withheld • durable operating exposure / repair-cycle evidence not persisted"),
                 RseLdUiComponents.liveRow("COPPER", "active degraded / failed", () ->
-                        m.copperEvidenceActiveDegradedCount() + " / " + m.copperEvidenceActiveFailedCount()),
+                        m.snapshotReady() ? m.copperEvidenceActiveDegradedCount() + " / " + m.copperEvidenceActiveFailedCount() : "NOT READY • no Copper evidence snapshot"),
                 RseLdUiComponents.liveRow("COPPER", "transitions D/F/R", () ->
-                        m.copperEvidenceDegradedCount() + " / "
+                        m.snapshotReady() ? m.copperEvidenceDegradedCount() + " / "
                                 + m.copperEvidenceFailedCount() + " / "
-                                + m.copperEvidenceRestoredCount()),
+                                + m.copperEvidenceRestoredCount() : "NOT READY • no Copper transition history"),
                 RseLdUiComponents.liveRow("COPPER", "last fail / restore", () ->
-                        optionalAge(m.copperEvidenceLastFailureAgeTicks()) + " / "
-                                + optionalAge(m.copperEvidenceLastRestoreAgeTicks()))
+                        m.snapshotReady() ? optionalAge(m.copperEvidenceLastFailureAgeTicks()) + " / "
+                                + optionalAge(m.copperEvidenceLastRestoreAgeTicks()) : "NOT READY • no event age assessment")
         );
     }
 
     private static UIElement authorityPanel() {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("OBSERVER AUTHORITY BOUNDARY"),
-                new Label().setText("TELEMETRY • INCOMPLETE whenever RUN or QUEUE/WIP evidence is missing."),
-                new Label().setText("KPIs advance only while RUN + at least one QUEUE source are trustworthy."),
-                new Label().setText("Cycle timing requires observed LOW→HIGH edges; missing edges are NOT_READY, never invented."),
-                new Label().setText("Observer-only: this block measures operations state and never drives the plant."),
+                RseLdUiComponents.note("TELEMETRY • INCOMPLETE whenever RUN or QUEUE/WIP evidence is missing."),
+                RseLdUiComponents.note("KPIs advance only while RUN + at least one QUEUE source are trustworthy."),
+                RseLdUiComponents.note("Cycle timing requires observed LOW→HIGH edges; missing edges are NOT_READY, never invented."),
+                RseLdUiComponents.note("Observer-only: this block measures operations state and never drives the plant."),
                 new Label().setText("KPIs stay WITHHELD until their world evidence exists."),
-                new Label().setText("Missing RUN evidence never masquerades as a stopped machine."),
-                new Label().setText("No client scheduler, queue mutation, buffer allocation, or world scan exists in this HMI.")
+                RseLdUiComponents.note("Missing RUN evidence never masquerades as a stopped machine."),
+                RseLdUiComponents.note("No client scheduler, queue mutation, buffer allocation, or world scan exists in this HMI.")
         );
     }
 
