@@ -121,6 +121,7 @@ public final class PidControllerLdUi {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 RseLdUiComponents.note("AUTHORITATIVE TREND • SP / PV / OUT • 2t/sample • 32-sample bounded ring"),
                 new PidTrendPlotElement(m),
+                RseLdUiComponents.note("Trend lines visually join retained server samples; they do not imply measurements between ticks or reconstruct missing data."),
                 RseLdUiComponents.liveRow("LIVE","SP/PV/OUT",()->m.available()
                         ? m.setpoint()+" / "+m.processValue()+" / "+m.controlOutput()
                         : "UNAVAILABLE • current commissioning inputs"),
