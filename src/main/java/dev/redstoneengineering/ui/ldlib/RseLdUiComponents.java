@@ -71,6 +71,14 @@ public final class RseLdUiComponents {
         return wrap(label);
     }
 
+    /** Wrapped explanatory text for dense workbench pages; unlike vanilla
+     * Label defaults, full warnings and units must remain readable. */
+    public static Label note(String text) {
+        var label = wrappedLabel(text);
+        label.layout(l -> l.widthPercent(100));
+        return label;
+    }
+
     public static Label title(String text) {
         var label = wrappedLabel(text);
         label.layout(l -> l.widthPercent(100));
@@ -96,11 +104,11 @@ public final class RseLdUiComponents {
 
     public static UIElement liveRow(String role, String symbol, Supplier<String> value) {
         return new UIElement()
-                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(9).paddingAll(2))
+                .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(9).paddingAll(2))
                 .addChildren(
                         wrappedLabel(role).layout(l -> l.width(92)),
                         wrappedLabel(symbol).layout(l -> l.width(90)),
-                        liveText(value).layout(l -> l.flex(1))
+                        liveText(value).layout(l -> l.flex(1).minWidth(165))
                 );
     }
 
@@ -110,7 +118,7 @@ public final class RseLdUiComponents {
                 .addChildren(
                         new Label().setText("FIXED").layout(l -> l.width(92)),
                         wrappedLabel(symbol).layout(l -> l.width(90)),
-                        liveText(() -> value.get() + " • " + reason).layout(l -> l.flex(1))
+                        liveText(() -> value.get() + " • " + reason).layout(l -> l.flex(1).minWidth(165))
                 );
     }
 
@@ -147,19 +155,30 @@ public final class RseLdUiComponents {
                 .minScrollPixel(8).maxScrollPixel(72));
         scroller.layout(l -> l.flex(1));
         scroller.viewPort(view -> view.layout(l -> l.paddingAll(8)));
-        scroller.viewContainer(view -> view.layout(l -> l.width(contentWidth).paddingAll(8).gapAll(8)));
+        // Prefer wrapping to the visible viewport instead of forcing every
+        // 620px screen to pan sideways through an 850px wide page.
+        // Only very narrow screens fall back to horizontal scrolling.
+        final int readableMinWidth = Math.min(contentWidth, 440);
+        scroller.viewContainer(view -> view.layout(l ->
+                l.widthPercent(100).minWidth(readableMinWidth).paddingAll(8).gapAll(8)));
 
+        var tabButtons = new java.util.ArrayList<Button>(labels.length);
         for (int i = 0; i < pages.length; i++) {
             var page = pages[i];
-            page.layout(l -> l.width(contentWidth - 30).paddingAll(12).gapAll(10));
+            page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
             page.setDisplay(i == 0);
             scroller.addScrollViewChild(page);
-            var button = new Button().setText(labels[i]).setOnClick(event -> {
+            final int selectedIndex = i;
+            var button = new Button().setText(i == 0 ? "▶ " + labels[i] : labels[i]).setOnClick(event -> {
                 for (UIElement candidate : pages) candidate.setDisplay(candidate == page);
+                for (int j = 0; j < tabButtons.size(); j++) {
+                    tabButtons.get(j).setText(j == selectedIndex ? "▶ " + labels[j] : labels[j]);
+                }
                 scroller.horizontalScroller.setNormalizedValue(0);
                 scroller.verticalScroller.setNormalizedValue(0);
             });
             button.layout(l -> l.height(20).minWidth(82).paddingAll(4));
+            tabButtons.add(button);
             tabs.addChild(button);
         }
 
