@@ -1267,6 +1267,56 @@ for token in ("snapshotReady() ? menu.input()", "snapshotReady() ? menu.output()
     if token not in conditioner_ui:
         errors.append(f"Signal Conditioner redstone measured-zero distinction regression: {token!r}")
 
+# Analogue traces must linearly connect valid measurements, never render
+# an artificial sample-and-hold staircase. Discrete logic states remain
+# horizontal/vertical steps; a missing slot cannot be bridged by a trace.
+plot = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringPlot.java")
+analog_method = plot.split("public static void analogTrace(", 1)[1].split(
+    "public static void digitalTrace(", 1)[0]
+digital_method = plot.split("public static void digitalTrace(", 1)[1].split(
+    "public static void verticalMarker(", 1)[0]
+for token in ("analogSegment(graphics, previousX, previousY, px, py, color)",
+              "private static void analogSegment(", "while (true)",
+              "graphics.fill(x0, y0, x0 + 1, y0 + 1, color)"):
+    if token not in plot:
+        errors.append(f"EngineeringPlot analogue interpolation regression: {token!r}")
+if "graphics.fill(Math.min(previousX, px), previousY," in analog_method:
+    errors.append("EngineeringPlot analogue trace reverted to misleading square-step interpolation")
+if "graphics.fill(Math.min(previousX, px), previousY," not in digital_method:
+    errors.append("EngineeringPlot logic trace lost its digital step geometry")
+for name, method, sample in (
+    ("Oscilloscope", "displaySample(channel, a)", "displaySample(channel, b)"),
+    ("LogicAnalyzer", "displayState(channel, a)", "displayState(channel, b)"),
+):
+    source = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{name}PlotElement.java")
+    if "if (validCursorPair())" not in source or sample not in source or method not in source:
+        errors.append(f"{name} rendered timing cursors despite missing common-channel evidence")
+
+# Industrial Buffer IDs arrive exactly once as 64-bit payloads, while the
+# DataSlot lot count may advance independently every tick. Never use the
+# live count to calculate the number of frozen, undisplayed opening lot IDs.
+buffer_menu = read("src/main/java/dev/redstoneengineering/ui/menu/IndustrialBufferMenu.java")
+buffer_hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java")
+for token in ("private final int openingLotCount;", "openingLotCount = Math.max(0, payload.totalLotCount())",
+              "public int openingLotCount()"):
+    if token not in buffer_menu:
+        errors.append(f"Industrial Buffer immutable lot count missing: {token!r}")
+for token in ("live count", "opening count", "m.openingLotCount() > shown",
+              "m.openingLotCount() - shown", "reopen to refresh identity window",
+              "immutable opening server snapshot"):
+    if token not in buffer_hmi:
+        errors.append(f"Industrial Buffer live/opening identity conflation: {token!r}")
+if "m.totalLotCount() - shown" in buffer_hmi:
+    errors.append("Industrial Buffer calculates frozen identities from mutable live lot count")
+
+# Range Sensor's range is not an arbitrary 4..15 integer. Preset actions
+# must use the exact same server-authoritative menu validation as text entry.
+range_hmi = read("src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java")
+for token in ("menu.setRangeFromUi(4)", "menu.setRangeFromUi(8)",
+              "menu.setRangeFromUi(15)", "only 4, 8 or 15 blocks"):
+    if token not in range_hmi:
+        errors.append(f"Range Sensor discrete preset evidence missing: {token!r}")
+
 encyclopedia = read("src/main/resources/assets/redstoneengineering/models/item/redstone_encyclopedia.json")
 if "minecraft:block/smooth_quartz" in encyclopedia:
     errors.append("RSE Encyclopedia item points at nonexistent vanilla smooth_quartz texture")
