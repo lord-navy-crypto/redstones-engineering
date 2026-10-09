@@ -73,6 +73,8 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     private final DataSlot mediumMetricA = trackedInt();
     private final DataSlot mediumMetricB = trackedInt();
     private final DataSlot mediumMetricC = trackedInt();
+    /** Client device kind is a shape hint; link diagnostics require server sync. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public DigitalCommunicationMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -86,6 +88,10 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         // as evidence of a real sampled source during that bootstrap frame.
         inputQuality.set(PortQuality.NOT_READY.ordinal());
         outputQuality.set(PortQuality.NOT_READY.ordinal());
+        snapshotReady.set(0);
+        mediumAgeTicks.set(-1);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         else kind.set(kindOf(level.getBlockState(blockPos).getBlock()));
         if ((Object) this instanceof IModularUIHolderMenu holder) {
@@ -95,6 +101,7 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         inputValue.set(0);
@@ -141,6 +148,7 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         }
 
         refreshMediumTelemetry(deviceKind, inputSide, outputSide);
+        snapshotReady.set(1);
     }
 
     private void clearMediumTelemetry() {
@@ -302,6 +310,7 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         return clickMenuButton(playerInventory.player, BUTTON_TX_RIGHT);
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int inputValue() { return inputValue.get(); }
     public int outputValue() { return outputValue.get(); }
