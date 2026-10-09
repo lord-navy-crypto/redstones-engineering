@@ -58,7 +58,7 @@ public final class OscilloscopeLdUi {
                         .maxScrollPixel(72));
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
-        workspace.viewContainer(view -> view.layout(l -> l.width(900).paddingAll(8).gapAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(520).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(scope, sampling, trigger, experiment, network, status);
 
         var tabs = new UIElement().addClass("panel_bg")
@@ -84,7 +84,7 @@ public final class OscilloscopeLdUi {
 
     private static UIElement page(UIElement... children) {
         return new UIElement()
-                .layout(l -> l.width(870).paddingAll(12).gapAll(10))
+                .layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10))
                 .addChildren(children);
     }
 
@@ -130,7 +130,7 @@ public final class OscilloscopeLdUi {
                 channelPhysics(menu, 1),
                 RseLdUiComponents.liveRow("DERIVED", "Cursor Δt (CH-A)", () -> cursorEvidence(menu, 0)),
                 RseLdUiComponents.liveRow("DERIVED", "Cursor Δt (CH-B)", () -> cursorEvidence(menu, 1)),
-                new Label().setText("Cursor Δt is only shown if both selected display slots contain real captured samples on that channel.")
+                RseLdUiComponents.note("Cursor Δt is only shown if both selected display slots contain real captured samples on that channel.")
         );
     }
 
@@ -192,7 +192,7 @@ public final class OscilloscopeLdUi {
                         new Label().setText("SAMPLING MODEL"),
                         RseLdUiComponents.liveRow("ADJUSTABLE", "N_ticks",
                                 () -> menu.samplePeriodTicks() + " ticks/sample"),
-                        new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                        new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                                 new Label().setText("DIRECT ENTRY").layout(l -> l.width(92)),
                                 dt,
                                 new Label().setText("{1,2,4,8} ticks/sample").layout(l -> l.width(135)),
@@ -214,7 +214,7 @@ public final class OscilloscopeLdUi {
                                 () -> alias(menu.aliasRisk(0))),
                         RseLdUiComponents.liveRow("EVIDENCE", "alias B",
                                 () -> alias(menu.aliasRisk(1))),
-                        new Label().setText("Nyquist gives a theoretical boundary, not proof that the captured source was alias-free.")
+                        RseLdUiComponents.note("Nyquist gives a theoretical boundary, not proof that the captured source was alias-free.")
                 );
     }
 
@@ -224,7 +224,7 @@ public final class OscilloscopeLdUi {
         var b = boundedField(0, 15, () -> menu.cursorB(), menu::setCursorBFromUi);
 
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(4)).addChildren(
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().bind(DataBindingBuilder.componentS2C(() ->
                                 Component.literal("TRIGGER • " + triggerMode(menu.triggerMode())
                                         + " • CH-" + (menu.triggerChannel() == 0 ? "A" : "B"))
@@ -242,7 +242,7 @@ public final class OscilloscopeLdUi {
 
     private static UIElement experimentControls(OscilloscopeMenu menu) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(4)).addChildren(
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("SAMPLING EXPERIMENT • FROZEN EVIDENCE COMPARISON").layout(l -> l.flex(1)),
                         RseLdUiComponents.serverAction("Capture baseline", menu::captureBaseline),
                         RseLdUiComponents.serverAction("Capture candidate", menu::captureCandidate),
@@ -285,8 +285,8 @@ public final class OscilloscopeLdUi {
                 RseLdUiComponents.liveRow("DELTA", "observed frequency", () ->
                         menu.baselinePresent()&&menu.candidatePresent()
                                 ? signedHz(menu.experimentFrequencyDeltaMilliHz()) : "NOT READY"),
-                new Label().setText("Nyquist/observed-frequency evidence is not proof that the original source is alias-free."),
-                new Label().setText("A vanilla Redstone clock is a valid source for the sampling experiment.")
+                RseLdUiComponents.note("Nyquist/observed-frequency evidence is not proof that the original source is alias-free."),
+                RseLdUiComponents.note("A vanilla Redstone clock is a valid source for the sampling experiment.")
         );
     }
 
@@ -312,7 +312,7 @@ public final class OscilloscopeLdUi {
     }
 
     private static UIElement controlRow(String symbol, String range, TextField field) {
-        return new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+        return new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                 new Label().setText("ADJUSTABLE").layout(l -> l.width(82)),
                 new Label().setText(symbol).layout(l -> l.width(72)),
                 field,
