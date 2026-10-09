@@ -119,6 +119,17 @@ for token in (
 ):
     require(screen_rel, token)
 
+# A positive receiver sample count is not equivalent to a currently
+# valid decoded payload. Keep history and live reception separate.
+for token in (
+    'm.quality()==dev.redstoneengineering.core.port.PortQuality.VALID',
+    '"MEASURED","payload"',
+    '"UNVERIFIED • "+m.quality().name()+" • margin evidence="',
+    'm.validSamples()+"/"+m.samples()',
+    'm.samples()>0 && m.coverageComplete()',
+):
+    require(screen_rel, token)
+
 # Zero remains a valid payload when evidence quality is VALID.
 require(screen_rel, '"Payload 0 is a valid frame when source evidence is VALID."')
 
