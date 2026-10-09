@@ -49,6 +49,15 @@ require(screen, "COPPER POWER / LOAD NETWORK", "Copper medium identity")
 require(screen, "SERVER-SYNCHRONIZED OBSERVER", "observer authority")
 require(screen, "V, Req, I and P", "electrical telemetry explanation")
 require(screen, "commissioningStatus()", "commissioning presentation")
+# Unavailable Copper input must not look like a measured 0 V or 0 A.
+for token in (
+    "private static String measured(CopperCircuitMeterMenu m, String reading)",
+    "m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID",
+    "NOT READY • ",
+    "No fabricated history; missing input is NOT a measured zero.",
+):
+    require(screen, token, "Copper measured-value validity gate")
+
 # UI prose may name the authoritative server model. What is forbidden is importing or invoking it client-side.
 forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "LDLib2 HMI must not import circuit solver")
 forbid(screen, "CircuitPhysics.", "LDLib2 HMI must not invoke circuit solver")
