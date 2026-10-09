@@ -90,16 +90,14 @@ public final class LogicAnalyzerLdUi {
                 RseLdUiComponents.fixedRow("Δt_sample",()->Integer.toString(LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS),"tick"),
                 RseLdUiComponents.liveRow("ADJUSTABLE","trigger",()->"CH "+channelName(m.triggerChannel())+" "+edgeName(m.triggerEdge())),
                 RseLdUiComponents.liveRow("ADJUSTABLE","cursor A/B",()->m.cursorA()+" / "+m.cursorB()),
-                RseLdUiComponents.liveRow("DERIVED","Δt_cursor",()->Math.abs(m.cursorB()-m.cursorA())*LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS+" ticks"),
+                RseLdUiComponents.liveRow("EVIDENCE","cursor A/B validity",()->cursorValidity(m)),
                 RseLdUiComponents.liveRow("EVIDENCE","Capture",()->m.sampleCount()+"/32 • coverage="+captureCoverage(m)+"%"),
                 RseLdUiComponents.liveRow("STATE","trigger / buffer",()->captureState(m.captureState())
                         +" • "+(m.bounded()?"bounded probes":"incomplete network scan")),
                 RseLdUiComponents.liveRow("EVIDENCE","connected/valid channels",()->m.activeChannels()+" / "+m.validChannels()),
                 RseLdUiComponents.liveRow("EVIDENCE","duplicate assignments",()->Integer.toString(m.duplicateChannels())),
-                RseLdUiComponents.liveRow("DERIVED","Cursor Δ",()->m.sampleCount()>0
-                        ? Math.abs(m.cursorB()-m.cursorA())+" samples / "
-                            +Math.abs(m.cursorB()-m.cursorA())*LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS+" ticks"
-                        : "NOT READY • capture waveform first"),
+                RseLdUiComponents.liveRow("DERIVED","cursor Δ (valid channels)",()->cursorDelta(m)),
+                new Label().setText("Cursor time Δ requires real, valid server-captured samples at BOTH positions; an empty/invalid slot is not LOW."),
                 new Label().setText("Threshold/cursors/trigger remain server-authoritative; retained capture evidence is synchronized only.")
         );
         return p;
@@ -132,11 +130,15 @@ public final class LogicAnalyzerLdUi {
             p.addChild(RseLdUiComponents.liveRow("PORT","probe count",
                     ()->Integer.toString(m.probeCount(c))));
             p.addChild(RseLdUiComponents.liveRow("MEASURED","HIGH duty / transitions",
-                    ()->m.coverage(c)>0?"duty="+m.duty(c)+"% • transition="+m.transitionRate(c)+"%":"NOT READY"));
+                    ()->m.validSamples(c)>0
+                            ? "duty="+m.duty(c)+"% • transition="+
+                                (m.validSamples(c)>1 ? m.transitionRate(c)+"%" : "NOT READY • need 2 valid samples")
+                            : "NOT READY • no valid captured samples"));
             p.addChild(RseLdUiComponents.liveRow("EVENTS","rising / falling",
-                    ()->m.coverage(c)>0?m.rising(c)+" / "+m.falling(c):"NOT READY"));
+                    ()->m.validSamples(c)>1?m.rising(c)+" / "+m.falling(c):"NOT READY • need 2 valid samples"));
             p.addChild(RseLdUiComponents.liveRow("EVIDENCE","valid coverage",
-                    ()->m.coverage(c)+"%"+(m.probeCount(c)==0?" • NO PROBE":"")));
+                    ()->m.validSamples(c)+"/"+m.sampleCount()+" • "+m.coverage(c)+"%"
+                            +(m.probeCount(c)==0?" • NO PROBE":"")));
         }
         return p;
     }
@@ -152,7 +154,11 @@ public final class LogicAnalyzerLdUi {
                         ()->m.shieldedCableNodes()+" / "+m.unshieldedCableNodes()),
                 RseLdUiComponents.liveRow("EVIDENCE","Bus interference",()->"exposure="+m.interferenceExposure()+"% • confidence="+m.interferenceConfidence()+"%"),
                 RseLdUiComponents.liveRow("EVIDENCE","shielding",()->m.shieldingCoverage()+"%"),
-                RseLdUiComponents.liveRow("NEXT","mitigation",()->m.unshieldedExposedNodes()>0?"shield exposed instrument segments first":"instrument routing evidence coherent")
+                RseLdUiComponents.liveRow("NEXT","mitigation",()->
+                        !m.bounded() ? "complete bounded instrument scan before validating routing"
+                        : m.duplicateChannels()>0 ? "resolve duplicate probe channel assignments"
+                        : m.unshieldedExposedNodes()>0 ? "shield exposed instrument segments first"
+                        : "no exposed unshielded segments detected in bounded scan")
         );
         return p;
     }
@@ -171,6 +177,31 @@ public final class LogicAnalyzerLdUi {
 
     private static String captureState(int state){
         return switch(state){case 1->"ARMED";case 2->"TRIGGERED";default->"HOLD";};
+    }
+
+    /** Cursor positions address the same 16-slot synchronized window as the plot. */
+    private static String cursorValidity(LogicAnalyzerMenu m) {
+        StringBuilder b = new StringBuilder();
+        for (int ch = 0; ch < 4; ch++) {
+            if (ch > 0) b.append(" • ");
+            boolean valid = m.sampleCount() > 0
+                    && m.displayState(ch, m.cursorA()) >= 0
+                    && m.displayState(ch, m.cursorB()) >= 0;
+            b.append(channelName(ch)).append(valid ? "=VALID" : "=NOT READY");
+        }
+        return b.toString();
+    }
+
+    private static String cursorDelta(LogicAnalyzerMenu m) {
+        if (m.sampleCount() <= 0) return "NOT READY • capture waveform first";
+        int n = 0;
+        for (int ch = 0; ch < 4; ch++) {
+            if (m.displayState(ch, m.cursorA()) >= 0 && m.displayState(ch, m.cursorB()) >= 0) n++;
+        }
+        if (n == 0) return "NOT READY • selected slots lack valid samples";
+        int deltaSamples = Math.abs(m.cursorB() - m.cursorA());
+        return deltaSamples + " samples / " + (deltaSamples * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS)
+                + " ticks (nominal) • " + n + "/4 channels valid";
     }
 
     private static int captureCoverage(LogicAnalyzerMenu m){
