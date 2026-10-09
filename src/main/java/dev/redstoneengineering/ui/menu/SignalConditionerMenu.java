@@ -38,6 +38,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot limiting = trackedInt();
+    /** Redstone 0 can be genuine; a menu's pre-sync default 0 cannot. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public SignalConditionerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -46,6 +48,9 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public SignalConditionerMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.SIGNAL_CONDITIONER.get(), containerId, inventory, pos,
                 RedstoneEngineering.SIGNAL_CONDITIONER.get());
+        snapshotReady.set(0);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
         if ((Object) this instanceof IModularUIHolderMenu holder) {
             holder.setModularUI(SignalConditionerLdUi.create(this, inventory.player));
@@ -54,6 +59,7 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof SignalConditionerBlock)) return;
         mode.set(state.getValue(SignalConditionerBlock.MODE));
@@ -63,6 +69,7 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
         outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         limiting.set(SignalConditionerBlock.limitingActive(level, blockPos, state) ? 1 : 0);
+        snapshotReady.set(1);
     }
 
     @Override
@@ -116,6 +123,7 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         };
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int mode() { return mode.get(); }
     public int parameter() { return parameter.get(); }
     public int input() { return input.get(); }
