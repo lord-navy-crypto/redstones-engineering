@@ -25,13 +25,15 @@ public final class RangeSensorLdUi {
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(() -> equation(menu.responseMode())),
-                                        RseLdUiComponents.liveRow("MEASURED","d",()->menu.distance()+" blocks"),
+                                        RseLdUiComponents.liveRow("MEASURED","d",()->menu.scanStatusOrdinal()==1 || menu.scanStatusOrdinal()==2
+                                                ? menu.distance()+" blocks" : "NOT READY • incomplete scan"),
                                         RseLdUiComponents.liveRow("ADJUSTABLE","R",()->menu.configuredRange()+" blocks • {4,8,15}")
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.liveRow("ADJUSTABLE","detect",()->detect(menu.detectMode())),
                                         RseLdUiComponents.liveRow("ADJUSTABLE","response",()->response(menu.responseMode())),
-                                        RseLdUiComponents.liveRow("DERIVED","y",()->menu.output()+" / 15")
+                                        RseLdUiComponents.liveRow("DERIVED","y",()->menu.scanStatusOrdinal()==1 || menu.scanStatusOrdinal()==2
+                                                ? menu.output()+" / 15" : "UNVERIFIED • scan incomplete")
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.liveRow("EVIDENCE","scan",()->scan(menu.scanStatusOrdinal())+" • "+menu.scannedCells()+"/"+menu.configuredRange()),
