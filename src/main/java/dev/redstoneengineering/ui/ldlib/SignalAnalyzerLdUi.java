@@ -30,7 +30,8 @@ public final class SignalAnalyzerLdUi {
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(()->"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref needs per-sample calibrated history (trial evidence)"),
                                         measurementPanel(m),
-                                        new SignalAnalyzerPlotElement(m)
+                                        new SignalAnalyzerPlotElement(m),
+                                        RseLdUiComponents.note("Plot lines are visual interpolation between retained samples; invalid slots are gaps, not measured zero. Mean/min/max use valid history only.")
                                 ),
                                 RseLdUiComponents.workspacePage(
                                         measurementPanel(m),
