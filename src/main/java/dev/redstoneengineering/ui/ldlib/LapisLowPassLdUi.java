@@ -45,23 +45,29 @@ public final class LapisLowPassLdUi {
     }
 
     private static UIElement modelPanel(LapisLowPassMenu m) {
-        double alpha = LapisLowPassMenu.alphaForIndex(m.alphaIndex());
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("GOVERNING EQUATION"),
                 RseLdUiComponents.formulaCard(() -> "y[n] = y[n-1] + α · (x[n] - y[n-1])"),
+                RseLdUiComponents.liveRow("EVIDENCE", "server snapshot", () ->
+                        m.snapshotReady() ? "SYNCED • configuration read" : "NOT READY • filter config pending"),
                 RseLdUiComponents.liveRow("MEASURED", "x[n]", () -> m.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                         ? m.inputValue()+" precision units" : "NOT READY • input unverified"),
                 RseLdUiComponents.liveRow("SOLVER", "y[n-1]", () -> m.runtimePresent()
                         ? m.previousOutput()+" precision units" : "NOT READY • no retained state"),
-                RseLdUiComponents.liveRow("ADJUSTABLE", "α", () -> formatAlpha(m.alphaIndex())),
+                RseLdUiComponents.liveRow("ADJUSTABLE", "α", () ->
+                        m.snapshotReady() ? formatAlpha(m.alphaIndex()) : "NOT READY • α pending"),
                 RseLdUiComponents.fixedRow("profile", () -> LapisLowPassMenu.profileId(),
                         "central EngineeringParameterProfile provenance"),
                 RseLdUiComponents.fixedRow("Δt", () -> LapisLowPassMenu.samplePeriodTicks() + " ticks",
                         "server sample period"),
                 RseLdUiComponents.liveRow("DERIVED", "τ", () ->
-                        String.format(Locale.ROOT, "%.3f ticks", LapisLowPassMenu.timeConstantTicksForIndex(m.alphaIndex()))),
+                        m.snapshotReady()
+                                ? String.format(Locale.ROOT, "%.3f ticks", LapisLowPassMenu.timeConstantTicksForIndex(m.alphaIndex()))
+                                : "NOT READY • α not synchronized"),
                 RseLdUiComponents.liveRow("DERIVED", "f_c nominal", () ->
-                        String.format(Locale.ROOT, "%.3f Hz", LapisLowPassMenu.cutoffHzForIndex(m.alphaIndex()))),
+                        m.snapshotReady()
+                                ? String.format(Locale.ROOT, "%.3f Hz", LapisLowPassMenu.cutoffHzForIndex(m.alphaIndex()))
+                                : "NOT READY • α not synchronized"),
                 new Label().setText("LIVE SUBSTITUTION"),
                 RseLdUiComponents.liveRow("MODEL", "substitute", () ->
                         predictionReady(m)
@@ -80,7 +86,9 @@ public final class LapisLowPassLdUi {
                 RseLdUiComponents.liveRow("MODEL", "predicted", () -> predictionReady(m)?Integer.toString(m.predictedOutput()):"NOT READY • no usable model input"),
                 RseLdUiComponents.liveRow("TX", "output", () -> m.outputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                         ? m.outputValue()+" • VALID" : "NOT READY • "+m.outputQuality().name()),
-                RseLdUiComponents.liveRow("STATE", "runtime", () -> m.runtimePresent() ? "INITIALIZED" : "NOT_READY")
+                RseLdUiComponents.liveRow("STATE", "runtime", () -> !m.snapshotReady()
+                        ? "NOT READY • server runtime pending"
+                        : m.runtimePresent() ? "INITIALIZED" : "NOT READY • no retained filter state")
         );
     }
 
@@ -88,18 +96,24 @@ public final class LapisLowPassLdUi {
         var alpha = new TextField();
         alpha.layout(l -> l.width(120));
         alpha.bind(DataBindingBuilder.string(
-                () -> formatAlpha(m.alphaIndex()),
+                () -> m.snapshotReady() ? formatAlpha(m.alphaIndex()) : "",
                 value -> m.applyAlphaVisibleValue(value)
         ).build());
 
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(4)).addChildren(
                 new Label().setText("FORMULA PARAMETER • α EXACT ENTRY"),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                        .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("α").layout(l -> l.width(40)),
                         alpha,
-                        new Label().setText(alphaSet()).layout(l -> l.flex(1))
+                        RseLdUiComponents.note(alphaSet())
                 ),
-                RseLdUiComponents.serverAction("Restore default α", m::restoreDefaultAlpha),
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                        .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
+                        RseLdUiComponents.serverAction("α previous ◀", m::cycleAlphaPrevious),
+                        RseLdUiComponents.serverAction("α next ▶", m::cycleAlphaNext),
+                        RseLdUiComponents.serverAction("Restore default α", m::restoreDefaultAlpha)
+                ),
                 RseLdUiComponents.note("PROFILE RESPONSE TABLE • exact supported α values only; invalid off-grid entry is rejected")
         );
     }
@@ -107,9 +121,12 @@ public final class LapisLowPassLdUi {
     private static UIElement routePanel(LapisLowPassMenu m) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(4)).addChildren(
                 new Label().setText("MECHANISM FLOW • RX → FILTER MODEL → SOLVER STATE → TX"),
-                RseLdUiComponents.liveRow("RX", "face", () -> m.inputDirection().getName().toUpperCase(Locale.ROOT)),
-                RseLdUiComponents.liveRow("TX", "face", () -> m.outputDirection().getName().toUpperCase(Locale.ROOT)),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                RseLdUiComponents.liveRow("RX", "face", () -> m.snapshotReady()
+                        ? m.inputDirection().getName().toUpperCase(Locale.ROOT) : "NOT READY • route pending"),
+                RseLdUiComponents.liveRow("TX", "face", () -> m.snapshotReady()
+                        ? m.outputDirection().getName().toUpperCase(Locale.ROOT) : "NOT READY • route pending"),
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                        .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle RX ▶", m::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶", m::cycleOutputForward)
                 )
@@ -129,7 +146,7 @@ public final class LapisLowPassLdUi {
 
     /** The retained y[n-1] and actual server input are independent prerequisites. */
     private static boolean predictionReady(LapisLowPassMenu m) {
-        return m.runtimePresent()
+        return m.snapshotReady() && m.runtimePresent()
                 && m.inputQuality()==dev.redstoneengineering.core.port.PortQuality.VALID;
     }
 
