@@ -54,21 +54,26 @@ public final class SignalAnalyzerLdUi {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(3));
         p.addChildren(
                 new Label().setText("PIONEER PATTERN • METROLOGY / CALIBRATION"),
-                RseLdUiComponents.liveRow("STATE","mode",()->modeName(m.mode())),
+                RseLdUiComponents.liveRow("EVIDENCE","server snapshot",()->m.snapshotReady()?"SYNCED":"NOT READY • awaiting server data"),
+                RseLdUiComponents.liveRow("STATE","mode",()->m.snapshotReady()?modeName(m.mode()):"NOT READY"),
                 RseLdUiComponents.liveRow("MODEL","boundary",()->m.mode()==SignalAnalyzerBlock.TAP
                         ? "TAP • NON-INVASIVE • no output drive"
                         : "INLINE • explicit two-port boundary"),
-                RseLdUiComponents.liveRow("MEASURED","x_raw",()->m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                RseLdUiComponents.liveRow("MEASURED","x_raw",()->m.snapshotReady() && m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                         ? m.raw()+" / 15" : "NO SIGNAL • measurement unverified"),
-                RseLdUiComponents.liveRow("DERIVED","x_cal",()->m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
+                RseLdUiComponents.liveRow("DERIVED","x_cal",()->m.snapshotReady() && m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                         ? m.calibrated()+" / 15" : "NOT READY • valid raw input required"),
                 RseLdUiComponents.liveRow("MODEL","b_cal / x_ref",()->signed(m.calibrationOffset())+" / "+m.reference()),
-                RseLdUiComponents.liveRow("OUTPUT","inline",()->m.mode()==SignalAnalyzerBlock.TAP
+                RseLdUiComponents.liveRow("OUTPUT","inline",()->!m.snapshotReady()
+                        ? "NOT READY • awaiting server snapshot"
+                        : m.mode()==SignalAnalyzerBlock.TAP
                         ? "NOT APPLICABLE • TAP mode never drives Redstone"
                         : m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID
                             ? m.output()+" / 15 • raw pass-through"
                             : "NOT READY • INLINE input evidence unverified"),
-                RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.measurementQuality().name()+" • coverage="+m.coveragePercent()+"%"),
+                RseLdUiComponents.liveRow("EVIDENCE","measurement",()->m.snapshotReady()
+                        ? m.measurementQuality().name()+" • coverage="+m.coveragePercent()+"%"
+                        : "NOT READY • awaiting synchronized quality"),
                 new Label().setText("DISPLAY ONLY • calibrated reading does not drive INLINE; physical output remains RAW."),
                 new Label().setText("Rolling statistics are synchronized server evidence; the client never samples the world."),
                 new Label().setText("μ=rounded mean • min/max guides bound the synchronized rolling window.")
@@ -182,7 +187,7 @@ public final class SignalAnalyzerLdUi {
     }
 
     private static boolean completeValidWindow(SignalAnalyzerMenu m){
-        return m.windowCount()>0 && m.validWindowCount()==m.windowCount()
+        return m.snapshotReady() && m.windowCount()>0 && m.validWindowCount()==m.windowCount()
                 && m.sampleAgeTicks()>=0 && m.sampleAgeTicks()<=4
                 && m.measurementQuality()==dev.redstoneengineering.core.port.PortQuality.VALID;
     }
