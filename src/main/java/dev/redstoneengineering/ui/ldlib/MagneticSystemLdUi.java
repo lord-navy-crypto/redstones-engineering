@@ -45,22 +45,22 @@ public final class MagneticSystemLdUi {
         var p=new UIElement().addClass("panel_bg");p.layout(l->l.paddingAll(5).gapAll(3));
         switch(m.kind()){
             case MagneticSystemMenu.KIND_ELECTROMAGNET -> p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","V_coil",()->m.secondary()+" / 15"),
-                    RseLdUiComponents.liveRow("DERIVED","S_field",()->m.primary()+" / 15"),
+                    RseLdUiComponents.liveRow("MEASURED","V_coil",()->m.complete()?m.secondary()+" / 15":"UNVERIFIED • Copper input"),
+                    RseLdUiComponents.liveRow("DERIVED","S_field",()->m.complete()?m.primary()+" / 15":"UNVERIFIED • field drive"),
                     RseLdUiComponents.liveRow("EVIDENCE","feeds",()->Integer.toString(m.tertiary())));
             case MagneticSystemMenu.KIND_PERMANENT -> p.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE","S",()->m.primary()+" / 15"),
                     RseLdUiComponents.liveRow("STATE","N marker",()->m.facing().getName().toUpperCase()));
             case MagneticSystemMenu.KIND_COIL -> p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","B",()->m.primary()+" / 15"),
+                    RseLdUiComponents.liveRow("MEASURED","B",()->m.complete()?m.primary()+" / 15":"NOT READY • field input unverified"),
                     RseLdUiComponents.liveRow("ADJUSTABLE","N",()->Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("DERIVED","V_ind",()->m.secondary()+" / 15"));
+                    RseLdUiComponents.liveRow("DERIVED","V_ind",()->m.complete()?m.secondary()+" / 15":"UNVERIFIED • coil input"));
             case MagneticSystemMenu.KIND_FIELD_SENSOR -> p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","B",()->m.primary()+" / 15"),
+                    RseLdUiComponents.liveRow("MEASURED","B",()->m.complete()?m.primary()+" / 15":"NOT READY • field input unverified"),
                     RseLdUiComponents.liveRow("EVIDENCE","coverage",()->m.secondary()+" / "+m.tertiary()));
             default -> p.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED","Gx/Gy/Gz",()->m.primary()+" / "+m.secondary()+" / "+m.tertiary()),
-                    RseLdUiComponents.liveRow("MEASURED","B_local",()->m.auxiliary()+" / 15"));
+                    RseLdUiComponents.liveRow("MEASURED","Gx/Gy/Gz",()->m.complete()?m.primary()+" / "+m.secondary()+" / "+m.tertiary():"NOT READY • three-axis scan incomplete"),
+                    RseLdUiComponents.liveRow("MEASURED","B_local",()->m.complete()?m.auxiliary()+" / 15":"UNVERIFIED • partial scan"));
         }
         return p;
     }
@@ -103,25 +103,25 @@ public final class MagneticSystemLdUi {
         switch (m.kind()) {
             case MagneticSystemMenu.KIND_ELECTROMAGNET -> panel.addChildren(
                     RseLdUiComponents.liveRow("INPUT", "connected Copper feeds", () -> Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("PHYSICAL", "coil potential", () -> m.secondary() + " / 15"),
-                    RseLdUiComponents.liveRow("SOURCE", "generated field strength", () -> m.primary() + " / 15"));
+                    RseLdUiComponents.liveRow("PHYSICAL", "coil potential", () -> m.complete()?m.secondary()+" / 15":"UNVERIFIED • Copper input"),
+                    RseLdUiComponents.liveRow("SOURCE", "generated field strength", () -> m.complete()?m.primary()+" / 15":"UNVERIFIED • Copper input"));
             case MagneticSystemMenu.KIND_PERMANENT -> panel.addChildren(
                     RseLdUiComponents.liveRow("FIXED MODEL", "source strength", () -> m.primary() + " / 15"),
                     RseLdUiComponents.liveRow("ORIENTATION", "north marker", () -> m.facing().getName().toUpperCase()));
             case MagneticSystemMenu.KIND_COIL -> panel.addChildren(
-                    RseLdUiComponents.liveRow("INPUT", "sampled magnetic field", () -> m.primary() + " / 15"),
+                    RseLdUiComponents.liveRow("INPUT", "sampled magnetic field", () -> m.complete()?m.primary()+" / 15":"NOT READY • field input unverified"),
                     RseLdUiComponents.liveRow("ADJUSTABLE", "coil turns N", () -> Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("OUTPUT", "induced voltage", () -> m.secondary() + " / 15"),
+                    RseLdUiComponents.liveRow("OUTPUT", "induced voltage", () -> m.complete()?m.secondary()+" / 15":"UNVERIFIED • induction input"),
                     RseLdUiComponents.fixedRow("ΔB", () -> "NOT RETAINED IN HMI",
                             "Induction uses server state; no fictitious prior-field sample is reconstructed"));
             case MagneticSystemMenu.KIND_FIELD_SENSOR -> panel.addChildren(
                     RseLdUiComponents.liveRow("METROLOGY", "scanned / expected cells", () -> m.secondary() + " / " + m.tertiary()),
-                    RseLdUiComponents.liveRow("MEASURED", "field B", () -> m.primary() + " / 15"));
+                    RseLdUiComponents.liveRow("MEASURED", "field B", () -> m.complete()?m.primary()+" / 15":"NOT READY • scan incomplete"));
             case MagneticSystemMenu.KIND_GRADIENT -> panel.addChildren(
-                    RseLdUiComponents.liveRow("MEASURED", "∂B along X", () -> Integer.toString(m.primary())),
-                    RseLdUiComponents.liveRow("MEASURED", "∂B along Y", () -> Integer.toString(m.secondary())),
-                    RseLdUiComponents.liveRow("MEASURED", "∂B along Z", () -> Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("MEASURED", "local field B", () -> Integer.toString(m.auxiliary())),
+                    RseLdUiComponents.liveRow("MEASURED", "∂B along X", () -> m.complete()?Integer.toString(m.primary()):"NOT READY • X/Y/Z scan incomplete"),
+                    RseLdUiComponents.liveRow("MEASURED", "∂B along Y", () -> m.complete()?Integer.toString(m.secondary()):"NOT READY • X/Y/Z scan incomplete"),
+                    RseLdUiComponents.liveRow("MEASURED", "∂B along Z", () -> m.complete()?Integer.toString(m.tertiary()):"NOT READY • X/Y/Z scan incomplete"),
+                    RseLdUiComponents.liveRow("MEASURED", "local field B", () -> m.complete()?Integer.toString(m.auxiliary()):"UNVERIFIED • partial scan"),
                     RseLdUiComponents.liveRow("EVIDENCE", "total scanned cells (X+Y+Z)", () -> Integer.toString(m.extra())));
             default -> panel.addChild(RseLdUiComponents.fixedRow("mechanism", () -> "UNCLASSIFIED",
                     "Unknown magnetic device, no fabricated field output"));
