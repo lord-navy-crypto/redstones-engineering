@@ -217,7 +217,7 @@ public final class UniversalFieldDeviceLdUi {
             panel.addChild(RseLdUiComponents.liveRow("PORT", side.getName().toUpperCase(Locale.ROOT),
                     () -> portText(menu, side)));
         }
-        var routeControls = new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6));
+        var routeControls = new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6));
         boolean hasRouteControl = false;
         if (menu.routeKind() != UniversalFieldDeviceMenu.ROUTE_NONE) {
             routeControls.addChild(RseLdUiComponents.serverAction("Cycle direction ▶", menu::cycleWholeRouteForward));
@@ -330,7 +330,7 @@ public final class UniversalFieldDeviceLdUi {
             panel.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE", primarySymbol(kind),
                             () -> primaryDisplay(menu) + " • " + primaryRange(kind)),
-                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("DIRECT").layout(l -> l.width(72)),
                             input,
                             new Label().setText(primaryRange(kind)).layout(l -> l.flex(1))
@@ -363,7 +363,7 @@ public final class UniversalFieldDeviceLdUi {
         panel.addChildren(
                 RseLdUiComponents.liveRow("ADJUSTABLE", secondarySymbol(kind),
                         () -> secondaryDisplay(menu) + " • " + secondaryRange(kind)),
-                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).gapAll(6)).addChildren(
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("DIRECT").layout(l -> l.width(72)),
                         input,
                         new Label().setText(secondaryRange(kind)).layout(l -> l.flex(1))
