@@ -59,13 +59,13 @@ public final class OperationsMonitorLdUi {
                         m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
                 RseLdUiComponents.liveRow("EVIDENCE", "coverage", () ->
                         evidenceConfidencePercent(m) + "% • " + evidenceCoverageText(m)),
-                RseLdUiComponents.liveRow("MEASURED", "queue", () -> m.queue() + "/15"),
-                RseLdUiComponents.liveRow("DERIVED", "queue pressure", () -> m.queuePressurePercent() + "%"),
+                RseLdUiComponents.liveRow("MEASURED", "queue", () -> m.queueEvidenceSources()>0 ? m.queue() + "/15" : "UNAVAILABLE • no valid queue evidence"),
+                RseLdUiComponents.liveRow("DERIVED", "queue pressure", () -> m.queueEvidenceSources()>0 ? m.queuePressurePercent() + "%" : "UNAVAILABLE • queue evidence missing"),
                 RseLdUiComponents.fixedRow("KPI window", () -> "1200 ticks / 60 s", "server-owned throughput window"),
-                RseLdUiComponents.liveRow("MEASURED", "throughput", () -> m.throughput() + " cycles/min last60s"),
+                RseLdUiComponents.liveRow("MEASURED", "throughput", () -> m.telemetryReady() && m.cycleEvidenceValid() ? m.throughput() + " cycles/min last60s" : "NOT READY • RUN / QUEUE / CYCLE evidence incomplete"),
                 RseLdUiComponents.liveRow("MEASURED", "downtime", () -> formatTicks(m.downtimeTicks())),
-                RseLdUiComponents.liveRow("DERIVED", "state", () -> m.state().name()),
-                RseLdUiComponents.liveRow("DERIVED", "dominant constraint", () -> m.dominantConstraint().name()),
+                RseLdUiComponents.liveRow("DERIVED", "state", () -> m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
+                RseLdUiComponents.liveRow("DERIVED", "dominant constraint", () -> m.telemetryReady() ? m.dominantConstraint().name() : "UNVERIFIED • input evidence missing"),
                 new Label().setText("FIXED STATE BANDS • queue≥13 OVERLOADED • queue≥9 CONGESTED • stopped+queued 600t ⇒ FAILED")
         );
     }
@@ -96,7 +96,7 @@ public final class OperationsMonitorLdUi {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("INCIDENT / FIRST-OUT DRILL-DOWN"),
                 RseLdUiComponents.liveRow("DIAGNOSIS", "system", () -> systemDiagnosis(m)),
-                RseLdUiComponents.liveRow("STATE", "System state", () -> m.state().name()),
+                RseLdUiComponents.liveRow("STATE", "System state", () -> m.telemetryReady() ? m.state().name() : "TELEMETRY INCOMPLETE"),
                 RseLdUiComponents.liveRow("INCIDENT", "Latest incident", () ->
                         m.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE"),
                 RseLdUiComponents.liveRow("INCIDENT", "First-out source", () ->
