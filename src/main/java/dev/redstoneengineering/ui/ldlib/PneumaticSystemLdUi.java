@@ -112,6 +112,8 @@ public final class PneumaticSystemLdUi {
             return Integer.toString(m.secondary()) + " • commanded/configured";
         if (m.kind() == PneumaticSystemMenu.KIND_CYLINDER && !cylinderReady(m))
             return "NOT READY • no valid actuator response";
+        if (m.kind() == PneumaticSystemMenu.KIND_FLOW_METER && !flowMeterReady(m))
+            return "NOT READY • no valid flow meter witnesses";
         return m.outputQuality() == PortQuality.VALID
                 ? Integer.toString(m.secondary()) : "NOT READY • " + m.outputQuality().name();
     }
@@ -153,11 +155,13 @@ public final class PneumaticSystemLdUi {
             case PneumaticSystemMenu.KIND_COMPRESSOR -> p.addChildren(
                     RseLdUiComponents.liveRow("INPUT","Redstone command",()->m.primary()+" / 15"),
                     RseLdUiComponents.liveRow("SOURCE","commanded pressure",()->m.secondary()+" / 100"),
-                    RseLdUiComponents.liveRow("SOLVER","network pressure",()->m.tertiary()+" / 100"));
+                    RseLdUiComponents.liveRow("SOLVER","network pressure",()->m.inputQuality()==PortQuality.VALID
+                            ? m.tertiary()+" / 100":"NOT READY • no valid pneumatic network input"));
             case PneumaticSystemMenu.KIND_REGULATOR -> p.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE","setpoint",()->m.secondary()+" / 100"),
                     RseLdUiComponents.liveRow("MODEL","setpoint index",()->Integer.toString(m.tertiary())),
-                    RseLdUiComponents.liveRow("SOLVER","network pressure",()->m.primary()+" / 100"));
+                    RseLdUiComponents.liveRow("SOLVER","network pressure",()->m.inputQuality()==PortQuality.VALID
+                            ? m.primary()+" / 100":"NOT READY • no valid pneumatic network pressure"));
             case PneumaticSystemMenu.KIND_FLOW_METER -> p.addChildren(
                     RseLdUiComponents.liveRow("MEASURED","flow proxy",()->flowMeterReady(m)?Integer.toString(m.primary()):"NOT READY • sample/witness evidence incomplete"),
                     RseLdUiComponents.liveRow("MEASURED","meter ΔP",()->flowMeterReady(m)?Integer.toString(m.secondary()):"NOT READY • sample/witness evidence incomplete"),
@@ -168,15 +172,17 @@ public final class PneumaticSystemLdUi {
                     RseLdUiComponents.liveRow("CONTROL","external opening index",()->m.tertiary()+" / 15"),
                     RseLdUiComponents.liveRow("MODEL","local pressure drop",()->m.inputQuality()==PortQuality.VALID && m.outputQuality()==PortQuality.VALID
                             ? Math.max(0,m.primary()-m.secondary())+" pressure units":"NOT READY • inlet/outlet evidence incomplete"),
-                    RseLdUiComponents.liveRow("SOLVER","network node pressure",()->m.auxiliary()+" / 100"));
+                    RseLdUiComponents.liveRow("SOLVER","network node pressure",()->m.inputQuality()==PortQuality.VALID && m.outputQuality()==PortQuality.VALID
+                            ? m.auxiliary()+" / 100":"NOT READY • valve/network evidence incomplete"));
             case PneumaticSystemMenu.KIND_RELIEF -> p.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE","vent threshold P_set",()->m.tertiary()+" / 100"),
                     RseLdUiComponents.liveRow("EVENTS","vent count",()->Integer.toString(m.auxiliary())),
-                    RseLdUiComponents.liveRow("STATE","relief valve",()->m.stateFlag()==1?"VENTING":"ARMED"));
+                    RseLdUiComponents.liveRow("STATE","relief valve",()->m.inputQuality()==PortQuality.VALID && m.outputQuality()==PortQuality.VALID
+                            ? (m.stateFlag()==1?"VENTING":"ARMED"):"NOT READY • relief pressure unverified"));
             case PneumaticSystemMenu.KIND_CYLINDER -> p.addChildren(
-                    RseLdUiComponents.liveRow("PATH","source pressure",()->m.cylinderSupply()+" / 100"),
-                    RseLdUiComponents.liveRow("PATH","physical path edges",()->Integer.toString(m.cylinderPathEdges())),
-                    RseLdUiComponents.liveRow("PATH","loss (line + restriction)",()->m.cylinderLineLoss()+" + "+m.cylinderRestrictionLoss()),
+                    RseLdUiComponents.liveRow("PATH","source pressure",()->cylinderReady(m)?m.cylinderSupply()+" / 100":"NOT READY • no verified actuator path"),
+                    RseLdUiComponents.liveRow("PATH","physical path edges",()->cylinderReady(m)?Integer.toString(m.cylinderPathEdges()):"UNVERIFIED • no actuator samples"),
+                    RseLdUiComponents.liveRow("PATH","loss (line + restriction)",()->cylinderReady(m)?m.cylinderLineLoss()+" + "+m.cylinderRestrictionLoss():"NOT READY • no verified path"),
                     RseLdUiComponents.liveRow("ACTUATOR","target / position",()->cylinderReady(m)?m.tertiary()+" / "+m.secondary():"NOT READY • no valid actuator response"),
                     RseLdUiComponents.liveRow("ACTUATOR","velocity / error",()->cylinderReady(m)?m.cylinderVelocity()+" / "+m.cylinderError():"NOT READY • no valid actuator response"),
                     RseLdUiComponents.liveRow("EVIDENCE","retained samples",()->Integer.toString(m.cylinderSamples())));
@@ -301,7 +307,8 @@ public final class PneumaticSystemLdUi {
                     : (m.stateFlag()==1?"OPEN":"CLOSED");
             if(hard(m.inputQuality()) || hard(m.outputQuality())) return "VALVE EVIDENCE FAULT • "+configured;
             if(!trustworthy(m.inputQuality()) || !trustworthy(m.outputQuality()))
-                return "CONFIG "+configured+" • PRESSURE UNVERIFIED";
+                return (m.kind()==PneumaticSystemMenu.KIND_RELIEF?"RETAINED RELIEF ":"CONFIG ")
+                        +configured+" • PRESSURE UNVERIFIED";
             return configured+" • PRESSURE EVIDENCE VALID";
         }
         if(m.kind()==PneumaticSystemMenu.KIND_FLOW_METER) return "FLOW METER • "+m.commissioningStatus().name();
