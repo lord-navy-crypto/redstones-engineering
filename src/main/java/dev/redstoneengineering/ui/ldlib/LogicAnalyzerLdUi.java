@@ -96,7 +96,7 @@ public final class LogicAnalyzerLdUi {
                         +" • "+(m.bounded()?"bounded probes":"incomplete network scan")),
                 RseLdUiComponents.liveRow("EVIDENCE","connected/valid channels",()->m.activeChannels()+" / "+m.validChannels()),
                 RseLdUiComponents.liveRow("EVIDENCE","duplicate assignments",()->Integer.toString(m.duplicateChannels())),
-                RseLdUiComponents.liveRow("DERIVED","cursor Δ (valid channels)",()->cursorDelta(m)),
+                RseLdUiComponents.liveRow("DERIVED","Cursor Δ (valid channels)",()->cursorDelta(m)),
                 new Label().setText("Cursor time Δ requires real, valid server-captured samples at BOTH positions; an empty/invalid slot is not LOW."),
                 new Label().setText("Threshold/cursors/trigger remain server-authoritative; retained capture evidence is synchronized only.")
         );
