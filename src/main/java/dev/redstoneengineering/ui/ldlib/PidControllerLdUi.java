@@ -20,7 +20,7 @@ public final class PidControllerLdUi {
     public static ModularUI create(PidControllerMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
-        var page0 = page(RseLdUiComponents.title("PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL"),modelPanel(m),trendPanel(m));
+        var page0 = page(RseLdUiComponents.title("PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL"),modelPanel(m),liveMechanismPanel(m),trendPanel(m));
         var page1 = page(controls(m),runtimePanel(m));
         page1.setDisplay(false);
         var page2 = page(plantPanel(m));
@@ -96,6 +96,21 @@ public final class PidControllerLdUi {
                         (m.plantDetected()?m.plantStatus().name():"NO PNEUMATIC PLANT")),
                 new Label().setText("Preset-dependent coefficients are not individual editable knobs; change preset in Configure.")
         );
+    }
+
+    private static UIElement liveMechanismPanel(PidControllerMenu m) {
+        return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
+                new Label().setText("PIONEER • LIVE CONTROL CHAIN"),
+                RseLdUiComponents.liveRow("INPUT","SP / PV",()->m.setpoint()+" / "+m.processValue()),
+                RseLdUiComponents.liveRow("ERROR","SP - PV",()->Integer.toString(m.error())),
+                RseLdUiComponents.liveRow("TERMS","P / I / D",()->m.pTerm()+" / "+m.iTerm()+" / "+m.dTerm()),
+                RseLdUiComponents.liveRow("STATE","integral / filtered derivative",()->m.integralState()+" / "+m.derivativeState()),
+                RseLdUiComponents.liveRow("OUTPUT","raw / clamped",()->m.unsaturatedOutput()+" / "+m.controlOutput()),
+                RseLdUiComponents.liveRow("SAFETY","mode",()->m.inhibited()?"INHIBITED":m.manualMode()?"MANUAL":"AUTO"),
+                RseLdUiComponents.liveRow("SAFETY","anti-windup",()->m.antiWindupHolding()?"HOLDING INTEGRAL":"INTEGRATING"),
+                RseLdUiComponents.liveRow("EVIDENCE","controller / plant",
+                        ()->m.controllerStatus().name()+" / "+(m.plantDetected()?m.plantStatus().name():"NOT DETECTED")),
+                new Label().setText("Server-owned PID and plant evidence: HMI never re-solves the controller."));
     }
 
     private static UIElement trendPanel(PidControllerMenu m){
