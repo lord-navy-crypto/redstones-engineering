@@ -3,6 +3,8 @@
 
 This verifier intentionally focuses on release packaging/documentation invariants rather
 than gameplay semantics, which remain covered by the historical verifiers and GameTests.
+The historical 1.0.20 manifest remains exact, while the current artifact may be any later
+Alpha or Alpha RC build.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 errors: list[str] = []
 
 EXPECTED_VERSION = "1.0.20-alpha"
+MINIMUM_VERSION = (1, 0, 20)
 EXPECTED_MINECRAFT = "1.21.1"
 EXPECTED_NEOFORGE = "21.1.249"
 EXPECTED_JAVA = "21"
@@ -37,8 +40,20 @@ build_gradle = read("build.gradle")
 workflow = read(".github/workflows/build.yml")
 lang_en_us = read("src/main/resources/assets/redstoneengineering/lang/en_us.json")
 
+version_match = re.search(
+    r"(?m)^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:-rc\d+)?$",
+    gradle_properties,
+)
+if not version_match:
+    errors.append("gradle.properties does not contain a parseable Alpha/Alpha-RC mod_version")
+else:
+    current_version = tuple(int(part) for part in version_match.groups())
+    if current_version < MINIMUM_VERSION:
+        errors.append(
+            f"gradle.properties mod_version {current_version} is older than Alpha {MINIMUM_VERSION}"
+        )
+
 for key, expected in (
-    ("mod_version", EXPECTED_VERSION),
     ("minecraft_version", EXPECTED_MINECRAFT),
     ("neo_version", EXPECTED_NEOFORGE),
     ("mod_license", EXPECTED_LICENSE),
@@ -47,7 +62,7 @@ for key, expected in (
         errors.append(f"gradle.properties does not pin {key}={expected}")
 
 if f"Artifact: {EXPECTED_VERSION}" not in manifest:
-    errors.append(f"manifest artifact is not {EXPECTED_VERSION}")
+    errors.append(f"historical 1.0.20 manifest artifact is not {EXPECTED_VERSION}")
 if f"Minecraft: {EXPECTED_MINECRAFT}" not in manifest:
     errors.append(f"manifest Minecraft baseline is not {EXPECTED_MINECRAFT}")
 if f"NeoForge: {EXPECTED_VERSION}" in manifest:
@@ -171,7 +186,8 @@ if errors:
     raise SystemExit(1)
 
 print("RSE Alpha 1.0.20 release verification: PASS")
-print(f"  artifact version: {EXPECTED_VERSION}")
+print(f"  historical manifest artifact: {EXPECTED_VERSION}")
+print(f"  current artifact version floor: >= {MINIMUM_VERSION}")
 print(f"  Minecraft / NeoForge / Java: {EXPECTED_MINECRAFT} / {EXPECTED_NEOFORGE} / {EXPECTED_JAVA}")
 print(f"  license: {EXPECTED_LICENSE}")
 print("  manifest -> testing guide link: PASS")

@@ -23,7 +23,7 @@ def require_min_alpha_version(minimum: tuple[int, int, int]) -> None:
     if not path.exists():
         failed.append("missing: gradle.properties")
         return
-    match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha$", path.read_text(errors="ignore"), re.MULTILINE)
+    match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:-rc\d+)?$", path.read_text(errors="ignore"), re.MULTILINE)
     if not match:
         failed.append("gradle.properties missing parseable alpha mod_version")
         return
@@ -55,7 +55,9 @@ require("src/main/java/dev/redstoneengineering/gametest/RseAcceptanceGameTests.j
         "AcceptanceEvidenceStore.history")
 require_min_alpha_version((1, 0, 20))
 require("ALPHA1_0_20_MANIFEST.txt", "1.0.20-alpha", "Commissioning Run History & Baseline Comparison", "Java: 21")
-require("README.md", "Alpha 1.0.20", "1.0.20-alpha", "Commissioning Run History & Baseline Comparison")
+# README is a moving current-version document. Preserve the historical milestone identity here;
+# the historical manifest above owns the exact 1.0.20 artifact-version assertion.
+require("README.md", "Alpha 1.0.20", "Commissioning Run History & Baseline Comparison")
 
 store = root / "src/main/java/dev/redstoneengineering/diagnostics/acceptance/AcceptanceEvidenceStore.java"
 if store.exists():
