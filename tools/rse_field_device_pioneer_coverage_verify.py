@@ -176,6 +176,45 @@ for power in range(16):
     if power == 0 and next_power != 0:
         errors.append("zero-valued Redstone propagation must remain zero")
 
+# The historical driverCount DataSlot is used as several distinct metrics
+# (pressure, travel, pulse timers, channel counts, fault events...). Its LDLib2
+# row must not be labeled 'sources / drivers' or fake a source-count zero.
+expected_auxiliary = {
+    "KIND_PNEUMATIC_FLOW_METER", "KIND_PNEUMATIC_PROPORTIONAL_VALVE",
+    "KIND_PNEUMATIC_RELIEF_VALVE", "KIND_PNEUMATIC_CYLINDER",
+    "KIND_MAGNETIC_GRADIENT_METER", "KIND_OPTICAL_FIBER", "KIND_OPTICAL_FIBER_JUNCTION",
+    "KIND_EDGE_DETECTOR", "KIND_PULSE_SHAPER", "KIND_RANGE_SENSOR",
+    "KIND_LAPIS_LINE", "KIND_QUARTZ_LINE", "KIND_TERMINAL", "KIND_REDSTONE_CABLE",
+    "KIND_REDSTONE_JUNCTION", "KIND_SHIELDED_INSTRUMENT_CABLE",
+    "KIND_INSTRUMENT_CABLE", "KIND_DATA_BUS_8", "KIND_RADIO_TRANSMITTER",
+    "KIND_RADIO_RECEIVER", "KIND_AMETHYST_SPECTRUM", "KIND_SCULK_INTERFACE",
+    "KIND_WATCHDOG", "KIND_SERVO_ACTUATOR", "KIND_REDUNDANT_VOTER",
+    "KIND_FAULT_LATCH", "KIND_OPERATIONS_MONITOR",
+}
+aux_start = screen.find("private static boolean hasAuxiliaryMetric(")
+aux_end = screen.find("private static String auxiliarySymbol(", aux_start)
+if aux_start < 0 or aux_end <= aux_start:
+    errors.append("FieldDevice auxiliary metric coverage selector missing")
+else:
+    actual_auxiliary = set(re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", screen[aux_start:aux_end]))
+    if actual_auxiliary != expected_auxiliary:
+        errors.append(f"FieldDevice auxiliary mapping drift missing={sorted(expected_auxiliary-actual_auxiliary)} extra={sorted(actual_auxiliary-expected_auxiliary)}")
+for token in (
+    'liveRow(auxiliaryRole(m.kind()), auxiliarySymbol(m.kind())',
+    'hasAuxiliaryMetric(m.kind()) ? Integer.toString(m.driverCount())',
+    '"NOT REPORTED • no auxiliary metric"',
+    'case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> "outlet pressure"',
+    'case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "vent events"',
+    'case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "gradient Z"',
+    'case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "cable nodes"',
+    'case FieldDeviceMenu.KIND_PULSE_SHAPER -> "pulse ticks remaining"',
+    'case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "monitor state code"',
+):
+    if token not in screen:
+        errors.append(f"FieldDevice auxiliary semantic contract missing {token!r}")
+if '"sources / drivers"' in screen:
+    errors.append("FieldDevice cannot label reused auxiliary telemetry universally as sources/drivers")
+
 # PR229 breadth rollout: direct-entry equality is checked AFTER range validation
 # and BEFORE a real block write, network recompute, or scheduled device tick.
 common_direct = (
