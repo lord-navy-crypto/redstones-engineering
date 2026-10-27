@@ -230,6 +230,23 @@ require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
 require("src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java",
         "setCursorA(int slot)", "setCursorB(int slot)")
 
+# Re-entering the current gain is not a physical signal-update event.
+conditioner = read("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java")
+start = conditioner.find("public static boolean setFormulaParameter(")
+end = conditioner.find("\n    }", start) if start >= 0 else -1
+if start < 0 or end < 0:
+    errors.append("SignalConditionerBlock: missing direct formula entry")
+else:
+    method = conditioner[start:end]
+    guard = "if (state.getValue(PARAM) == rawParam) return true;"
+    notify = "level.updateNeighborsAt(pos, conditioner);"
+    if guard not in method or notify not in method or method.index(guard) > method.index(notify):
+        errors.append("SignalConditionerBlock: repeated direct values must be no-op before signal neighbor updates")
+
+gametest_source = read("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
+if "conditionerExactGainEntryPreservesTransfer" not in gametest_source:
+    errors.append("Missing runtime gain direct-entry transfer GameTest")
+
 require("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
         "extends LdlibEngineeringHostScreen<SignalAnalyzerMenu>")
 require("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
