@@ -82,6 +82,33 @@ remains in the existing menu/channel rules.
    must be no silent omissions, no invented controls, and no false '100%'
    claim until runtime/visual review is documented.
 
+## Full-registry closure — 122 core + 8 systems
+
+The original Pioneer `122/122` ledger covers the core registry. The
+independent `EngineeringSystemsModule` registers eight additional system
+blocks, making **130 currently registered RSE blocks**. The build now runs
+`tools/rse_130_block_hmi_coverage.py`, generating an itemized JSON, CSV and
+Markdown matrix for all 130 block IDs. Its hard gate distinguishes a block's
+own UI entry, inherited `super.useWithoutItem` opener, dedicated operations
+UI helper, and deliberate read-only exceptions.
+
+The audit uncovered a genuine missing entry on
+`SlimeVibrationConduitBlock`: the normal right-click now opens the shared
+LDLib2 FieldDevice inspector; sneak-click provides a non-invasive packet
+readback. Copper Wire normal right-click also opens its existing Universal
+LDLib2 engineering HMI, while the original sneak+top/bottom shortcut and
+sneak+side diagnostics remain.
+
+`EngineeringCompassBlock` remains an explicit exception: its contract is
+a passive world-direction marker with a right-click coordinate readout, no
+mutable coefficients, and no artificial engineering-port simulator. It is
+**not** counted as a game-tested LDLib2 menu.
+
+The source audit verifies **declared entry routes only**, not that each
+individual GUI is visually correct or that its parameters have passed
+in-world multiplayer validation. The physical GameTest and `runClient`
+evidence remain separate from this 130-item static coverage gate.
+
 ## Acceptance gates
 
 1. **Static**: `rse_field_device_pioneer_coverage_verify.py` audits taxonomy
