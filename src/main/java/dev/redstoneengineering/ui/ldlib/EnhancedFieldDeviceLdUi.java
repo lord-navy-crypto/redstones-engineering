@@ -120,11 +120,14 @@ public final class EnhancedFieldDeviceLdUi {
         panel.addChild(new Label().setText("FORMULA-LINKED CONTROLS"));
 
         if (directEntryKind(m.kind())) {
-            var input = new TextField().setNumbersOnlyInt(0, 127);
+            // Match the specific device's legal engineering range. Discrete
+            // steps remain guarded by validDirectValue and the server menu.
+            var input = new TextField().setNumbersOnlyInt(directMinimum(m.kind()), directMaximum(m.kind()));
             input.layout(l -> l.width(120));
             input.bind(DataBindingBuilder.string(
-                    () -> Integer.toString(controlValue(m)),
+                    () -> m.snapshotReady() ? Integer.toString(controlValue(m)) : "",
                     value -> {
+                        if (!m.snapshotReady()) return;
                         try {
                             int parsed = Integer.parseInt(value);
                             if (validDirectValue(m.kind(), parsed)) m.applyPrimaryEngineeringValueFromUi(parsed);
@@ -133,7 +136,10 @@ public final class EnhancedFieldDeviceLdUi {
                     }
             ).build());
             panel.addChildren(
-                    RseLdUiComponents.liveRow("ADJUSTABLE", formulaSymbol(m.kind()), () -> Integer.toString(controlValue(m))),
+                    RseLdUiComponents.liveRow("ADJUSTABLE", formulaSymbol(m.kind()),
+                            () -> m.snapshotReady()
+                                    ? controlValue(m) + " • " + directRangeLabel(m.kind())
+                                    : "NOT READY • awaiting synchronized setpoint"),
                     new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("Exact engineering value").layout(l -> l.width(140)),
                             input,
@@ -141,10 +147,24 @@ public final class EnhancedFieldDeviceLdUi {
                     )
             );
         } else if (hasOperatorActions(m.kind())) {
+            panel.addChild(RseLdUiComponents.liveRow("MODE", "current", () -> modeReadback(m)));
             panel.addChild(new Label().setText(
                     "SERVER-AUTHORITATIVE ACTIONS • use the controls below; no invented numeric coefficient"));
         } else {
-            panel.addChild(new Label().setText("READ-ONLY HMI • no fake control"));
+            // Every lightweight block gets a meaningful Configure page,
+            // including passive wire, sensor, converter and transport devices.
+            panel.addChildren(
+                    RseLdUiComponents.fixedRow("MODEL", () -> modelContract(m.kind()),
+                            "server-defined • not an adjustable coefficient"),
+                    RseLdUiComponents.liveRow("EVIDENCE", "server state", () ->
+                            !m.snapshotReady() ? "NOT READY • awaiting server snapshot"
+                                    : m.evidenceQualityKnown() ? m.evidenceQuality().name()
+                                    : "PORT QUALITY NOT REPORTED"),
+                    RseLdUiComponents.liveRow("TOPOLOGY", "ports / links", () ->
+                            m.snapshotReady() ? m.portCount() + " / " + m.connectionCount()
+                                    : "NOT READY"),
+                    new Label().setText("READ-ONLY HMI • no fake control")
+            );
         }
 
         if (m.kind() == FieldDeviceMenu.KIND_TERMINAL || m.kind() == FieldDeviceMenu.KIND_PNEUMATIC_VALVE) {
@@ -161,6 +181,16 @@ public final class EnhancedFieldDeviceLdUi {
             ));
         }
         return panel;
+    }
+
+    /** Operator-switch state comes only from the synchronized tertiary slot. */
+    private static String modeReadback(FieldDeviceMenu m) {
+        if (!m.snapshotReady()) return "NOT READY • awaiting server switch state";
+        if (m.kind() == FieldDeviceMenu.KIND_TERMINAL)
+            return m.tertiary() != 0 ? "CABLE → VANILLA (OUTPUT)" : "VANILLA → CABLE (INPUT)";
+        if (m.kind() == FieldDeviceMenu.KIND_PNEUMATIC_VALVE)
+            return m.tertiary() != 0 ? "OPEN" : "CLOSED";
+        return "NO SWITCH STATE";
     }
 
     private static boolean hasOperatorActions(int kind) {
@@ -372,6 +402,34 @@ public final class EnhancedFieldDeviceLdUi {
                  FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
                  FieldDeviceMenu.KIND_HYDRO_EXCITER -> true;
             default -> false;
+        };
+    }
+
+    /** Field bounds are per-device rather than a misleading global 0..127. */
+    private static int directMinimum(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_FILTER,
+                 FieldDeviceMenu.KIND_PERMANENT_MAGNET,
+                 FieldDeviceMenu.KIND_INDUCTION_COIL,
+                 FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> 1;
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> 25;
+            default -> 0;
+        };
+    }
+
+    private static int directMaximum(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_PROBE -> 3;
+            case FieldDeviceMenu.KIND_FILTER,
+                 FieldDeviceMenu.KIND_INDUCTION_COIL -> 4;
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> 2;
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE,
+                 FieldDeviceMenu.KIND_LAPIS_SOURCE -> 100;
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> 8;
+            default -> 15;
         };
     }
 
