@@ -3,6 +3,8 @@ package dev.redstoneengineering.gametest;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.LogicAnalyzerBlock;
+import dev.redstoneengineering.block.MechanicalExciterBlock;
+import dev.redstoneengineering.block.HydroacousticExciterBlock;
 import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.block.OscilloscopeBlock;
 import dev.redstoneengineering.block.PidControllerBlock;
@@ -123,6 +125,37 @@ public final class RseEngineeringUiGameTests {
             }
             helper.succeed();
         });
+    }
+
+    /**
+     * Broad PR229 coverage: frequency controls on two medium families use exact
+     * values; invalid and repeated entries do not move the configuration.
+     */
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
+    public static void mechanicalAndHydroExactFrequencyEntriesAreBounded(GameTestHelper helper) {
+        BlockPos mechanical = new BlockPos(1, 1, 2);
+        BlockPos hydro = new BlockPos(3, 1, 2);
+        helper.setBlock(mechanical, RedstoneEngineering.MECHANICAL_EXCITER.get().defaultBlockState());
+        helper.setBlock(hydro, RedstoneEngineering.HYDROACOUSTIC_EXCITER.get().defaultBlockState());
+        BlockPos mWorld = helper.absolutePos(mechanical);
+        BlockPos hWorld = helper.absolutePos(hydro);
+
+        boolean valid = MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 11)
+                && HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 4);
+        boolean repeated = MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 11)
+                && HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 4);
+        boolean invalid = !MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 0)
+                && !MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 16)
+                && !HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 0)
+                && !HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 16);
+        if (!valid || !repeated || !invalid
+                || helper.getBlockState(mechanical).getValue(MechanicalExciterBlock.FREQUENCY) != 11
+                || helper.getBlockState(hydro).getValue(HydroacousticExciterBlock.FREQUENCY) != 4) {
+            helper.fail("Both exciter families must retain exact 1..15 frequency under repeated/invalid entry", mechanical);
+            return;
+        }
+        helper.succeed();
     }
 
     @PrefixGameTestTemplate(false)
