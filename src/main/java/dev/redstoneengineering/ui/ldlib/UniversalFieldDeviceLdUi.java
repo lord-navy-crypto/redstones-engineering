@@ -117,11 +117,13 @@ public final class UniversalFieldDeviceLdUi {
             // Interpret only the last server-evaluated failure mask, not client-side
             // redstone sampling. An unknown mask must not be presented as permission.
             panel.addChild(RseLdUiComponents.liveRow("SAFETY", "evaluated mask",
-                    () -> menu.configPrimary() < 0 ? "NOT EVALUATED" : Integer.toString(menu.configPrimary())));
+                    () -> !menu.snapshotReady() || menu.configPrimary() < 0
+                             ? "NOT EVALUATED" : Integer.toString(menu.configPrimary())));
             panel.addChild(RseLdUiComponents.liveRow("SAFETY", "permissives A / B / C",
-                    () -> interlockInputs(menu.configPrimary())));
+                    () -> !menu.snapshotReady() ? "A=? / B=? / C=? • NOT EVALUATED"
+                             : interlockInputs(menu.configPrimary())));
             panel.addChild(RseLdUiComponents.liveRow("OUTPUT", "permit",
-                    () -> menu.configPrimary() < 0 ? "UNVERIFIED • request safe 0"
+                    () -> !menu.snapshotReady() || menu.configPrimary() < 0 ? "UNVERIFIED • request safe 0"
                             : menu.configSecondary() != 0 ? "15 • PERMIT" : "0 • BLOCKED"));
         }
         // The old Overview showed the equation but concealed its live operands
@@ -131,12 +133,14 @@ public final class UniversalFieldDeviceLdUi {
         if (primaryDirectKind(kind) || primaryCycleKind(kind)) {
             panel.addChild(RseLdUiComponents.liveRow(
                     "ADJUSTABLE", primarySymbol(kind),
-                    () -> primaryDisplay(menu) + " • " + primaryRange(kind)));
+                    () -> !menu.snapshotReady() ? "NOT READY • awaiting synchronized setpoint"
+                            : primaryDisplay(menu) + " • " + primaryRange(kind)));
         }
         if (secondaryDirectKind(kind)) {
             panel.addChild(RseLdUiComponents.liveRow(
                     "ADJUSTABLE", secondarySymbol(kind),
-                    () -> secondaryDisplay(menu) + " • " + secondaryRange(kind)));
+                    () -> !menu.snapshotReady() ? "NOT READY • awaiting synchronized setpoint"
+                            : secondaryDisplay(menu) + " • " + secondaryRange(kind)));
         }
         if (kind != UniversalFieldDeviceMenu.CONFIG_NONE) {
             panel.addChild(RseLdUiComponents.liveRow("CONFIG", "server model",
@@ -164,12 +168,14 @@ public final class UniversalFieldDeviceLdUi {
                 final String unit=units[i];
                 panel.addChild(RseLdUiComponents.liveRow(
                         roles[i], labels[i],
-                        () -> processValue(menu, process, slot)+(unit.isBlank()?"":" "+unit)));
+                        () -> !menu.snapshotReady() ? "NOT READY • awaiting server process snapshot"
+                                     : processValue(menu, process, slot)+(unit.isBlank()?"":" "+unit)));
                 shown++;
             }
             panel.addChild(RseLdUiComponents.liveRow(
                     "EVIDENCE", "Pioneer process quality",
-                    () -> menu.pioneerProcessEvidenceQuality().name()));
+                    () -> menu.snapshotReady() ? menu.pioneerProcessEvidenceQuality().name()
+                                     : "NOT READY • awaiting server process evidence"));
         } else if (measurement != UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_NONE) {
             String[] labels=measurementLabels(measurement);
             String[] units=measurementUnits(measurement);
@@ -180,12 +186,14 @@ public final class UniversalFieldDeviceLdUi {
                 final String unit=units[i];
                 panel.addChild(RseLdUiComponents.liveRow(
                         roles[i], labels[i],
-                        () -> measurementValue(menu, measurement, slot)+(unit.isBlank()?"":" "+unit)));
+                        () -> !menu.snapshotReady() ? "NOT READY • awaiting server measurement"
+                                     : measurementValue(menu, measurement, slot)+(unit.isBlank()?"":" "+unit)));
                 shown++;
             }
             panel.addChild(RseLdUiComponents.liveRow(
                     "EVIDENCE", "Pioneer measurement quality",
-                    () -> menu.pioneerEvidenceQuality().name()));
+                    () -> menu.snapshotReady() ? menu.pioneerEvidenceQuality().name()
+                                     : "NOT READY • awaiting server measurement evidence"));
         }
         // Only a concise preview lives on Overview. The full six-slot
         // contract, authority, coverage and interpretation remain on Pioneer.
@@ -301,7 +309,8 @@ public final class UniversalFieldDeviceLdUi {
 
         if (menu.pioneerProcessKind() != UniversalFieldDeviceMenu.PIONEER_PROCESS_NONE) {
             panel.addChild(RseLdUiComponents.liveRow(
-                    "EVIDENCE", "process", () -> menu.pioneerProcessEvidenceQuality().name()));
+                    "EVIDENCE", "process", () -> menu.snapshotReady() ? menu.pioneerProcessEvidenceQuality().name()
+                                     : "NOT READY • awaiting server process evidence"));
         }
 
         panel.addChild(new Label().setText(
@@ -407,7 +416,8 @@ public final class UniversalFieldDeviceLdUi {
         );
         if (menu.configKind() == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) {
             panel.addChildren(
-                    RseLdUiComponents.liveRow("PERMISSIVE", "A / B / C", () -> interlockInputs(menu.configPrimary())),
+                    RseLdUiComponents.liveRow("PERMISSIVE", "A / B / C", () -> !menu.snapshotReady() ? "A=? / B=? / C=? • NOT EVALUATED"
+                             : interlockInputs(menu.configPrimary())),
                     RseLdUiComponents.liveRow("EVIDENCE", "blocked / permitted evaluations", () ->
                             menu.configPrimary() < 0 ? "NOT EVALUATED" :
                                     menu.interlockBlockedTicks() + " / " + menu.interlockPermittedTicks()),
@@ -552,11 +562,13 @@ public final class UniversalFieldDeviceLdUi {
             panel.addChild(RseLdUiComponents.liveRow(
                     role,
                     label,
-                    () -> processValue(menu, kind, slot) + (unit.isBlank() ? "" : " " + unit)
+                    () -> !menu.snapshotReady() ? "NOT READY • awaiting server process snapshot"
+                             : processValue(menu, kind, slot) + (unit.isBlank() ? "" : " " + unit)
             ));
         }
         panel.addChildren(
-                RseLdUiComponents.liveRow("EVIDENCE", "quality", () -> menu.pioneerProcessEvidenceQuality().name()),
+                RseLdUiComponents.liveRow("EVIDENCE", "quality", () -> menu.snapshotReady() ? menu.pioneerProcessEvidenceQuality().name()
+                                     : "NOT READY • awaiting server process evidence"),
                 new Label().setText(processInterpretation(kind))
         );
         return panel;
@@ -582,11 +594,13 @@ public final class UniversalFieldDeviceLdUi {
             panel.addChild(RseLdUiComponents.liveRow(
                     role,
                     label,
-                    () -> measurementValue(menu, kind, slot) + (unit.isBlank() ? "" : " " + unit)
+                    () -> !menu.snapshotReady() ? "NOT READY • awaiting server measurement"
+                             : measurementValue(menu, kind, slot) + (unit.isBlank() ? "" : " " + unit)
             ));
         }
         panel.addChildren(
-                RseLdUiComponents.liveRow("EVIDENCE", "quality", () -> menu.pioneerEvidenceQuality().name()),
+                RseLdUiComponents.liveRow("EVIDENCE", "quality", () -> menu.snapshotReady() ? menu.pioneerEvidenceQuality().name()
+                                     : "NOT READY • awaiting server measurement evidence"),
                 new Label().setText(measurementInterpretation(kind))
         );
         return panel;
