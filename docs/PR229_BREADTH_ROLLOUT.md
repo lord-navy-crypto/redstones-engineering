@@ -1,0 +1,100 @@
+# PR #229 — Broad LDLib2 Parameter Experience Rollout
+
+The goal is breadth without inventing controls or a second simulator. Keep
+Minecraft/NeoForge 1.21.1 / 21.1.249 / Java 21. No wholesale physics rewrite.
+
+## One operator contract across block families
+
+- **Editable numeric**: display the live synchronized value, symbol, unit,
+  exact device-specific bounds and any discrete legal set; send user intent
+  through the existing server-authoritative menu.
+- **Mode / toggle**: show current server-backed mode, not just an unlabeled
+  button; use one obvious action.
+- **Observer / passive / fixed-physics**: read-only governing contract,
+  port/link evidence and model units, without fake inputs.
+- **Not ready**: neither a pre-sync zero nor absent quality is a valid physical
+  reading or permission to edit.
+- **Repeat entry**: legal same-value edits succeed without block writes,
+  neighbor notifications, gratuitous network recomputes, false evidence events
+  or re-triggered excitation. Invalid inputs fail without mutations.
+- **Client**: LDLib2 presents inputs and data; all calculations, safety,
+  topology, sampling, scheduling and evidence remain server-owned.
+
+## Coverage overview
+
+These are **shared HMI kinds**, not a claim that all 122 audited blocks have
+passed end-to-end visual/runtime testing. FieldDeviceMenu defines 78 concrete
+block kinds and the UniversalFieldDeviceMenu defines 23 config-kind families
+besides CONFIG_NONE. Dedicated instrument HMIs cover additional specialist
+devices; the same physical block can appear in both a dispatch taxonomy and
+a dedicated route. Do not sum these counts as disjoint block totals.
+
+### Breadth wave A — shared FieldDevice, completed in PR source
+
+| Family | Visible operator affordance | No-op/runtime policy |
+| --- | --- | --- |
+| Signal Probe | channel 0..3 | no repeated state write |
+| Precision Filter | slew 1..4 | no repeated scheduled tick |
+| Redstone Reference Source | output 0..15 + four presets | no repeated neighbour notification |
+| Lapis Precision Source | precision 0..100 in steps of 5 | no repeated network solve |
+| Digital Regenerator | quality profile index 0..2 | no repeated tick |
+| Pressure Regulator | pressure {25,50,75,100} | no repeated pneumatic network solve |
+| Pneumatic Relief Valve | relief pressure {25,50,75,100} | no repeated pneumatic network solve |
+| Permanent Magnet | field strength 1..15 | no repeated state write |
+| Induction Coil | turns 1..4 | no repeated tick |
+| Optical Emitter | intensity 0..15 | no repeated optical network solve |
+| Optical Channel Filter | target channel 0..15 | no repeated tick |
+| Optical Attenuator | loss 0..8 | no repeated tick |
+| Mechanical Exciter | frequency 1..15 | no repeated excitation |
+| Hydroacoustic Exciter | frequency 1..15 | no repeated excitation |
+| Redstone Cable Terminal | explicit Vanilla→Cable / Cable→Vanilla mode label and toggle | existing server mutation |
+| Pneumatic Valve | explicit OPEN / CLOSED and toggle | existing server mutation |
+
+The numerical FieldDevice text field uses the block-specific *minimum* and
+*maximum*, not the previous global 0..127. Discrete-step legality remains
+separately enforced by both HMI validation and existing server implementations.
+
+For the rest of the FieldDevice taxonomy (cables, passive media, sensors,
+measurement apertures, converters), the shared Configure panel now carries a
+read-only model contract, port/link counts and evidence status instead of an
+empty fake tuning section. These read-only panels remain observational.
+
+### Breadth wave B — shared Universal HMI, completed in PR source
+
+Across the existing 23 config-kind families, both primary and secondary
+numeric entry bindings now use synchronization-readiness gating, and every
+Configure panel shows the parameter snapshot and evidence state. Existing
+mode-cycle, toggle, action and fixed/read-only authority rules are preserved.
+Numeric conversion of visible engineering values to internal discrete indices
+remains in the existing menu/channel rules.
+
+### Later coverage, not yet accepted
+
+1. **Basic signal/transport**: inspect actual in-game screen size, scroll and
+   authoritative readback for each source, cable, junction, converter and meter.
+2. **Common measurement and control**: verify reference source, analyzer,
+   signal filter/conditioner, PWM, PID, light/tank/entity sensing and sample/hold.
+3. **Cross-domain**: repeat representative cases for copper, Lapis, Quartz,
+   pneumatic, magnetic, optical and vibration.
+4. **Remaining registered block inventory**: generate a block-by-block audit
+   from the live registry, classify every item as editable, mode/action,
+   read-only, dedicated HMI or intentionally without an interaction. There
+   must be no silent omissions, no invented controls, and no false '100%'
+   claim until runtime/visual review is documented.
+
+## Acceptance gates
+
+1. **Static**: `rse_field_device_pioneer_coverage_verify.py` audits taxonomy
+   closure, per-family idempotence guards, synchronized UI and no client solver.
+2. **Build**: Java 21 compilation, Gradle tests and clean build, with artifact
+   checksums, must pass on the final PR head.
+3. **Minecraft GameTest**: selectively execute the registered engineering UI
+   cases (including both exciter families and conditioner/calibration cases);
+   normal PR CI may skip `runGameTestServer` and must not be reported as a
+   runtime pass.
+4. **runClient**: at several UI window scales, inspect positive/zero/negative
+   parameter entry, legal discrete sets, empty/unsynced state, buttons,
+   mode readback and server multiplayer reconciliation.
+
+This file is a rollout checklist, not a release certification. Keep PR #229
+open until all required runtime/visual gates for its acceptance scope are met.
