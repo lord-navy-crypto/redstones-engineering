@@ -95,8 +95,10 @@ public final class EnhancedFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", () ->
                         m.snapshotReady() && m.evidenceQualityKnown() && m.topologyValid() && m.dataValid()
                                 ? m.qualityPercent()+"%" : "UNVERIFIED • score not qualified"),
-                RseLdUiComponents.liveRow("EVIDENCE", "sources / drivers", () ->
-                        m.snapshotReady() ? Integer.toString(m.driverCount()) : "NOT READY • no server count"),
+                RseLdUiComponents.liveRow(auxiliaryRole(m.kind()), auxiliarySymbol(m.kind()), () ->
+                        !m.snapshotReady() ? "NOT READY • awaiting server metric"
+                                : hasAuxiliaryMetric(m.kind()) ? Integer.toString(m.driverCount())
+                                : "NOT REPORTED • no auxiliary metric"),
                 RseLdUiComponents.liveRow("TOPOLOGY", "ports / links", () ->
                         m.snapshotReady() ? m.portCount() + " / " + m.connectionCount()
                                 : "NOT READY • no server topology"),
@@ -107,6 +109,96 @@ public final class EnhancedFieldDeviceLdUi {
                         !m.snapshotReady() ? "NOT READY • awaiting server authority"
                                 : m.topologyValid() ? "SERVER SYNCHRONIZED" : "FAIL-CLOSED")
         );
+    }
+
+    /**
+     * The menu's auxiliary DataSlot is deliberately reused by many different
+     * devices: source count, outlet pressure, pulse age, gradient Z, event
+     * count, etc. It is NOT a universal number of source drivers.
+     *
+     * Keep this table aligned with FieldDeviceMenu.refreshAuthoritativeSnapshot.
+     * Absent auxiliary telemetry is NOT REPORTED, never a fabricated zero.
+     */
+    private static boolean hasAuxiliaryMetric(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER,
+                 FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER,
+                 FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION,
+                 FieldDeviceMenu.KIND_EDGE_DETECTOR,
+                 FieldDeviceMenu.KIND_PULSE_SHAPER,
+                 FieldDeviceMenu.KIND_RANGE_SENSOR,
+                 FieldDeviceMenu.KIND_LAPIS_LINE,
+                 FieldDeviceMenu.KIND_QUARTZ_LINE,
+                 FieldDeviceMenu.KIND_TERMINAL,
+                 FieldDeviceMenu.KIND_REDSTONE_CABLE,
+                 FieldDeviceMenu.KIND_REDSTONE_JUNCTION,
+                 FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_DATA_BUS_8,
+                 FieldDeviceMenu.KIND_RADIO_TRANSMITTER,
+                 FieldDeviceMenu.KIND_RADIO_RECEIVER,
+                 FieldDeviceMenu.KIND_AMETHYST_SPECTRUM,
+                 FieldDeviceMenu.KIND_SCULK_INTERFACE,
+                 FieldDeviceMenu.KIND_WATCHDOG,
+                 FieldDeviceMenu.KIND_SERVO_ACTUATOR,
+                 FieldDeviceMenu.KIND_REDUNDANT_VOTER,
+                 FieldDeviceMenu.KIND_FAULT_LATCH,
+                 FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> true;
+            default -> false;
+        };
+    }
+
+    private static String auxiliarySymbol(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> "outlet pressure";
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE -> "network pressure";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "vent events";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> "travel state";
+            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "gradient Z";
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR,
+                 FieldDeviceMenu.KIND_PULSE_SHAPER -> "pulse ticks remaining";
+            case FieldDeviceMenu.KIND_RANGE_SENSOR -> "response state";
+            case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "cable nodes";
+            case FieldDeviceMenu.KIND_INSTRUMENT_CABLE -> "active channels";
+            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER -> "payload valid (0/1)";
+            case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "spectrum samples";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE,
+                 FieldDeviceMenu.KIND_WATCHDOG -> "transition events";
+            case FieldDeviceMenu.KIND_SERVO_ACTUATOR -> "soft-limit hits";
+            case FieldDeviceMenu.KIND_REDUNDANT_VOTER -> "disagreements";
+            case FieldDeviceMenu.KIND_FAULT_LATCH -> "reset active (0/1)";
+            case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "monitor state code";
+            case FieldDeviceMenu.KIND_LAPIS_LINE,
+                 FieldDeviceMenu.KIND_QUARTZ_LINE,
+                 FieldDeviceMenu.KIND_TERMINAL,
+                 FieldDeviceMenu.KIND_REDSTONE_CABLE,
+                 FieldDeviceMenu.KIND_REDSTONE_JUNCTION -> "attached sources";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION,
+                 FieldDeviceMenu.KIND_DATA_BUS_8,
+                 FieldDeviceMenu.KIND_RADIO_RECEIVER -> "source drivers";
+            default -> "auxiliary metric";
+        };
+    }
+
+    private static String auxiliaryRole(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER,
+                 FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE,
+                 FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "MEASURED";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER,
+                 FieldDeviceMenu.KIND_EDGE_DETECTOR,
+                 FieldDeviceMenu.KIND_PULSE_SHAPER,
+                 FieldDeviceMenu.KIND_RANGE_SENSOR,
+                 FieldDeviceMenu.KIND_FAULT_LATCH,
+                 FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "STATE";
+            case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "TOPOLOGY";
+            default -> "EVIDENCE";
+        };
     }
 
     /** Preserve server-owned raw values for engineering diagnostics, but do not
