@@ -17,7 +17,8 @@ with TemporaryDirectory(prefix="rse-gametest-log-") as folder:
     filler = b"benign repetitive game-server status line 0123456789\n"
     pre = b"RSE_TEST_BOOT unique startup header\n" + filler * 26000
     mid = b"ERROR: RSE_TEST_MIDSTREAM_FAIL unique root-cause context\n"
-    post = filler * 165000
+    progress = b"[07:41:44] [Server thread/INFO] [minecraft/GameTestServer]: [X+_+XX_]\n"
+    post = progress * 78000 + filler * 125000
     final = b"All 2 required tests passed :)\nRSE_TEST_FOOTER unique shutdown\n"
     payload = pre + mid + post + final
     run = subprocess.run(
@@ -35,6 +36,7 @@ with TemporaryDirectory(prefix="rse-gametest-log-") as folder:
         "shutdown tail": b"RSE_TEST_FOOTER" in body,
         "bounded file": len(body) <= 9 * 1024 * 1024,
         "full source accounting": f"source_bytes={len(payload)}".encode() in body,
+        "progress spam does not evict real errors": b"matching_lines=2" in body,
         "expected capture footer": b"=== END BOUNDED CAPTURE ===" in body,
         "stdout suppressed": len(run.stdout) < 32000,
     }
