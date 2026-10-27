@@ -161,7 +161,9 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+            // Right-click always opens the Pioneer HMI. Keep the old
+            // sneak+top/bottom shortcut and sneak+side diagnostic readout.
+            if ((!player.isShiftKeyDown() || hit.getDirection().getAxis().isVertical())
                     && player instanceof ServerPlayer serverPlayer) {
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
                 return InteractionResult.sidedSuccess(false);
@@ -175,7 +177,7 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
                             + " | ports=" + engineeringPorts(state).size()
                             + " | routing=PLANAR; vertical via Junction Point"
                             + " | " + NetworkKernel.summary(level, "copper")
-                            + " | sneak+top/bottom = Pioneer HMI"
+                            + " | right-click = Pioneer HMI; sneak+side = diagnostics"
             ), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
