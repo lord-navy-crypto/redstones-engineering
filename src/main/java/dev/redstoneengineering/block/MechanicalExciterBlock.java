@@ -146,6 +146,8 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         if (level.isClientSide || frequency < 1 || frequency > 15) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof MechanicalExciterBlock exciter)) return false;
+        // Repeated visible frequency must not retrigger the excitation event.
+        if (state.getValue(FREQUENCY) == frequency) return true;
         BlockState next = state.setValue(FREQUENCY, frequency);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         exciter.updateExcitation(next, level, pos);
