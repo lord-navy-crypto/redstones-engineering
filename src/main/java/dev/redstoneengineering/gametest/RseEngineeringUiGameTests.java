@@ -84,6 +84,47 @@ public final class RseEngineeringUiGameTests {
         });
     }
 
+    /**
+     * Exact formula entry must accept a real parameter, reject invalid inputs,
+     * and preserve server-owned output after a no-op retransmission.
+     */
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    public static void conditionerExactGainEntryPreservesTransfer(GameTestHelper helper) {
+        BlockPos sourcePos = new BlockPos(1, 1, 2);
+        BlockPos conditionerPos = new BlockPos(2, 1, 2);
+        BlockPos world = helper.absolutePos(conditionerPos);
+        helper.setBlock(sourcePos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
+                .defaultBlockState()
+                .setValue(RedstoneReferenceSourceBlock.FACING, Direction.EAST)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 6));
+        helper.setBlock(conditionerPos, RedstoneEngineering.SIGNAL_CONDITIONER.get()
+                .defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(SignalConditionerBlock.MODE, 0)
+                .setValue(SignalConditionerBlock.PARAM, 2));
+
+        boolean exactAccepted = SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 3);
+        boolean repeatedAccepted = SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 3);
+        boolean invalidRejected = !SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 0)
+                && !SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 5);
+        if (!exactAccepted || !repeatedAccepted || !invalidRejected
+                || helper.getBlockState(conditionerPos).getValue(SignalConditionerBlock.PARAM) != 3) {
+            helper.fail("GAIN direct entry must persist 3 and reject out-of-range values", conditionerPos);
+            return;
+        }
+
+        helper.runAfterDelay(8, () -> {
+            var state = helper.getBlockState(conditionerPos);
+            if (state.getValue(SignalConditionerBlock.PARAM) != 3
+                    || state.getValue(DirectionalSignalBlock.OUTPUT) != 15) {
+                helper.fail("GAIN x3 must saturate 6 to 15 through the authoritative redstone tick path", conditionerPos);
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
     public static void pidUiActionChangesOnlyBoundedTuningPreset(GameTestHelper helper) {
