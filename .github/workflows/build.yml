@@ -158,6 +158,9 @@ jobs:
       - name: Gradle tests
         run: ./gradlew test --no-daemon --stacktrace
 
+      # GameTest diagnostic output is bounded on disk and in CI: retain startup,
+      # significant evidence lines and the recent tail, not unbounded Gradle spam.
+      # The capture command streams stdout fully, while preserving timeout's PIPESTATUS.
       # GameTests are retained as explicit runtime evidence, but are no longer a normal PR/push gate.
       # They have historically been expensive and can fail independently of the static/compile/unit chain.
       # Run them deliberately from workflow_dispatch when runtime-topology evidence is wanted.
@@ -168,7 +171,7 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p .rse-audit
-          timeout --signal=TERM 8m ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | tee .rse-audit/gametest-server.log
+          timeout --signal=TERM 8m ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | python3 tools/rse_bounded_gametest_log.py .rse-audit/gametest-server.log
           gametest_status=${PIPESTATUS[0]}
           if (( gametest_status == 124 )); then
             echo "::warning::GameTest server exceeded the 8-minute diagnostic window"
