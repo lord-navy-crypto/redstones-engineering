@@ -1221,7 +1221,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public PortQuality pioneerProcessEvidenceQuality() {
         int ordinal = pioneerProcessEvidenceQuality.get();
         PortQuality[] all = PortQuality.values();
-        return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
+        return ordinal < 0 || ordinal >= all.length ? PortQuality.NOT_READY : all[ordinal];
     }
     public int pioneerPrimary() { return pioneerPrimary.get(); }
     public int pioneerSecondary() { return pioneerSecondary.get(); }
@@ -1230,7 +1230,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public PortQuality pioneerEvidenceQuality() {
         int ordinal = pioneerEvidenceQuality.get();
         PortQuality[] all = PortQuality.values();
-        return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
+        return ordinal < 0 || ordinal >= all.length ? PortQuality.NOT_READY : all[ordinal];
     }
     public int declaredPortMask() { return declaredPortMask.get(); }
     public boolean hasPort(Direction side) { return (declaredPortMask.get() & (1 << side.ordinal())) != 0; }
