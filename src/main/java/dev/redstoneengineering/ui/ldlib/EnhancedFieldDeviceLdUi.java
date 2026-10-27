@@ -77,7 +77,9 @@ public final class EnhancedFieldDeviceLdUi {
         if (directEntryKind(m.kind())) {
             panel.addChild(RseLdUiComponents.liveRow(
                     "ADJUSTABLE", formulaSymbol(m.kind()),
-                    () -> controlValue(m) + " • " + directRangeLabel(m.kind())));
+                    () -> m.snapshotReady()
+                            ? controlValue(m) + " • " + directRangeLabel(m.kind())
+                            : "NOT READY • awaiting synchronized setpoint"));
         }
         panel.addChild(new Label().setText(
                 "Server evidence above; editable setpoints use the Configure tab."));
@@ -93,13 +95,17 @@ public final class EnhancedFieldDeviceLdUi {
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", () ->
                         m.snapshotReady() && m.evidenceQualityKnown() && m.topologyValid() && m.dataValid()
                                 ? m.qualityPercent()+"%" : "UNVERIFIED • score not qualified"),
-                RseLdUiComponents.liveRow("EVIDENCE", "sources / drivers", () -> Integer.toString(m.driverCount())),
+                RseLdUiComponents.liveRow("EVIDENCE", "sources / drivers", () ->
+                        m.snapshotReady() ? Integer.toString(m.driverCount()) : "NOT READY • no server count"),
                 RseLdUiComponents.liveRow("TOPOLOGY", "ports / links", () ->
-                        m.portCount() + " / " + m.connectionCount()),
+                        m.snapshotReady() ? m.portCount() + " / " + m.connectionCount()
+                                : "NOT READY • no server topology"),
                 RseLdUiComponents.liveRow("TOPOLOGY", "connection mask", () ->
-                        "0x" + Integer.toHexString(m.connectionMask()).toUpperCase(Locale.ROOT)),
+                        m.snapshotReady() ? "0x" + Integer.toHexString(m.connectionMask()).toUpperCase(Locale.ROOT)
+                                : "NOT READY • no connection mask"),
                 RseLdUiComponents.liveRow("AUTHORITY", "policy", () ->
-                        m.topologyValid() ? "SERVER SYNCHRONIZED" : "FAIL-CLOSED")
+                        !m.snapshotReady() ? "NOT READY • awaiting server authority"
+                                : m.topologyValid() ? "SERVER SYNCHRONIZED" : "FAIL-CLOSED")
         );
     }
 
@@ -211,7 +217,8 @@ public final class EnhancedFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(4));
         panel.addChildren(
                 new Label().setText("MECHANISM FLOW • RX → MODEL / STATE → TX"),
-                RseLdUiComponents.liveRow("ROUTE", "facing", () -> facingName(m.facingOrdinal())),
+                RseLdUiComponents.liveRow("ROUTE", "facing", () ->
+                        m.snapshotReady() ? facingName(m.facingOrdinal()) : "NOT READY • awaiting server route"),
                 RseLdUiComponents.liveRow("ROUTE", "endpoint flags", () ->
                         "RX=" + m.hasInputEndpoint() + " • TX=" + m.hasOutputEndpoint()
                                 + " • series=" + m.seriesConfigurable())
