@@ -165,6 +165,9 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
             default -> -1;
         };
         if (rawParam < 0) return false;
+        // Re-entering the current coefficient is an acknowledged no-op.
+        // Avoid redundant neighbor notifications and scheduled transfer ticks.
+        if (state.getValue(PARAM) == rawParam) return true;
 
         BlockState next = state.setValue(PARAM, rawParam);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
