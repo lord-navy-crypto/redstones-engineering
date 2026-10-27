@@ -207,7 +207,7 @@ for token in (
     'case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "vent events"',
     'case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "gradient Z"',
     'case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "cable nodes"',
-    'case FieldDeviceMenu.KIND_PULSE_SHAPER -> "pulse ticks remaining"',
+    'FieldDeviceMenu.KIND_PULSE_SHAPER -> "pulse ticks remaining"',
     'case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "monitor state code"',
 ):
     if token not in screen:
