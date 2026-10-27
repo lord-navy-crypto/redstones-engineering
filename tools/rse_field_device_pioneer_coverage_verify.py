@@ -176,6 +176,82 @@ for power in range(16):
     if power == 0 and next_power != 0:
         errors.append("zero-valued Redstone propagation must remain zero")
 
+# PR229 breadth rollout: direct-entry equality is checked AFTER range validation
+# and BEFORE a real block write, network recompute, or scheduled device tick.
+common_direct = (
+    ("SignalProbeBlock", "SignalProbeBlock.CHANNEL", "value"),
+    ("PrecisionFilterBlock", "PrecisionFilterBlock.RATE", "value"),
+    ("RedstoneReferenceSourceBlock", "RedstoneReferenceSourceBlock.POWER", "value"),
+    ("LapisPrecisionSourceBlock", "LapisPrecisionSourceBlock.VALUE", "value"),
+    ("DigitalRegeneratorBlock", "DigitalRegeneratorBlock.THRESHOLD", "value"),
+    ("PressureRegulatorBlock", "PressureRegulatorBlock.SETPOINT", "value / 25"),
+    ("PneumaticReliefValveBlock", "PneumaticReliefValveBlock.SETPOINT", "value / 25"),
+    ("PermanentMagnetBlock", "PermanentMagnetBlock.STRENGTH", "value"),
+    ("InductionCoilBlock", "InductionCoilBlock.TURNS", "value"),
+    ("OpticalEmitterBlock", "OpticalEmitterBlock.INTENSITY", "value"),
+    ("OpticalChannelFilterBlock", "OpticalChannelFilterBlock.TARGET", "value"),
+    ("OpticalAttenuatorBlock", "OpticalAttenuatorBlock.LOSS", "value"),
+)
+method_start = menu.find("private boolean applyDirectPrimaryEngineeringValue(")
+method_end = menu.find("private boolean rotateEndpoint(", method_start)
+direct_method = menu[method_start:method_end] if method_start >= 0 and method_end > method_start else ""
+if not direct_method:
+    errors.append("Missing shared server-authoritative FieldDevice numeric entry path")
+
+for name, property_name, value in common_direct:
+    import re
+    match = re.search(r"if \\(block instanceof " + re.escape(name) + r"\\b[^)]*\\) \\{([\\s\\S]*?)(?=\\n        (?:if \\(block instanceof|return false;))", direct_method)
+    if match is None:
+        errors.append(f"{name}: missing direct-entry server branch")
+        continue
+    body = match.group(1)
+    guard = f"if (state.getValue({property_name}) == {value}) return true;"
+    if guard not in body:
+        errors.append(f"{name}: unchanged value must not cause a new server write")
+    elif body.find("return false;") > body.find(guard):
+        errors.append(f"{name}: validation must precede the idempotency guard")
+    if "level.setBlock(" not in body or body.find(guard) > body.find("level.setBlock("):
+        errors.append(f"{name}: idempotency guard must precede the block write")
+
+for token in (
+    "setNumbersOnlyInt(directMinimum(m.kind()), directMaximum(m.kind()))",
+    "if (!m.snapshotReady()) return;",
+    "m.snapshotReady() ? Integer.toString(controlValue(m)) :",
+    "m.snapshotReady()",
+    "private static int directMinimum(int kind)",
+    "private static int directMaximum(int kind)",
+    "private static String modeReadback(FieldDeviceMenu m)",
+    "CABLE → VANILLA (OUTPUT)",
+    "VANILLA → CABLE (INPUT)",
+    'm.tertiary() != 0 ? "OPEN" : "CLOSED"',
+    "READ-ONLY HMI • no fake control",
+    'RseLdUiComponents.fixedRow("MODEL"',
+):
+    if token not in screen:
+        errors.append(f"Shared LDLib2 HMI breadth contract missing {token!r}")
+
+for name in ("MechanicalExciterBlock", "HydroacousticExciterBlock"):
+    content = read(f"src/main/java/dev/redstoneengineering/block/{name}.java")
+    if "if (state.getValue(FREQUENCY) == frequency) return true;" not in content:
+        errors.append(f"{name}: repeated frequency must not retrigger excitation")
+    if "if (level.isClientSide || frequency < 1 || frequency > 15) return false;" not in content:
+        errors.append(f"{name}: direct frequency must be server-only and bounded")
+
+universal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+for token in (
+    'menu.snapshotReady() ? primaryDisplay(menu) : ""',
+    'menu.snapshotReady() ? secondaryDisplay(menu) : ""',
+    "if (menu.snapshotReady()) applyPrimary(menu, value);",
+    "if (menu.snapshotReady()) applySecondary(menu, value);",
+    'RseLdUiComponents.liveRow("SYNC", "parameter state"',
+):
+    if token not in universal_ui:
+        errors.append(f"Universal LDLib2 parameter rollout missing {token!r}")
+
+engineering_tests = read("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
+if "mechanicalAndHydroExactFrequencyEntriesAreBounded" not in engineering_tests:
+    errors.append("Missing two-medium frequency GameTest in registered EngineeringUi suite")
+
 # Client must remain presentation-only.
 for forbidden in (
     "dev.redstoneengineering.physics",
