@@ -123,6 +123,15 @@ for family, block_id, cls in records:
         "gametest_verified_by_this_audit": False,
     })
 
+# Source-level acceptance witness for the newly recovered passive medium.
+# The in-game test itself runs only when NeoForge GameTests are invoked.
+engineering_tests = read(ROOT / "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
+registration = read(ROOT / "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
+if "slimeConduitProvidesNonInvasiveSixPortInspector" not in engineering_tests:
+    errors.append("Slime conduit source-level UI recovery lacks a non-invasive GameTest")
+if "event.register(RseEngineeringUiGameTests.class);" not in registration:
+    errors.append("Engineering UI runtime contracts are not registered with NeoForge")
+
 rows.sort(key=lambda item: (item["registry"], item["id"]))
 summary = {
     "registered_total": len(rows),
