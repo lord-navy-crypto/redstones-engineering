@@ -200,10 +200,15 @@ if not direct_method:
 
 for name, property_name, value in common_direct:
     import re
-    match = re.search(r"if \\(block instanceof " + re.escape(name) + r"\\b[^)]*\\) \\{([\\s\\S]*?)(?=\\n        (?:if \\(block instanceof|return false;))", direct_method)
-    if match is None:
+    marker = "if (block instanceof " + name
+    start = direct_method.find(marker)
+    end = direct_method.find("\n        if (block instanceof ", start + len(marker)) if start >= 0 else -1
+    if end < 0:
+        end = direct_method.rfind("\n        return false;")
+    if start < 0 or end <= start:
         errors.append(f"{name}: missing direct-entry server branch")
         continue
+    body = direct_method[start:end]
     body = match.group(1)
     guard = f"if (state.getValue({property_name}) == {value}) return true;"
     if guard not in body:
