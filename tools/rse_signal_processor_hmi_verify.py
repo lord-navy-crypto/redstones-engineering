@@ -89,6 +89,32 @@ for token in (
 if '"SETTLED":"SETTLING"' in ld_ui:
     errors.append("Signal Processor displays numeric equality as verified filter health")
 
+# Operator controls must not mutate client-side world state, and repeated
+# direct entry of an unchanged parameter must not enqueue redundant ticks.
+def method_fragment(source, signature, label):
+    start = source.find(signature)
+    if start < 0:
+        errors.append(f"{label}: missing method {signature!r}")
+        return ""
+    end = source.find("\n    }", start)
+    if end < 0:
+        errors.append(f"{label}: unterminated method {signature!r}")
+        return ""
+    return source[start:end]
+
+for source, signature, guard, label in (
+    (precision, "public static boolean stepRate(", "if (level.isClientSide) return false;", "PrecisionFilterBlock.stepRate"),
+    (precision, "public static boolean setRate(", "if (level.isClientSide || rate < 1 || rate > 4) return false;", "PrecisionFilterBlock.setRate"),
+    (pulse, "public static boolean stepWidth(", "if (level.isClientSide) return false;", "PulseShaperBlock.stepWidth"),
+    (pulse, "public static boolean setWidth(", "if (level.isClientSide || width < 1 || width > 8) return false;", "PulseShaperBlock.setWidth"),
+):
+    require(method_fragment(source, signature, label), guard, label)
+
+require(method_fragment(precision, "public static boolean setRate(", "PrecisionFilterBlock.setRate"),
+        "if (state.getValue(RATE) == rate) return true;", "PrecisionFilterBlock.setRate")
+require(method_fragment(pulse, "public static boolean setWidth(", "PulseShaperBlock.setWidth"),
+        "if (state.getValue(WIDTH) == width) return true;", "PulseShaperBlock.setWidth")
+
 # Guard against reintroducing duplicate direct parameter mutation in the dedicated HMI.
 for forbidden in (
     "state.setValue(PrecisionFilterBlock.RATE",
