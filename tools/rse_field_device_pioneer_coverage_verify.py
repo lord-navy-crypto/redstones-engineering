@@ -196,7 +196,7 @@ aux_end = screen.find("private static String auxiliarySymbol(", aux_start)
 if aux_start < 0 or aux_end <= aux_start:
     errors.append("FieldDevice auxiliary metric coverage selector missing")
 else:
-    actual_auxiliary = set(re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", screen[aux_start:aux_end]))
+    actual_auxiliary = set(re.findall(r"FieldDeviceMenu\.(KIND_[A-Z0-9_]+)", screen[aux_start:aux_end]))
     if actual_auxiliary != expected_auxiliary:
         errors.append(f"FieldDevice auxiliary mapping drift missing={sorted(expected_auxiliary-actual_auxiliary)} extra={sorted(actual_auxiliary-expected_auxiliary)}")
 for token in (
