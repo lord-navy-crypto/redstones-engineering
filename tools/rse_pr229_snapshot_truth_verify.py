@@ -32,7 +32,9 @@ def requires(src, title, tokens):
 # may only be shown after the server DataSlots are synchronized.
 requires(field, "EnhancedFieldDevice", (
     '!m.snapshotReady() ? "NOT READY • awaiting server snapshot"',
-    'm.snapshotReady() ? Integer.toString(m.driverCount()) : "NOT READY • no server count"',
+    '!m.snapshotReady() ? "NOT READY • awaiting server metric"',
+    'hasAuxiliaryMetric(m.kind()) ? Integer.toString(m.driverCount())',
+    '"NOT REPORTED • no auxiliary metric"',
     'm.snapshotReady() ? m.portCount() + " / " + m.connectionCount()',
     '"NOT READY • no server topology"',
     '"NOT READY • no connection mask"',
