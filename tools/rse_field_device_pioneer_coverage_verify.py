@@ -209,7 +209,6 @@ for name, property_name, value in common_direct:
         errors.append(f"{name}: missing direct-entry server branch")
         continue
     body = direct_method[start:end]
-    body = match.group(1)
     guard = f"if (state.getValue({property_name}) == {value}) return true;"
     if guard not in body:
         errors.append(f"{name}: unchanged value must not cause a new server write")
