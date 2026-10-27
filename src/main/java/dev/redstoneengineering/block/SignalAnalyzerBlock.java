@@ -320,6 +320,9 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         if (level.isClientSide || offset < -2 || offset > 2) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SignalAnalyzerBlock)) return false;
+        // Re-entering the displayed value is not a new calibration experiment.
+        // Do not allocate runtime or increment switch evidence on a no-op.
+        if (state.getValue(CALIBRATION) == offset + 2) return true;
         level.setBlock(pos, state.setValue(CALIBRATION, offset + 2), Block.UPDATE_CLIENTS);
         RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[15]++;
         return true;
@@ -329,6 +332,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         if (level.isClientSide || reference < 0 || reference > 15) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SignalAnalyzerBlock)) return false;
+        if (state.getValue(REFERENCE) == reference) return true;
         level.setBlock(pos, state.setValue(REFERENCE, reference), Block.UPDATE_CLIENTS);
         RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[16]++;
         return true;
