@@ -24,7 +24,9 @@ MAX_LINE_BYTES = 8192
 MILESTONE_BYTES = 32 * 1024 * 1024
 signal = re.compile(
     rb"All \d+ required tests passed|(?:required )?tests? failed|"
-    rb"GameTest|Exception|Traceback|ERROR|WARN|FAIL|"
+    rb"LogTestReporter|GameTestRunner|GameTestHooks|"
+    rb"Started game test server|tests are now running|"
+    rb"Exception|Traceback|ERROR|WARN|FAIL|"
     rb"NoClassDefFoundError|Too many chained neighbor updates|"
     rb"(?:\d+) tests? (?:passed|failed)",
     flags=re.I,
@@ -50,7 +52,10 @@ for raw in sys.stdin.buffer:
     tail_size += len(fragment)
     while tail_size > MAX_TAIL_BYTES and tail:
         tail_size -= len(tail.popleft())
-    if signal.search(raw):
+    # The GameTest server repeats its [X+__...] progress bar hundreds of
+    # thousands of times. Retain actual failures, not redundant status bars.
+    is_progress_bar = b"[minecraft/GameTestServer]: [" in raw
+    if not is_progress_bar and signal.search(raw):
         marker_count += 1
         markers.append(raw[-MAX_MARKER_BYTES:])
         if live_notice_count < 40:
