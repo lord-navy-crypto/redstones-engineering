@@ -109,6 +109,51 @@ individual GUI is visually correct or that its parameters have passed
 in-world multiplayer validation. The physical GameTest and `runClient`
 evidence remain separate from this 130-item static coverage gate.
 
+## 2026-10-27 continued — snapshot truth and typed auxiliary telemetry
+
+PR #229 now enforces snapshot readiness across shared **FieldDevice** and
+**Universal** LDLib2 surfaces. Before authoritative synchronization:
+configuration readback, driver counts, connection masks, route orientation,
+Pioneer process values, measurement rows, system headlines and safety
+permissives all show explicit **NOT READY / NOT EVALUATED** rather than a
+plausible fabricated zero. Unknown Pioneer quality ordinals are mapped to
+`NOT_READY`, distinct from an actual observed `NO_SIGNAL`.
+
+A second breadth issue was corrected: `FieldDeviceMenu.driverCount` is a
+shared transport slot with **27 different device types**, not universally a
+count of sources. The HMI now labels actual data according to the kind,
+including outlet pressure, vent events, gradient Z, remaining pulse ticks,
+source-counts, active channels, transition counts, protective hits and
+control state. Devices that never populate that slot show
+**NOT REPORTED**, not a phantom zero. CI checks the 27-way mapping and
+ensures the label cannot regress to a generic source count.
+
+### Actual GameTest diagnostic — not an acceptance pass
+
+A one-off attempt was executed on Actions run
+[40468504096](https://github.com/lord-navy-crypto/redstones-engineering/actions/runs/40468504096)
+from source commit `2903e083`. The GameTest server **started 421
+registered tests**. The collected runtime log contained **44 distinct
+`LogTestReporter` failed-test entries**, including signal processor,
+Pneumatic, Copper and device/UI contracts. No all-required-tests-passed
+summary was emitted before the diagnostic's 8-minute timeout. This means
+**the suite did not earn runtime acceptance**, even though the overall CI
+job remained green because this step is nonblocking. The temporary PR
+trigger was reverted: normal PR CI again skips the Minecraft server.
+
+The server emitted ~222 MB, largely repeated GameTest progress bars.
+`tools/rse_bounded_gametest_log.py` now streams that output into a
+size-bounded artifact with startup context, important failures and final
+tail; a synthetic >8MiB flood fixture in
+`tools/rse_bounded_gametest_log_verify.py` protects against relevant
+errors being evicted by repetitive progress lines. This new capture tool
+was **not retroactively used** for the prior 222 MB GameTest attempt.
+
+Remaining work for actual gameplay acceptance: isolate the registered
+GameTest failures, run supported tests to completion, and inspect the
+individual LDLib2 screens inside a real Minecraft client. Do not promote
+static code-entry coverage into in-world functional certification.
+
 ## Acceptance gates
 
 1. **Static**: `rse_field_device_pioneer_coverage_verify.py` audits taxonomy
