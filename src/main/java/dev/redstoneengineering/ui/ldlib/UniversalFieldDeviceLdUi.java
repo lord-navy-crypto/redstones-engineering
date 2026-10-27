@@ -265,7 +265,12 @@ public final class UniversalFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(4));
         panel.addChildren(
                 new Label().setText("FORMULA PARAMETER WORKBENCH"),
-                RseLdUiComponents.liveRow("MODEL", "config", () -> configName(menu.configKind()))
+                RseLdUiComponents.liveRow("MODEL", "config", () -> configName(menu.configKind())),
+                RseLdUiComponents.liveRow("SYNC", "parameter state", () ->
+                        menu.snapshotReady()
+                                ? "SERVER READBACK • validated configuration"
+                                : "NOT READY • input disabled until first synchronized snapshot"),
+                RseLdUiComponents.liveRow("EVIDENCE", "parameter quality", menu::evidenceStateLabel)
         );
 
         if (kind == UniversalFieldDeviceMenu.CONFIG_NONE) {
@@ -310,8 +315,10 @@ public final class UniversalFieldDeviceLdUi {
             var input = new TextField();
             input.layout(l -> l.width(130));
             input.bind(DataBindingBuilder.string(
-                    () -> primaryDisplay(menu),
-                    value -> applyPrimary(menu, value)
+                    () -> menu.snapshotReady() ? primaryDisplay(menu) : "",
+                    value -> {
+                        if (menu.snapshotReady()) applyPrimary(menu, value);
+                    }
             ).build());
 
             panel.addChildren(
@@ -343,8 +350,10 @@ public final class UniversalFieldDeviceLdUi {
         var input = new TextField();
         input.layout(l -> l.width(130));
         input.bind(DataBindingBuilder.string(
-                () -> secondaryDisplay(menu),
-                value -> applySecondary(menu, value)
+                () -> menu.snapshotReady() ? secondaryDisplay(menu) : "",
+                value -> {
+                    if (menu.snapshotReady()) applySecondary(menu, value);
+                }
         ).build());
 
         panel.addChildren(
