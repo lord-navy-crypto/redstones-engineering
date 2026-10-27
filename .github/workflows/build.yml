@@ -158,11 +158,11 @@ jobs:
       - name: Gradle tests
         run: ./gradlew test --no-daemon --stacktrace
 
-      # GameTests are retained as explicit runtime evidence, but are no longer a normal PR/push gate.
-      # They have historically been expensive and can fail independently of the static/compile/unit chain.
-      # Run them deliberately from workflow_dispatch when runtime-topology evidence is wanted.
+      # TEMPORARY PR #229 focused runtime diagnostic: the pre-existing manual diagnostic
+      # is enabled only on this exact feature branch to gather Minecraft GameTest evidence.
+      # It is not a merge gate. Restore the manual-only condition after collecting the log.
       - name: Minecraft topology GameTests (manual diagnostic)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.head_ref == 'automation/rse-formula-parameter-workbench')
         continue-on-error: true
         shell: bash
         run: |
