@@ -419,10 +419,10 @@ public final class UniversalFieldDeviceLdUi {
                     RseLdUiComponents.liveRow("PERMISSIVE", "A / B / C", () -> !menu.snapshotReady() ? "A=? / B=? / C=? • NOT EVALUATED"
                              : interlockInputs(menu.configPrimary())),
                     RseLdUiComponents.liveRow("EVIDENCE", "blocked / permitted evaluations", () ->
-                            menu.configPrimary() < 0 ? "NOT EVALUATED" :
+                            (!menu.snapshotReady() || menu.configPrimary() < 0) ? "NOT EVALUATED" :
                                     menu.interlockBlockedTicks() + " / " + menu.interlockPermittedTicks()),
                     RseLdUiComponents.liveRow("EVIDENCE", "permit transitions", () ->
-                            menu.configPrimary() < 0 ? "NOT EVALUATED" :
+                            (!menu.snapshotReady() || menu.configPrimary() < 0) ? "NOT EVALUATED" :
                                     Integer.toString(menu.interlockTransitions())),
                     new Label().setText("Counts are retained server evaluations (nominal 2-tick cycle), not elapsed game ticks.")
             );
@@ -441,6 +441,7 @@ public final class UniversalFieldDeviceLdUi {
     }
 
     private static String systemHeadline(UniversalFieldDeviceMenu menu) {
+        if (!menu.snapshotReady()) return "NOT READY • awaiting server state";
         return switch (menu.configKind()) {
             case UniversalFieldDeviceMenu.CONFIG_ALARM -> switch (menu.configSecondary()) {
                 case 2 -> "ALARM • ACTIVE / UNACK";
@@ -461,6 +462,7 @@ public final class UniversalFieldDeviceLdUi {
     }
 
     private static String systemDetail(UniversalFieldDeviceMenu menu) {
+        if (!menu.snapshotReady()) return "NOT READY • awaiting server detail";
         return switch (menu.configKind()) {
             case UniversalFieldDeviceMenu.CONFIG_ALARM ->
                     menu.configSecondary() == 2 ? "attention=UNACKNOWLEDGED • ACK is allowed"
