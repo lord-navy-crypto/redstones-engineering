@@ -68,7 +68,11 @@ def first_interaction(cls):
                 elif source[j] == "}":
                     balance -= 1
                 j += 1
-            return source[i:j], "DIRECT" if depth == 0 else "INHERITED", cls, depth
+            body = source[i:j]
+            # A child may implement a Shift-only quick action and explicitly
+            # delegate ordinary right-click to its parent engineering HMI.
+            if classify(body) != "NO_GUI" or "super.useWithoutItem(" not in body:
+                return body, "DIRECT" if depth == 0 else "INHERITED", cls, depth
         base = re.search(r'\bclass\s+' + re.escape(cls)
                          + r'\b[^\{]*?\bextends\s+([A-Za-z0-9_]+)', source, re.S)
         if not base:
@@ -83,6 +87,14 @@ def classify(interaction):
         return "SHARED_OR_DEDICATED_LDLIB2"
     if re.search(r'\bopenMenu\s*\(', interaction):
         return "DEDICATED_LDLIB2"
+    # Industrial and operations devices delegate to dedicated opener helpers
+    # instead of exposing openMenu() directly from the block method. Resolve
+    # that helper and require that it actually opens a menu.
+    helper_call = re.search(r'\b([A-Za-z][A-Za-z0-9_]*Ui)\.open\s*\(', interaction)
+    if helper_call:
+        helper = read(ROOT / "src/main/java/dev/redstoneengineering/ui" / (helper_call.group(1) + ".java"))
+        if re.search(r'\bopenMenu\s*\(', helper):
+            return "DEDICATED_HELPER_LDLIB2"
     return "NO_GUI"
 
 records, errors = registered()
