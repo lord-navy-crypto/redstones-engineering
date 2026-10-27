@@ -1049,17 +1049,20 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     private boolean applyDirectPrimaryEngineeringValue(Block block, BlockState state, int value) {
         if (block instanceof SignalProbeBlock) {
             if (value < 0 || value > 3) return false;
+            if (state.getValue(SignalProbeBlock.CHANNEL) == value) return true;
             level.setBlock(blockPos, state.setValue(SignalProbeBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
             return true;
         }
         if (block instanceof PrecisionFilterBlock filter) {
             if (value < 1 || value > 4) return false;
+            if (state.getValue(PrecisionFilterBlock.RATE) == value) return true;
             level.setBlock(blockPos, state.setValue(PrecisionFilterBlock.RATE, value), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, filter, 1);
             return true;
         }
         if (block instanceof RedstoneReferenceSourceBlock source) {
             if (value < 0 || value > 15) return false;
+            if (state.getValue(RedstoneReferenceSourceBlock.POWER) == value) return true;
             BlockState next = state.setValue(RedstoneReferenceSourceBlock.POWER, value);
             level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
             Direction front = next.getValue(DirectionalRedstoneEndpointBlock.FACING);
@@ -1069,6 +1072,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         }
         if (block instanceof LapisPrecisionSourceBlock) {
             if (value < 0 || value > 100 || value % 5 != 0) return false;
+            if (state.getValue(LapisPrecisionSourceBlock.VALUE) == value) return true;
             level.setBlock(blockPos, state.setValue(LapisPrecisionSourceBlock.VALUE, value), Block.UPDATE_CLIENTS);
             if (level instanceof net.minecraft.server.level.ServerLevel server) DomainNetwork.recomputeLapis(server, blockPos);
             return true;
@@ -1081,47 +1085,55 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         }
         if (block instanceof DigitalRegeneratorBlock regenerator) {
             if (value < 0 || value > 2) return false;
+            if (state.getValue(DigitalRegeneratorBlock.THRESHOLD) == value) return true;
             level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, value), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, regenerator, 1);
             return true;
         }
         if (block instanceof PressureRegulatorBlock regulator) {
             if (value < 25 || value > 100 || value % 25 != 0) return false;
+            if (state.getValue(PressureRegulatorBlock.SETPOINT) == value / 25) return true;
             level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, value / 25), Block.UPDATE_CLIENTS);
             if (level instanceof net.minecraft.server.level.ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
             return true;
         }
         if (block instanceof PneumaticReliefValveBlock) {
             if (value < 25 || value > 100 || value % 25 != 0) return false;
+            if (state.getValue(PneumaticReliefValveBlock.SETPOINT) == value / 25) return true;
             level.setBlock(blockPos, state.setValue(PneumaticReliefValveBlock.SETPOINT, value / 25), Block.UPDATE_CLIENTS);
             if (level instanceof net.minecraft.server.level.ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
             return true;
         }
         if (block instanceof PermanentMagnetBlock) {
             if (value < 1 || value > 15) return false;
+            if (state.getValue(PermanentMagnetBlock.STRENGTH) == value) return true;
             level.setBlock(blockPos, state.setValue(PermanentMagnetBlock.STRENGTH, value), Block.UPDATE_CLIENTS);
             return true;
         }
         if (block instanceof InductionCoilBlock coil) {
             if (value < 1 || value > 4) return false;
+            if (state.getValue(InductionCoilBlock.TURNS) == value) return true;
             level.setBlock(blockPos, state.setValue(InductionCoilBlock.TURNS, value), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, coil, 1);
             return true;
         }
         if (block instanceof OpticalEmitterBlock) {
             if (value < 0 || value > 15) return false;
+            if (state.getValue(OpticalEmitterBlock.INTENSITY) == value) return true;
             level.setBlock(blockPos, state.setValue(OpticalEmitterBlock.INTENSITY, value), Block.UPDATE_CLIENTS);
             if (level instanceof net.minecraft.server.level.ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
             return true;
         }
         if (block instanceof OpticalChannelFilterBlock filter) {
             if (value < 0 || value > 15) return false;
+            if (state.getValue(OpticalChannelFilterBlock.TARGET) == value) return true;
             level.setBlock(blockPos, state.setValue(OpticalChannelFilterBlock.TARGET, value), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, filter, 1);
             return true;
         }
         if (block instanceof OpticalAttenuatorBlock attenuator) {
             if (value < 0 || value > 8) return false;
+            if (state.getValue(OpticalAttenuatorBlock.LOSS) == value) return true;
             level.setBlock(blockPos, state.setValue(OpticalAttenuatorBlock.LOSS, value), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, attenuator, 1);
             return true;
