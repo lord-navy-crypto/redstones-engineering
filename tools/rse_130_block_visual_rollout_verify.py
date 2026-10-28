@@ -199,7 +199,7 @@ for state in (
     if state not in quality_guide:
         errors.append(f"missing evidence explanation: {state}")
 for phrase in ("not full acceptance", "not a fault verdict",
-               "could be an expected idle input", "not a current sample"):
+               "could be an expected idle input", "as a current sample"):
     if phrase not in quality_guide:
         errors.append(f"missing quality caveat: {phrase}")
 
