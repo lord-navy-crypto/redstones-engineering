@@ -402,3 +402,62 @@ capture, PID history with invalid current PV, and both cursor markers.
 Graph axes are manually verified only after screenshots and interactions,
 not merely because CI compiles.
 
+## 2026-10-28 hard requirement: all registered blocks
+
+**Scope is the complete current registry, not merely the recently improved
+oscilloscope, PID, and logic analyzer screens.** The registry consists of
+**122 core blocks + 8 EngineeringSystemsModule blocks = 130 blocks.**
+
+### Source-level rollout accomplished
+
+- The shared LDLib2 \`deviceContext(EngineeringDeviceMenu)\` widget now appears
+  in **all 23 registered block-facing UI families**. The actual title remains
+  the block-specific title; the new panel reports the **block location,
+  operational health, formal port role, quality of reported evidence, and
+  RX/TX faces**. These values come from the existing authoritative menu
+  snapshot and do not change the block physics or controls.
+- Before synchronization, HEALTH/ROLE/EVIDENCE/ROUTE remain **NOT READY**;
+  client-side initial slots must never become proof of a valid signal.
+  The strip does not assume that an unreported port implies a broken device.
+- This covers the shared FieldDevice (78-kind taxonomy), shared Universal
+  (23 config-kind families), dedicated scope/PID/logic/signal instruments,
+  Copper, Lapis, Quartz, radio, digital, optical, pneumatic, magnetic,
+  Amethyst, reliability, workcell, operations and industrial buffer menus.
+- All **130** registry records are retained in
+  \`.rse-audit/rse-130-block-hmi-coverage.{json,csv,md}\`. A second CI
+  gate \`tools/rse_130_block_visual_rollout_verify.py\` now binds this
+  130-block inventory to **every registered LDLib2 menu/screen/source
+  component**, instead of counting a few example blocks. It emits
+  \`.rse-audit/rse-130-block-visual-rollout.{json,md}\`.
+- **Intentional exception, not an omission:** \`engineering_compass\`
+  has a server-side non-mutating right-click world-direction/coordinate
+  readout, not a fabricated LDLib2 settings screen. The audit permits
+  this exception only and fails if additional non-GUI blocks appear.
+- The new CI gate fails if a newly registered block lacks an interaction
+  declaration, if a registered UI family loses its common context header,
+  or if a menu/screen stops referencing its expected LDLib2 component.
+  Additional device-specific controls still depend on their real server
+  block type and cannot be mass-invented.
+
+### Acceptance limitations and mandatory in-game checklist
+
+A registered HMI entry plus a verified menu family is **source-level
+coverage only**, not proof that each of the 129 HMI blocks opens correctly
+in Minecraft. Do not call this a fully game-tested 130/130 release.
+
+1. Execute a creative-world walkthrough across all registered block IDs.
+   Record actual GUI entry, device identity, evidence/quality semantics,
+   available controls, and read-only behavior.
+2. Include 320px/620px/740px window layouts; confirm the new common
+   context never occludes tabs, parameter fields, or critical controls.
+3. Repeat shared FieldDevice and Universal families with at least one
+   sample of each concrete kind; test direct-entry bounds, zero,
+   unsigned/signed values, presets and toggles where supported.
+4. Confirm specialized instruments and the eight systems blocks,
+   especially observer-only operations and industrial buffer screens.
+5. Run the nonblocking/manual GameTest suite explicitly and address
+   reported failures. Java/Gradle/CI source verification does not
+   constitute multiplayer or runClient screenshot acceptance.
+
+**Carry this all-registry requirement forward on every UI change.**
+
