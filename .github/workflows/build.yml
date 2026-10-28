@@ -45,6 +45,7 @@ jobs:
             tools/rse_pr229_snapshot_truth_verify.py \
             tools/rse_pr229_visual_workflow_verify.py \
             tools/test_rse_install_preflight.py \
+            tools/test_rse_install_kit.py \
             tools/rse_bounded_gametest_log_verify.py \
             tools/rse_122_block_closure_verify.py \
             tools/rse_neighbor_update_audit.py \
@@ -231,5 +232,38 @@ jobs:
           path: |
             build/libs/*.jar
             build/libs/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      # Assemble the actual JAR produced by THIS clean build, never a cached
+      # or manually copied file. PR 'github.sha' is usually a test-merge commit;
+      # preserve both that checkout SHA and the PR branch HEAD in BUILD_INFO.
+      - name: Build provenance-verified offline installation kit
+        shell: bash
+        env:
+          RSE_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RSE_BUILD_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'redstoneengineering-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | sort)
+          if (( ${#jars[@]} != 1 )); then
+            echo "::error::Expected exactly one built RSE runtime JAR, found ${#jars[@]}"
+            exit 1
+          fi
+          python3 tools/rse_install_kit.py \
+            --jar "${jars[0]}" \
+            --out build/install-kit \
+            --source-head "$RSE_SOURCE_HEAD_SHA" \
+            --checkout-sha "$RSE_BUILD_CHECKOUT_SHA"
+          sha256sum build/install-kit/*.zip > build/install-kit/SHA256SUMS-kit.txt
+          unzip -t build/install-kit/*.zip
+
+      - name: Upload verified RSE installation kit
+        uses: actions/upload-artifact@v6
+        with:
+          name: rse-install-kit-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            build/install-kit/*.zip
+            build/install-kit/SHA256SUMS-kit.txt
           if-no-files-found: error
           retention-days: 14
