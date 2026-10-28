@@ -109,8 +109,8 @@ public final class OscilloscopeLdUi {
         if (!cursorAValid || !cursorBValid) {
             return "05 / TRIGGER • A cursor points to an uncaptured slot. Move both cursors onto valid samples on the same channel.";
         }
-        if (menu.aliasRisk(0) != 0 || menu.aliasRisk(1) != 0) {
-            return "06 / SAMPLING • Review channel-specific alias warnings and sampling interval before interpreting frequency.";
+        if (menu.aliasRisk(0) != 3 || menu.aliasRisk(1) != 3) {
+            return "06 / SAMPLING • Alias evidence is not GOOD for both channels. Review risk, coverage and sample interval.";
         }
         return "07 / EXPERIMENT • Inspect both channel coverage and cursor evidence; compare frozen baseline/candidate only after capture.";
     }
