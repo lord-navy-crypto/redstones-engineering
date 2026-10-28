@@ -51,9 +51,9 @@ with TemporaryDirectory(prefix="rse-gametest-log-") as folder:
         raise SystemExit("Missing GameTest failure triage tool")
     report = Path(folder) / "triage.md"
     target.write_text(
-        "[Server thread/ERROR] [minecraft/LogTestReporter]: frozenregistrytest failed at 1,2,3! Registry is already frozen\\n"
-        "[Server thread/ERROR] [minecraft/LogTestReporter]: frozenregistrytest failed at 1,2,3! Registry is already frozen\\n"
-        "All 2 required tests passed :)\\n",
+        "[Server thread/ERROR] [minecraft/LogTestReporter]: frozenregistrytest failed at 1,2,3! Registry is already frozen\n"
+        "[Server thread/ERROR] [minecraft/LogTestReporter]: frozenregistrytest failed at 1,2,3! Registry is already frozen\n"
+        "All 2 required tests passed :)\n",
         encoding="utf-8",
     )
     subprocess.run([sys.executable, str(triage), str(target), str(report)],
@@ -63,12 +63,12 @@ with TemporaryDirectory(prefix="rse-gametest-log-") as folder:
             or "INCOMPLETE OR FAILED" not in suspicious
             or suspicious.count("frozenregistrytest") != 1):
         raise SystemExit("GameTest triage counted duplicate failures or claimed false acceptance")
-    target.write_text("All 2 required tests passed :)\\n", encoding="utf-8")
+    target.write_text("All 2 required tests passed :)\n", encoding="utf-8")
     subprocess.run([sys.executable, str(triage), str(target), str(report)],
                    capture_output=True, timeout=20, check=True)
     if ("Evidence result: **PASS (log evidence)**" not in report.read_text(encoding="utf-8")):
         raise SystemExit("GameTest triage failed to recognize a clean formal pass")
-    target.write_text("No conclusive test summary yet\\n", encoding="utf-8")
+    target.write_text("No conclusive test summary yet\n", encoding="utf-8")
     subprocess.run([sys.executable, str(triage), str(target), str(report)],
                    capture_output=True, timeout=20, check=True)
     if ("INCOMPLETE OR FAILED" not in report.read_text(encoding="utf-8")):
