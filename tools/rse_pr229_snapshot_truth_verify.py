@@ -65,6 +65,22 @@ requires(universal, "UniversalFieldDevice", (
     'menu.snapshotReady() ? primaryDisplay(menu) : ""',
     'menu.snapshotReady() ? secondaryDisplay(menu) : ""',
 ))
+# PR229 operator-state truth: a default DataSlot 0 must not claim PWM
+# NORMAL, an already-acknowledged alarm, or synchronized evidence before the
+# first server packet. A receiver's gain is a configuration setting, not a
+# metrology sample (which may legitimately be missing).
+requires(universal, "Universal operator-state/readback truth", (
+    '() -> !menu.snapshotReady() ? "NOT READY • awaiting server inversion state"',
+    'if (!menu.snapshotReady()) return "NOT READY • awaiting server action state";',
+    '"NOT READY • awaiting first authoritative port snapshot"',
+    'MolecularCloudReceiverBlock.gainFor(menu.configPrimary())',
+    'import dev.redstoneengineering.block.MolecularCloudReceiverBlock;',
+))
+if 'return Integer.toString(menu.pioneerProcessQuinary());' in universal:
+    errors.append("Molecular receiver configured gain still depends on process measurement slot")
+if 'new Label().setText("SYNCHRONIZED SNAPSHOT")' in universal:
+    errors.append("Unsynchronized Universal Evidence page still claims synchronized snapshot")
+
 # Both genuinely absent records and never synchronized initial value must
 # remain NOT_READY, not be substituted with a physically meaningful NO_SIGNAL.
 for name in ("pioneerProcessEvidenceQuality", "pioneerEvidenceQuality"):
