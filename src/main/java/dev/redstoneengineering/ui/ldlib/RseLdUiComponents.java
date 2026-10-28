@@ -164,19 +164,53 @@ public final class RseLdUiComponents {
     public static UIElement deviceContext(EngineeringDeviceMenu menu) {
         var header = new UIElement().addClass("panel_bg");
         header.layout(l -> l.widthPercent(100).paddingAll(5).gapAll(3));
-        header.addChildren(
-                liveText(() -> "DEVICE • " + menu.blockPos().toShortString()
-                        + "   |   HEALTH • " + menu.operationalHealthLabel())
+
+        // The initial two readouts remain visible on every page. The rest is
+        // opt-in so a small 500x340 Minecraft GUI retains room for controls.
+        var details = new UIElement().addClass("panel_bg");
+        details.layout(l -> l.widthPercent(100).paddingAll(5).gapAll(3));
+        details.addChildren(
+                liveText(() -> "HEALTH • " + menu.operationalHealthLabel()
+                        + "   |   ROLE • "
+                        + (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
+                                ? "NOT READY" : menu.topologyRoleLabel()))
                         .layout(l -> l.widthPercent(100)),
-                liveText(() -> {
-                    if (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED) {
-                        return "ROLE • NOT READY   |   EVIDENCE • NOT READY"
-                                + "   |   I/O • awaiting server route snapshot";
-                    }
-                    return "ROLE • " + menu.topologyRoleLabel()
-                            + "   |   EVIDENCE • " + menu.evidenceStateLabel()
-                            + "   |   " + menu.portRouteLabel();
-                }).layout(l -> l.widthPercent(100))
+                liveText(() -> "EVIDENCE • " +
+                        (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
+                                ? "NOT READY" : menu.evidenceStateLabel()))
+                        .layout(l -> l.widthPercent(100)),
+                liveText(menu::portRouteLabel).layout(l -> l.widthPercent(100)),
+                wrappedLabel("READING KEY • health is the operating/safety state; "
+                        + "evidence describes reported port observations, not every internal "
+                        + "measurement. UNKNOWN and NO SIGNAL do not by themselves prove a fault.")
+                        .layout(l -> l.widthPercent(100))
+        );
+        details.setDisplay(false);
+
+        // Purely local view state: opening details does not emit a menu click,
+        // change a block setting, or re-run any server-side physics.
+        var detailToggle = new Button().setText("Show evidence ▼");
+        final boolean[] expanded = {false};
+        detailToggle.setOnClick(event -> {
+            expanded[0] = !expanded[0];
+            details.setDisplay(expanded[0]);
+            detailToggle.setText(expanded[0] ? "Hide evidence ▲" : "Show evidence ▼");
+        });
+        detailToggle.layout(l -> l.height(20).minWidth(120).paddingAll(4));
+
+        header.addChildren(
+                liveText(() -> "DEVICE • " + menu.deviceDisplayName()
+                        + "   |   POS • " + menu.blockPos().toShortString())
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> "HEALTH • " + menu.operationalHealthLabel()
+                        + "   |   EVIDENCE • "
+                        + (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
+                                ? "NOT READY" : menu.evidenceStateLabel()))
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> "NEXT CHECK • " + menu.operatorCheckLabel())
+                        .layout(l -> l.widthPercent(100)),
+                detailToggle,
+                details
         );
         return header;
     }
