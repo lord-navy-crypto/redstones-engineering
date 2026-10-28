@@ -81,9 +81,12 @@ public final class EnhancedFieldDeviceLdUi {
         var panel = new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new Label().setText("PIONEER / MODEL / VARIABLES"),
                 RseLdUiComponents.formulaCard(modelContract(m.kind())),
-                RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 0), () -> qualifiedRawMetric(m, m.primary())),
-                RseLdUiComponents.liveRow("MEASURED", metricLabel(m.kind(), 1), () -> qualifiedRawMetric(m, m.secondary())),
-                RseLdUiComponents.liveRow("STATE", metricLabel(m.kind(), 2), () -> qualifiedRawMetric(m, m.tertiary()))
+                RseLdUiComponents.liveRow(modelSlotRole(m.kind(), 0), modelSlotSymbol(m.kind(), 0),
+                        () -> modelSlotValue(m, 0, m.primary())),
+                RseLdUiComponents.liveRow(modelSlotRole(m.kind(), 1), modelSlotSymbol(m.kind(), 1),
+                        () -> modelSlotValue(m, 1, m.secondary())),
+                RseLdUiComponents.liveRow(modelSlotRole(m.kind(), 2), modelSlotSymbol(m.kind(), 2),
+                        () -> modelSlotValue(m, 2, m.tertiary()))
         );
         // Show the *real* server-backed tuning variable with the governing
         // model on Overview, rather than hiding it on a separate Configure tab.
@@ -213,6 +216,45 @@ public final class EnhancedFieldDeviceLdUi {
             case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "TOPOLOGY";
             default -> "EVIDENCE";
         };
+    }
+
+    /**
+     * Different FieldDevice families store their operator configuration in
+     * different DataSlots. A configured zero remains authoritative even with
+     * no physical input; measured/derived values still require port quality.
+     */
+    private static int configuredSlot(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_PROBE,
+                 FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
+                 FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> 1;
+            case FieldDeviceMenu.KIND_FILTER,
+                 FieldDeviceMenu.KIND_DIGITAL_REGENERATOR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE,
+                 FieldDeviceMenu.KIND_INDUCTION_COIL,
+                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> 2;
+            case FieldDeviceMenu.KIND_REFERENCE,
+                 FieldDeviceMenu.KIND_LAPIS_SOURCE,
+                 FieldDeviceMenu.KIND_PERMANENT_MAGNET,
+                 FieldDeviceMenu.KIND_OPTICAL_EMITTER -> 0;
+            default -> -1;
+        };
+    }
+
+    private static String modelSlotRole(int kind, int slot) {
+        return configuredSlot(kind) == slot ? "SETPOINT" : slot == 2 ? "STATE" : "MEASURED";
+    }
+
+    private static String modelSlotSymbol(int kind, int slot) {
+        return configuredSlot(kind) == slot ? formulaSymbol(kind) : metricLabel(kind, slot);
+    }
+
+    private static String modelSlotValue(FieldDeviceMenu m, int slot, int raw) {
+        if (configuredSlot(m.kind()) != slot) return qualifiedRawMetric(m, raw);
+        return m.snapshotReady() ? raw + " • CONFIGURED (SERVER)"
+                : "NOT READY • awaiting server configuration";
     }
 
     /** Preserve server-owned raw values for engineering diagnostics, but do not
