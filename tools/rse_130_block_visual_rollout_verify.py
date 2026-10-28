@@ -77,6 +77,9 @@ required_base = (
     "public String topologyRoleLabel()",
     "public String portRouteLabel()",
     "public BlockPos blockPos()",
+    "public String deviceDisplayName()",
+    "public String operatorCheckLabel()",
+    "public static String operatorCheckLabel(int health, int evidence)",
     "this.operationalHealth.set(HEALTH_UNVERIFIED)",
     "this.evidenceState.set(EVIDENCE_NOT_READY)",
     "refreshOperationalHealth();",
@@ -89,6 +92,11 @@ for token in (
     "public static UIElement deviceContext(EngineeringDeviceMenu menu)",
     "EngineeringDeviceMenu.HEALTH_UNVERIFIED",
     "menu.blockPos().toShortString()",
+    "menu.deviceDisplayName()",
+    "menu.operatorCheckLabel()",
+    'details.setDisplay(false)',
+    'details.setDisplay(expanded[0])',
+    'new Button().setText("Show evidence ▼")',
     "menu.operationalHealthLabel()",
     "menu.topologyRoleLabel()",
     "menu.evidenceStateLabel()",
@@ -97,6 +105,59 @@ for token in (
 ):
     if token not in shared:
         errors.append(f"shared HMI evidence context missing: {token!r}")
+
+
+# For ALL 23 families, guide priority must be deterministic and must not
+# equate missing/unknown evidence with a physical fault.
+guide_start = base.find("public static String operatorCheckLabel(int health, int evidence)")
+guide_end = base.find("public int receivePortMask()", guide_start)
+if guide_start < 0 or guide_end <= guide_start:
+    errors.append("missing bounded common status-to-next-check projection")
+    guide = ""
+else:
+    guide = base[guide_start:guide_end]
+checks = [
+    ("initial unsynced", "health == HEALTH_UNVERIFIED"),
+    ("physical fault", "health == HEALTH_FAULT"),
+    ("topology error", "evidence == EVIDENCE_TOPOLOGY_ERROR"),
+    ("domain mismatch", "evidence == EVIDENCE_DOMAIN_MISMATCH"),
+    ("evidence fault", "evidence == EVIDENCE_FAULT"),
+    ("protective", "health == HEALTH_PROTECTIVE"),
+    ("degraded", "health == HEALTH_DEGRADED"),
+    ("stale", "evidence == EVIDENCE_STALE"),
+    ("saturated", "evidence == EVIDENCE_SATURATED"),
+    ("not ready", "evidence == EVIDENCE_NOT_READY"),
+    ("no signal", "evidence == EVIDENCE_NO_SIGNAL"),
+    ("unobserved", "evidence == EVIDENCE_UNOBSERVED"),
+    ("valid evidence", "evidence != EVIDENCE_VALID"),
+]
+last = -1
+for description, token in checks:
+    pos = guide.find(token)
+    if pos < 0:
+        errors.append(f"missing next-check branch: {description}")
+    elif pos <= last:
+        errors.append(f"incorrect next-check priority ordering: {description}")
+    else:
+        last = pos
+for token in ("NO PORT EVIDENCE • no fault verdict",
+              "NO SIGNAL • verify expected source before treating this as a fault",
+              "PROTECTIVE STATE • inspect safety conditions",
+              "WAIT FOR SERVER • initial health"):
+    if token not in guide:
+        errors.append(f"unsafe or missing status language: {token!r}")
+for forbidden in ("getBlockState(", "scheduleTick(", "setBlock(", "sendMenuButton(",
+                  "handleInventoryButtonClick(", "onServerClick("):
+    if forbidden in guide:
+        errors.append(f"operator guidance must be read-only: {forbidden!r}")
+if "details.setDisplay(false)" not in shared:
+    errors.append("compact device header must keep detailed panel collapsed initially")
+if "details.setDisplay(expanded[0])" not in shared:
+    errors.append("evidence toggle must actually change detail visibility")
+if "detailToggle.setOnClick(event ->" not in shared or "setOnServerClick" in shared.split(
+        "public static UIElement deviceContext(EngineeringDeviceMenu menu)", 1)[-1].split(
+        "public static UIElement fixedRow(", 1)[0]:
+    errors.append("details toggle must be client-local, never a server parameter action")
 
 families = []
 for menu_key, screen in block_screens:
@@ -132,7 +193,9 @@ for menu_key, screen in block_screens:
         errors.append(f"{menu_class}: cannot provide uniform server evidence")
     families.append({"menu_registry": menu_key, "screen": screen,
                      "menu": menu_class, "hmi": hmi_name,
-                     "context_mounted": context_call in ui_src})
+                     "context_mounted": context_call in ui_src,
+                     "shared_next_check": "menu.operatorCheckLabel()" in shared,
+                     "expandable_evidence": "details.setDisplay(expanded[0])" in shared})
 
 if len(families) != 23:
     errors.append(f"verified {len(families)} / 23 block-facing UI families")
@@ -150,6 +213,7 @@ for row in records:
         "source_entry": row.get("entry_kind"),
         "interaction_owner": row.get("interaction_owner"),
         "coverage": "PASSIVE_DATUM_READOUT" if is_exception else "REGISTERED_BLOCK_MENU_CONTRACT",
+        "common_diagnostics": "PASSIVE_NOT_APPLICABLE" if is_exception else "SHARED_ALL_FAMILIES",
         "runtime_client_checked": False,
         "multiplayer_checked": False,
         "screenshot_checked": False,
@@ -159,6 +223,8 @@ summary = {
     "core": sum(x["registry"] == "core" for x in matrix),
     "systems": sum(x["registry"] == "systems" for x in matrix),
     "shared_hmi_families": len(families),
+    "operator_next_check": "HEALTH_EVIDENCE_READ_ONLY",
+    "diagnostics_toggle": "CLIENT_ONLY_EXPANDABLE",
     "exception": "engineering_compass",
     "source_contract_pass": not errors,
     "errors": errors,
@@ -176,6 +242,7 @@ lines = [
     f"- Block-facing LDLib2 families: {len(families)} / 23",
     "- Intentional non-menu block: engineering_compass (server world-datum actionbar)",
     "- Every other block: declared HMI entry; all registered block menus: shared identity/health/evidence/route header",
+    "- All 23 menu families: next-check advice from server-synchronized evidence + optional local-only expanded details",
     "- In-game opening, layout, interactions, multiplayer and GameTests: **not certified**",
     "",
     "| ID | Registry | Source entry | Contract |",
@@ -192,4 +259,5 @@ if errors:
 print("RSE ALL-BLOCK VISUAL CONTRACT: PASS")
 print(f" 130 registry interactions: 129 declared menus + 1 intentional passive datum")
 print(f" {len(families)} block HMI families: registered screen + typed menu + live device strip")
+print(" shared health/quality next-check and collapsed evidence inspector: SOURCE CHECKED")
 print(" JSON/Markdown evidence generated; runtime and screenshots are not certified")
