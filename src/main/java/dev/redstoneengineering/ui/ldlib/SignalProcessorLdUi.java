@@ -19,6 +19,7 @@ public final class SignalProcessorLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("PIONEER PATTERN • SIGNAL PROCESSOR MODEL"),
+                RseLdUiComponents.deviceContext(menu),
                 RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics", "Evidence", "More"},
