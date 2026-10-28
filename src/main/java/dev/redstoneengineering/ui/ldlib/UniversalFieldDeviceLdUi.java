@@ -42,6 +42,10 @@ public final class UniversalFieldDeviceLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
 
         var overview = page(
+                RseLdUiComponents.operatorGuide(
+                        "OPERATOR GUIDE • NEXT CHECK",
+                        () -> nextOperatorStep(menu),
+                        "SERVER CONFIRMED is configuration readback. An absent process signal is not a configured zero. READ-ONLY means no shared coefficient to tune."),
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),
                 RseLdUiComponents.liveRow("EVIDENCE", "snapshot", () ->
                         menu.snapshotReady() ? "SERVER PORTS SYNCED" : "NOT READY • first port snapshot pending"),
@@ -74,7 +78,9 @@ public final class UniversalFieldDeviceLdUi {
                         .maxScrollPixel(64));
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
-        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(440).paddingAll(8).gapAll(8)));
+        // Labels and value cards wrap at narrower window sizes; retain
+        // horizontal scrolling for genuinely narrower Minecraft viewports.
+        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(320).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(overview, configure, pioneer, evidence);
 
         var tabs = RseLdUiComponents.standaloneTabs(workspace,
@@ -104,6 +110,30 @@ public final class UniversalFieldDeviceLdUi {
                 workspace
         );
         return RseLdUiComponents.responsiveUi(root, player, 620, 430);
+    }
+
+    /**
+     * Guidance is derived from existing synchronized menu capability, not a
+     * synthetic "healthy" estimate or an unsynchronized client measurement.
+     */
+    private static String nextOperatorStep(UniversalFieldDeviceMenu menu) {
+        if (!menu.snapshotReady()) {
+            return "01 / SYNC • Await the first server snapshot before interpreting ports, values or operator modes.";
+        }
+        int kind = menu.configKind();
+        if (primaryDirectKind(kind) || secondaryDirectKind(kind)) {
+            return "02 / CONFIGURE • Use the device's exact allowed values, then inspect the SERVER CONFIRMED readback.";
+        }
+        if (primaryCycleKind(kind)) {
+            return "02 / CONFIGURE • Cycle only the supported preset or mode; verify the synchronized setting.";
+        }
+        if (hasExplicitAction(kind) || hasToggle(kind)) {
+            return "02 / CONFIGURE • Review the current server state before a toggle or explicit reset/action.";
+        }
+        if (kind == UniversalFieldDeviceMenu.CONFIG_NONE) {
+            return "02 / INSPECT • This model exposes no shared tuning parameter; review Overview, Pioneer and Evidence.";
+        }
+        return "02 / INSPECT • Review server-backed state and evidence; no editable control is available for this parameter.";
     }
 
     private static UIElement page(UIElement... children) {
