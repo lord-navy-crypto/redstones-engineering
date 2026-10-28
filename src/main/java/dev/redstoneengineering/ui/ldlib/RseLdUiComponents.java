@@ -180,9 +180,13 @@ public final class RseLdUiComponents {
                                 ? "NOT READY" : menu.evidenceStateLabel()))
                         .layout(l -> l.widthPercent(100)),
                 liveText(() -> menu.portRouteLabel()).layout(l -> l.widthPercent(100)),
-                wrappedLabel("READING KEY • health is the operating/safety state; "
-                        + "evidence describes reported port observations, not every internal "
-                        + "measurement. UNKNOWN and NO SIGNAL do not by themselves prove a fault.")
+                liveText(() -> "PORT CONTRACT • " + menu.portRoleHintLabel())
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> "QUALITY MEANING • " + menu.evidenceMeaningLabel())
+                        .layout(l -> l.widthPercent(100)),
+                wrappedLabel("READING KEY • declared faces are capabilities, not detected "
+                        + "wires; health is independent of port evidence. Detailed device "
+                        + "measurements and controls remain on their original pages.")
                         .layout(l -> l.widthPercent(100))
         );
         details.setDisplay(false);
