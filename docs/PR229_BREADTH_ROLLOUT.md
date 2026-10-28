@@ -252,3 +252,66 @@ Next: execute a fresh explicitly dispatched runtime suite and verify the
 previous registry-freeze case is gone, then isolate remaining baseline and
 model/timing failures. A manual Minecraft `runClient` visual and interaction
 review is still required.
+
+## 2026-10-28 operator-guidance UI and narrower viewport wave
+
+Implemented in the **real LDLib2 UI component trees** for the shared
+FieldDevice and Universal engineering HMIs, not in a detached mockup.
+
+- **Context-sensitive Overview guidance**: the first panel now explains
+  the next *inspection* step. It uses the same synchronized menu state as
+  the rest of the HMI; there is no independent physics, client-side hazard
+  verdict or unsynchronized default value.
+- **FieldDevice triage order**: (1) wait for server sync, (2) inspect
+  topology if invalid, (3) inspect invalid/missing process evidence,
+  (4) explicitly distinguish missing/unreported port quality from
+  `VALID`, and only then suggest supported Configure operations or a
+  read-only inspection.
+- **Universal guidance**: before synchronization, show only an explicit
+  wait-for-sync instruction. Afterward, select exact input, mode cycle,
+  explicit action or read-only inspection based on the actual config kind.
+  The text is **navigation advice**, never proof that a sample is healthy
+  or a server request succeeded.
+- **Reading key**: a synchronized **SETPOINT** is stored configuration;
+  it does *not* imply a measured signal. **SERVER CONFIRMED** is an
+  authoritative configuration readback, not an acknowledgement that
+  the physical process is healthy. **NOT REPORTED** is not the number
+  zero and must not be converted into `VALID`.
+- **Responsive width**: the shared LDLib2 tab scroller and Universal
+  viewport now prefer wrapping at 320px instead of forcing a 440px
+  content floor. Two-axis scrolling remains available for genuinely
+  smaller Minecraft windows or long engineering text.
+- **Regression**: the existing
+  `tools/rse_pr229_visual_workflow_verify.py` CI gate now checks
+  presence of the real guidance component, ordered snapshot/quality
+  guards, persistent server-bound confirmation and 320px layout floor.
+  It does not replace manual client visual acceptance.
+
+### Manual visual acceptance still required
+
+Use a **real NeoForge 1.21.1 runClient** and at least one multiplayer
+session before merging:
+
+1. Confirm that the 4 persistent status tiles remain readable on
+   320px, 620px and 740px scaled layouts; tabs and guidance text should
+   wrap and the viewport should scroll without hiding controls.
+2. Open a shared FieldDevice *before* the first menu snapshot:
+   the guide must say to await server data, without displaying a
+   plausible live measurement or encouraging a parameter change.
+3. Exercise valid/invalid topology and measurement quality separately.
+   The next-step guide must point to Topology or Evidence; a
+   synchronized configured zero must remain a valid setpoint.
+4. Test a direct-entry family, a mode-cycle family, a server-action
+   family and an observer-only block. Each must suggest the
+   corresponding Configure or inspection workflow.
+5. Enter allowed lower/upper bounds and a disallowed step; verify
+   exact server readback and no fake success display or spurious
+   network action. Also test a signed coefficient using its dedicated
+   screen and compare with the shared semantics.
+6. Switch pages repeatedly and test multiplayer: no stale
+   quality badge, unqualified measurement or locally fabricated
+   "success" state should appear.
+
+Ordinary PR CI and the latest installation-kit build are **not**
+Minecraft GameTest acceptance. The previously documented 44 failed-test
+reports still require a fresh, deliberately dispatched diagnostic.
