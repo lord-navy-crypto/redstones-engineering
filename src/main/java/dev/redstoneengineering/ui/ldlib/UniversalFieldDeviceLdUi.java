@@ -82,6 +82,22 @@ public final class UniversalFieldDeviceLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
+                // Persistent context is displayed while the operator changes
+                // configuration/ports/evidence pages, without phantom pre-sync values.
+                RseLdUiComponents.statusRail(
+                        RseLdUiComponents.statusTile("01 • SYNC", () ->
+                                menu.snapshotReady() ? "SERVER SNAPSHOT READY" : "AWAITING SERVER"),
+                        RseLdUiComponents.statusTile("02 • HEALTH", () ->
+                                menu.snapshotReady() ? menu.operationalHealthLabel() : "NOT EVALUATED"),
+                        RseLdUiComponents.statusTile("03 • OPERATION", () ->
+                                primaryDirectKind(menu.configKind()) || secondaryDirectKind(menu.configKind())
+                                        ? "EXACT SERVER PARAMETER"
+                                        : primaryCycleKind(menu.configKind()) ? "CYCLE SERVER MODE"
+                                        : hasExplicitAction(menu.configKind()) || hasToggle(menu.configKind())
+                                            ? "EXPLICIT SERVER ACTION" : "READ-ONLY / ROUTING"),
+                        RseLdUiComponents.statusTile("04 • QUALITY", () ->
+                                menu.snapshotReady() ? menu.evidenceStateLabel() : "NOT READY")
+                ),
                 tabs,
                 RseLdUiComponents.note("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
@@ -332,12 +348,19 @@ public final class UniversalFieldDeviceLdUi {
 
             panel.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE", primarySymbol(kind),
-                            () -> primaryDisplay(menu) + " • " + primaryRange(kind)),
+                            () -> menu.snapshotReady() ? primaryDisplay(menu) + " • " + primaryRange(kind)
+                                    : "NOT READY • awaiting synchronized setpoint"),
+                    RseLdUiComponents.statusRail(
+                            RseLdUiComponents.statusTile("SERVER CONFIRMED • " + primarySymbol(kind),
+                                    () -> menu.snapshotReady() ? primaryDisplay(menu) : "AWAITING SERVER READBACK"),
+                            RseLdUiComponents.statusTile("ALLOWED VALUES", () -> primaryRange(kind))
+                    ),
                     new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("DIRECT").layout(l -> l.width(72)),
                             input,
                             new Label().setText(primaryRange(kind)).layout(l -> l.flex(1))
-                    )
+                    ),
+                    RseLdUiComponents.note("Exact entries are submitted immediately when valid; the displayed confirmation follows the synchronized server state.")
             );
             return;
         }
@@ -345,7 +368,8 @@ public final class UniversalFieldDeviceLdUi {
         if (primaryCycleKind(kind)) {
             panel.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE", primarySymbol(kind),
-                            () -> primaryDisplay(menu) + " • " + primaryRange(kind)),
+                            () -> menu.snapshotReady() ? primaryDisplay(menu) + " • " + primaryRange(kind)
+                                    : "NOT READY • awaiting synchronized mode"),
                     RseLdUiComponents.serverAction(
                             "Cycle " + primarySymbol(kind) + " ▶",
                             menu::cyclePrimaryForward)
@@ -367,12 +391,19 @@ public final class UniversalFieldDeviceLdUi {
 
         panel.addChildren(
                 RseLdUiComponents.liveRow("ADJUSTABLE", secondarySymbol(kind),
-                        () -> secondaryDisplay(menu) + " • " + secondaryRange(kind)),
+                        () -> menu.snapshotReady() ? secondaryDisplay(menu) + " • " + secondaryRange(kind)
+                                : "NOT READY • awaiting synchronized setpoint"),
+                RseLdUiComponents.statusRail(
+                        RseLdUiComponents.statusTile("SERVER CONFIRMED • " + secondarySymbol(kind),
+                                () -> menu.snapshotReady() ? secondaryDisplay(menu) : "AWAITING SERVER READBACK"),
+                        RseLdUiComponents.statusTile("ALLOWED VALUES", () -> secondaryRange(kind))
+                ),
                 new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("DIRECT").layout(l -> l.width(72)),
                         input,
                         new Label().setText(secondaryRange(kind)).layout(l -> l.flex(1))
-                )
+                ),
+                RseLdUiComponents.note("Only exact legal values update the server; use the confirmed value above to verify the applied setting.")
         );
     }
 
