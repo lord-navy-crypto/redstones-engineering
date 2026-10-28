@@ -166,6 +166,7 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
                 RedstoneObservationSupport.Observation command = commandObservation(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Soul Flux injector | UP REDSTONE command=" + command.value() + "/15"
