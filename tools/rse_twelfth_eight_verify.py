@@ -15,8 +15,8 @@ targets = {
     "OpticalReceiverBlock.java": ("implements EngineeringPortProvider", "PortDirection.INPUT", "RuntimeIntStore.peek", "recomputeOpticalAround"),
     "OpticalPowerMeterBlock.java": ("implements EngineeringPortProvider", "OPTICAL POWER INPUT", "DomainNetwork.sampleOptical"),
     "OpticalSplitterBlock.java": ("implements EngineeringPortProvider", "OPTICAL OUTPUT A", "OPTICAL OUTPUT B", "recomputeOpticalAround"),
-    "OpticalChannelFilterBlock.java": ("implements EngineeringPortProvider", "OPTICAL FILTERED OUTPUT", "TARGET", "recomputeOpticalAround"),
-    "OpticalAttenuatorBlock.java": ("implements EngineeringPortProvider", "OPTICAL ATTENUATED OUTPUT", "LOSS", "recomputeOpticalAround"),
+    "OpticalChannelFilterBlock.java": ("implements EngineeringPortProvider", "OPTICAL FILTERED OUTPUT", "TARGET", "OpticalSeriesSupport.removed"),
+    "OpticalAttenuatorBlock.java": ("implements EngineeringPortProvider", "OPTICAL ATTENUATED OUTPUT", "LOSS", "OpticalSeriesSupport.removed"),
     # A junction is now an explicit two-ended service splice rather than a
     # cosmetic duplicate of fiber. It may isolate both sides, but never branch.
     "OpticalFiberJunctionBlock.java": (
@@ -33,6 +33,11 @@ for name, needles in targets.items():
     missing = [needle for needle in needles if needle not in body]
     if missing:
         raise SystemExit(f"{name}: missing {missing}")
+
+series = read("src/main/java/dev/redstoneengineering/block/OpticalSeriesSupport.java")
+for needle in ("recomputeOpticalAround", "DomainNetwork.driveOptical", "seriesOutputSide"):
+    if needle not in series:
+        raise SystemExit(f"OpticalSeriesSupport missing {needle}")
 
 network = read("src/main/java/dev/redstoneengineering/physics/DomainNetwork.java")
 for needle in ("recomputeOpticalAround", "opticalEdgeAllowed", "addRawOpticalClaims"):
