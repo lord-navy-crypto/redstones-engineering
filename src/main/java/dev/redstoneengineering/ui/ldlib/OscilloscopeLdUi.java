@@ -71,6 +71,7 @@ public final class OscilloscopeLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("TWO-CHANNEL ENGINEERING OSCILLOSCOPE"),
+                RseLdUiComponents.deviceContext(menu),
                 tabs,
                 new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
