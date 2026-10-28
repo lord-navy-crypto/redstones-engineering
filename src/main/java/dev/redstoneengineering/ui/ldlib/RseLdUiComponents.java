@@ -8,6 +8,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.math.Size;
 import dev.vfyjxf.taffy.style.FlexWrap;
 import net.minecraft.world.entity.player.Player;
+import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
@@ -150,6 +151,34 @@ public final class RseLdUiComponents {
                 wrappedLabel("READING KEY • " + readingKey).layout(l -> l.widthPercent(100))
         );
         return panel;
+    }
+
+    /**
+     * Uniform, read-only device identity and evidence for every block-facing
+     * LDLib2 HMI, including dedicated instruments and transport systems.
+     *
+     * This consumes the common server-synchronized EngineeringDeviceMenu
+     * snapshot. It never guesses a measurement, implies editable controls,
+     * or treats the client's initial health slot as NOMINAL.
+     */
+    public static UIElement deviceContext(EngineeringDeviceMenu menu) {
+        var header = new UIElement().addClass("panel_bg");
+        header.layout(l -> l.widthPercent(100).paddingAll(5).gapAll(3));
+        header.addChildren(
+                liveText(() -> "DEVICE • " + menu.blockPos().toShortString()
+                        + "   |   HEALTH • " + menu.operationalHealthLabel())
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> {
+                    if (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED) {
+                        return "ROLE • NOT READY   |   EVIDENCE • NOT READY"
+                                + "   |   I/O • awaiting server route snapshot";
+                    }
+                    return "ROLE • " + menu.topologyRoleLabel()
+                            + "   |   EVIDENCE • " + menu.evidenceStateLabel()
+                            + "   |   " + menu.portRouteLabel();
+                }).layout(l -> l.widthPercent(100))
+        );
+        return header;
     }
 
     public static UIElement fixedRow(String symbol, Supplier<String> value, String reason) {
