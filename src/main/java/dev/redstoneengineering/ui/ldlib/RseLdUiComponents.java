@@ -185,6 +185,10 @@ public final class RseLdUiComponents {
         scroller.viewContainer(view -> view.layout(l ->
                 l.widthPercent(100).minWidth(readableMinWidth).paddingAll(8).gapAll(8)));
 
+        // A persistent page breadcrumb makes navigation legible even when
+        // long labels wrap or the active page is vertically scrolled.
+        var pageIndicator = wrappedLabel("PAGE 1 / " + labels.length + " • " + labels[0]);
+        pageIndicator.layout(l -> l.widthPercent(100));
         var tabButtons = new java.util.ArrayList<Button>(labels.length);
         for (int i = 0; i < pages.length; i++) {
             var page = pages[i];
@@ -197,6 +201,7 @@ public final class RseLdUiComponents {
                 for (int j = 0; j < tabButtons.size(); j++) {
                     tabButtons.get(j).setText(j == selectedIndex ? "▶ " + labels[j] : labels[j]);
                 }
+                pageIndicator.setText("PAGE " + (selectedIndex + 1) + " / " + labels.length + " • " + labels[selectedIndex]);
                 scroller.horizontalScroller.setNormalizedValue(0);
                 scroller.verticalScroller.setNormalizedValue(0);
             });
@@ -205,7 +210,7 @@ public final class RseLdUiComponents {
             tabs.addChild(button);
         }
 
-        root.addChildren(tabs,
+        root.addChildren(tabs, pageIndicator,
                 new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 scroller);
         return root;
@@ -223,6 +228,8 @@ public final class RseLdUiComponents {
         var tabs = new UIElement().addClass("panel_bg");
         tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW)
                 .flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
+        var pageIndicator = wrappedLabel("PAGE 1 / " + labels.length + " • " + labels[0]);
+        pageIndicator.layout(l -> l.widthPercent(100));
         var buttons = new java.util.ArrayList<Button>(labels.length);
         for (int i = 0; i < pages.length; i++) {
             final int selected = i;
@@ -233,6 +240,7 @@ public final class RseLdUiComponents {
                             pages[j].setDisplay(j == selected);
                             buttons.get(j).setText(j == selected ? "▶ " + labels[j] : labels[j]);
                         }
+                        pageIndicator.setText("PAGE " + (selected + 1) + " / " + labels.length + " • " + labels[selected]);
                         scroller.horizontalScroller.setNormalizedValue(0);
                         scroller.verticalScroller.setNormalizedValue(0);
                     });
@@ -240,7 +248,10 @@ public final class RseLdUiComponents {
             buttons.add(button);
             tabs.addChild(button);
         }
-        return tabs;
+        var navigation = new UIElement();
+        navigation.layout(l -> l.widthPercent(100).gapAll(3));
+        navigation.addChildren(tabs, pageIndicator);
+        return navigation;
     }
 
     public static UIElement workspacePage(UIElement... contents) {
