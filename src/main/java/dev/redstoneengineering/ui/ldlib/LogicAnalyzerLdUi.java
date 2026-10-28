@@ -33,6 +33,7 @@ public final class LogicAnalyzerLdUi {
                         "HIGH/LOW is classified from valid server-captured data. An empty slot is neither HIGH nor LOW."),
                 RseLdUiComponents.formulaCard(() -> "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW"),
                 new LogicAnalyzerPlotElement(menu),
+                RseLdUiComponents.note("AXES • A–D lanes: HIGH at top, LOW at bottom; X = captured display slots 0..15. Gaps are missing data, never LOW."),
                 new RsePlotLegendElement(
                         new String[]{"CH-A", "CH-B", "CH-C", "CH-D", "CURSOR A", "CURSOR B"},
                         new int[]{0xFF66C2FF, 0xFF7DDB8A, 0xFFFFC857, 0xFFE879F9,
