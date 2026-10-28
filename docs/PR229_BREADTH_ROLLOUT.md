@@ -365,3 +365,40 @@ physics model.
    settings should occur when the help/legend is rendered.
 
 **No in-world GameTest pass or screenshot acceptance is claimed here.**
+
+## 2026-10-28 instrument axes and empty-capture clarity
+
+This changes the real server-backed LDLib2 plot widgets. Existing control
+routes, formulas, physics, sampling and test-kit packaging are unchanged.
+
+- The shared render-only `EngineeringPlot` layer now offers labeled
+  **0..15 signal-level / sample-slot axes**, **digital lane labels** and an
+  explicit **NO CAPTURED SAMPLES / NO RETAINED PID SAMPLES** indication.
+  It does not invent values, fill missing samples, read the world, or send
+  parameter updates.
+- Oscilloscope: the original A/B traces and trigger/cursor markers now sit
+  inside a reserved plot rectangle with **Y = Redstone level 0..15** and
+  **X = display slots 0..15**. The configured sample period in ticks belongs
+  to the server and remains visible on the Sampling page. X values are
+  display positions, **not absolute timestamps**.
+- Logic Analyzer: all four digital lanes are visually identified A/B/C/D
+  and have a synchronized **0..15 slot index** below the chart. HIGH and LOW
+  remain distinct from missing data, and the existing same-channel cursor
+  validity requirement is unchanged.
+- PID: retained SP/PV/OUT traces now use **Y = 0..15** and **X = retained
+  0..31 display slots**, with the existing 2-tick sampling contract explained
+  next to the chart. A retained trace must not be presented as evidence
+  that current commissioning PV is available.
+- Rendering safeguards: plots reserve actual pixel gutters for labels and
+  skip trace drawing on no-capture/no-history state. The plot layer operates
+  only on the allocated UIElement rectangle.
+- The ordinary PR static verifier now asserts these source contracts, real
+  labels/units, missing-capture states, and plot boundaries. Existing
+  Java/Gradle tests and clean build still gate artifact generation.
+
+**Runtime acceptance remains open:** test in Minecraft `runClient` at
+multiple GUI scales, with no sample, a valid zero sample, sparse/gapped
+capture, PID history with invalid current PV, and both cursor markers.
+Graph axes are manually verified only after screenshots and interactions,
+not merely because CI compiles.
+
