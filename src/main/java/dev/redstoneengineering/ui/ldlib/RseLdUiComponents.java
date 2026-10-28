@@ -112,6 +112,29 @@ public final class RseLdUiComponents {
                 );
     }
 
+    /**
+     * Compact persistent, responsive dashboard tiles for shared engineering HMIs.
+     * Tile content is a server-synchronized text binding supplied by the caller,
+     * never an independent client-side measurement or authority decision.
+     * Narrow Minecraft windows wrap tiles instead of cropping the statuses.
+     */
+    public static UIElement statusTile(String label, Supplier<String> serverReadback) {
+        return new UIElement().addClass("panel_bg")
+                .layout(l -> l.flex(1).minWidth(142).paddingAll(6).gapAll(4))
+                .addChildren(
+                        wrappedLabel(label),
+                        liveText(serverReadback).layout(l -> l.widthPercent(100))
+                );
+    }
+
+    public static UIElement statusRail(UIElement... tiles) {
+        var rail = new UIElement().addClass("panel_bg");
+        rail.layout(l -> l.widthPercent(100).flexDirection(YogaFlexDirection.ROW)
+                .flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
+        rail.addChildren(tiles);
+        return rail;
+    }
+
     public static UIElement fixedRow(String symbol, Supplier<String> value, String reason) {
         return new UIElement()
                 .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(9).paddingAll(2))
