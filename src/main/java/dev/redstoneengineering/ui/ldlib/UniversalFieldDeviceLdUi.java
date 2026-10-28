@@ -14,6 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import dev.redstoneengineering.block.CalibrationModuleBlock;
 import dev.redstoneengineering.block.CopperCapacitorBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
+import dev.redstoneengineering.block.MolecularCloudReceiverBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.port.PortQuality;
@@ -567,7 +568,9 @@ public final class UniversalFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         panel.addChildren(
                 new Label().setText("LIVE ONLY • NO RETAINED HISTORY"),
-                new Label().setText("SYNCHRONIZED SNAPSHOT"),
+                RseLdUiComponents.liveRow("SYNC", "port snapshot", () ->
+                        menu.snapshotReady() ? "SERVER SYNCHRONIZED"
+                                : "NOT READY • awaiting first authoritative port snapshot"),
                 RseLdUiComponents.liveRow("Current evidence", "snapshot", menu::evidenceStateLabel),
                 new Label().setText("Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.")
         );
