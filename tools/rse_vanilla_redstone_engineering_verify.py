@@ -72,11 +72,12 @@ if count != 3:
 
 need(module, "event.register(RseVanillaRedstoneEngineeringGameTests.class);", "EngineeringSystemsModule.java")
 need(workflow, "tools/rse_vanilla_redstone_engineering_verify.py", "build.yml")
-# Runtime GameTests remain registered as diagnostic evidence, but they are intentionally manual/non-blocking.
+# Runtime GameTests remain registered as diagnostic evidence, but they run manually and now report failures as failures.
 for needle in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "::error::GameTest",
+    "GameTest runtime acceptance evidence",
     "./gradlew compileJava",
     "./gradlew test",
 ):
@@ -111,4 +112,4 @@ print("  bounded adjacent-component traversal: <=256 nodes / <=24 Manhattan bloc
 print("  dust 0..15 + configured repeater timing evidence: PASS")
 print("  QC/fan-out/density classifications remain advisories: PASS")
 print("  Topology Debugger vanilla-mode routing: PASS")
-print("  registered VRE foundation GameTests: 3 (manual diagnostic / non-blocking)")
+print("  registered VRE foundation GameTests: 3 (manual acceptance, truthful failure state)")
