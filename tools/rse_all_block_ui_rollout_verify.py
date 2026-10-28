@@ -543,12 +543,14 @@ for token in (
 ):
     if token not in components:
         errors.append(f"Shared viewport/active tab readability regressed: {token!r}")
-for family, minimum_width in (("UniversalFieldDevice", 440), ("SignalConditioner", 410)):
+# Universal uses a 320px wrap-first floor; SignalConditioner retains its
+# existing 410px trace layout. Neither must silently revert to a wider canvas.
+for family, minimum_width in (("UniversalFieldDevice", 320), ("SignalConditioner", 410)):
     text = read(f"src/main/java/dev/redstoneengineering/ui/ldlib/{family}LdUi.java")
     for token in (".widthPercent(100).minWidth(" + str(minimum_width) + ")",
                   ".widthPercent(100).paddingAll(12).gapAll(10)"):
         if token not in text:
-            errors.append(f"{family}: fixed width horizontal-scroll regression {token!r}")
+            errors.append(f"{family}: viewport wrapping/layout regression {token!r}")
 for family in ("OpticalSystem", "DigitalCommunication", "LapisLowPass",
                "MediaConversion", "ReliabilitySystem", "EnhancedFieldDevice",
                "WorkcellController", "SignalProcessor"):
