@@ -44,7 +44,7 @@ exceptions = [x for x in records if x.get("status") == "INTENTIONAL_NON_GUI"]
 if [x.get("id") for x in exceptions] != ["engineering_compass"]:
     errors.append("the sole permitted non-menu block must be engineering_compass")
 compass = read("src/main/java/dev/redstoneengineering/block/EngineeringCompassBlock.java")
-for token in ('"World datum', '" • Pos="', 'player.displayClientMessage', 'InteractionResult.sidedSuccess'):
+for token in ('"World datum', '• Pos=', 'player.displayClientMessage', 'InteractionResult.sidedSuccess'):
     if token not in compass:
         errors.append(f"compass read-only coordinate interaction missing: {token!r}")
 
