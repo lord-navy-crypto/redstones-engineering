@@ -170,6 +170,65 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         };
     }
 
+    /**
+     * Shared read-only operator guidance across every registered block menu.
+     * It projects already synchronized health + aggregate port evidence;
+     * neither this method nor the UI performs a new world read or action.
+     *
+     * An empty/unknown observation is NOT equivalent to a device fault.
+     * A protective status may be intended safety behavior, not a failure.
+     */
+    public String operatorCheckLabel() {
+        return operatorCheckLabel(operationalHealth(), evidenceState());
+    }
+
+    /** Pure projection for deterministic regression tests and source audits. */
+    public static String operatorCheckLabel(int health, int evidence) {
+        if (health == HEALTH_UNVERIFIED) {
+            return "WAIT FOR SERVER • initial health and evidence not synchronized";
+        }
+        if (health == HEALTH_FAULT) {
+            return "REVIEW FAULT • inspect device-specific readouts and safety state";
+        }
+        if (evidence == EVIDENCE_TOPOLOGY_ERROR) {
+            return "CHECK TOPOLOGY • examine formal RX/TX faces and wiring";
+        }
+        if (evidence == EVIDENCE_DOMAIN_MISMATCH) {
+            return "CHECK DOMAINS • verify compatible media and connected ports";
+        }
+        if (evidence == EVIDENCE_FAULT) {
+            return "CHECK EVIDENCE FAULT • inspect the source and measured path";
+        }
+        if (health == HEALTH_PROTECTIVE) {
+            return "PROTECTIVE STATE • inspect safety conditions before changing controls";
+        }
+        if (health == HEALTH_DEGRADED) {
+            return "DEGRADED STATE • compare device-specific diagnostics and evidence";
+        }
+        if (evidence == EVIDENCE_STALE) {
+            return "STALE DATA • refresh observations or inspect the input path";
+        }
+        if (evidence == EVIDENCE_SATURATED) {
+            return "SATURATED SIGNAL • inspect range and configured thresholds";
+        }
+        if (evidence == EVIDENCE_NOT_READY) {
+            return "NOT READY • check device-specific sampling and readiness";
+        }
+        if (evidence == EVIDENCE_NO_SIGNAL) {
+            return "NO SIGNAL • verify expected source before treating this as a fault";
+        }
+        if (evidence == EVIDENCE_UNOBSERVED) {
+            return "NO PORT EVIDENCE • no fault verdict; inspect device-specific readouts";
+        }
+        if (evidence != EVIDENCE_VALID) {
+            return "UNCLASSIFIED EVIDENCE • inspect device-specific readouts";
+        }
+        if (health != HEALTH_NOMINAL && health != HEALTH_ACTIVE) {
+            return "UNCLASSIFIED HEALTH • verify device-specific status";
+        }
+        return "VALID PORT EVIDENCE • inspect detailed device readouts for full assessment";
+    }
+
     /** Formal receive/transmit faces, synchronized as compact six-bit masks for every HMI. */
     public int receivePortMask() { return receivePortMask.get(); }
     public int transmitPortMask() { return transmitPortMask.get(); }
