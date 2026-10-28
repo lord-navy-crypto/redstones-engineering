@@ -171,6 +171,12 @@ textual documentation or new visual mockups.
   typed; no fictional "Apply" button or speculative success notification is
   added. Users should judge the result by the separately labeled confirmed
   server readback.
+- **Setpoint-versus-measurement distinction**: shared FieldDevice Overview
+  labels the actual synchronized tuning slot as `SETPOINT` and presents its
+  configuration without requiring unrelated physical port quality. The other
+  measured/derived slots retain evidence qualification. All 14 exact-entry
+  kinds use their own actual primary/secondary/tertiary server DataSlot; an
+  intentional configured zero is not confused with missing input.
 - **Active tab breadcrumbs**: shared six-page and standalone instrument
   workspaces display the current page number and label, and reset scroll
   position when navigating. Tiles and controls wrap in narrow windows.
