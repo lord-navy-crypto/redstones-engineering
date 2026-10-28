@@ -120,7 +120,7 @@ public final class RseLdUiComponents {
      */
     public static UIElement statusTile(String label, Supplier<String> serverReadback) {
         return new UIElement().addClass("panel_bg")
-                .layout(l -> l.flex(1).minWidth(142).paddingAll(6).gapAll(4))
+                .layout(l -> l.flex(1).minWidth(142).flexDirection(YogaFlexDirection.COLUMN).paddingAll(6).gapAll(4))
                 .addChildren(
                         wrappedLabel(label),
                         liveText(serverReadback).layout(l -> l.widthPercent(100))
@@ -249,7 +249,7 @@ public final class RseLdUiComponents {
             tabs.addChild(button);
         }
         var navigation = new UIElement();
-        navigation.layout(l -> l.widthPercent(100).gapAll(3));
+        navigation.layout(l -> l.widthPercent(100).flexDirection(YogaFlexDirection.COLUMN).gapAll(3));
         navigation.addChildren(tabs, pageIndicator);
         return navigation;
     }
