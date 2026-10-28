@@ -325,9 +325,20 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         Block block = state.getBlock();
         if (!(block instanceof EngineeringPortProvider provider)) return TOPOLOGY_UNKNOWN;
 
-        List<EngineeringPort> ports = provider.engineeringPorts(state);
+        return classifyTopologyRole(provider.engineeringPorts(state),
+                block.getClass().getSimpleName().contains("Junction"),
+                block instanceof DirectionalDomainBlock);
+    }
+
+    /**
+     * Pure formal-port classifier, for safe audit/tests without allocating
+     * unregistered Block instances after the NeoForge registry is frozen.
+     * The BlockState adapter above supplies the two genuine device traits.
+     */
+    public static int classifyTopologyRole(
+            List<EngineeringPort> ports, boolean explicitJunction, boolean directionalSeries) {
         if (ports.isEmpty()) return TOPOLOGY_PASSIVE;
-        if (block.getClass().getSimpleName().contains("Junction")) return TOPOLOGY_EXPLICIT_JUNCTION;
+        if (explicitJunction) return TOPOLOGY_EXPLICIT_JUNCTION;
 
         int receivers = 0;
         int transmitters = 0;
@@ -354,7 +365,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
 
         // Directional-domain devices preserve one explicit process input and output. Extra formal
         // receive ports are controls, not permission for implicit parallel processing.
-        if (block instanceof DirectionalDomainBlock && receivers > 0 && transmitters > 0 && ports.size() > 2) {
+        if (directionalSeries && receivers > 0 && transmitters > 0 && ports.size() > 2) {
             return TOPOLOGY_CONTROLLED_SERIES;
         }
 
