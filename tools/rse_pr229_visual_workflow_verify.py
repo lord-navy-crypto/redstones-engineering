@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Regression gate: real PR229 LDLib2 visual workflow without fake client evidence."""
+from pathlib import Path
+import re
+import sys
+
+root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+paths = {
+    "shared": "src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java",
+    "field": "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
+    "universal": "src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
+}
+errors = []
+source = {}
+for name, path in paths.items():
+    file = root / path
+    source[name] = file.read_text(encoding="utf-8") if file.is_file() else ""
+    if not source[name]:
+        errors.append(f"{path}: missing source")
+
+shared = source["shared"]
+field = source["field"]
+universal = source["universal"]
+
+checks = {
+    "shared": (
+        "public static UIElement statusTile(String label, Supplier<String> serverReadback)",
+        "liveText(serverReadback)",
+        "public static UIElement statusRail(UIElement... tiles)",
+        "flexWrap(FlexWrap.WRAP)",
+        "PAGE 1 / ",
+        "pageIndicator.setText(",
+        "scroller.verticalScroller.setNormalizedValue(0)",
+        "return navigation;",
+    ),
+    "field": (
+        "RseLdUiComponents.statusRail(",
+        'RseLdUiComponents.statusTile("01 • SYNC"',
+        'RseLdUiComponents.statusTile("02 • HEALTH"',
+        'RseLdUiComponents.statusTile("03 • CONTROL"',
+        'RseLdUiComponents.statusTile("04 • QUALITY"',
+        'RseLdUiComponents.statusTile("SERVER CONFIRMED VALUE"',
+        'RseLdUiComponents.statusTile("ACCEPTED INPUT"',
+        "m.snapshotReady() ? Integer.toString(controlValue(m))",
+        "validDirectValue(m.kind(), parsed)",
+        "m.applyPrimaryEngineeringValueFromUi(parsed)",
+        "READ-ONLY HMI • no fake control",
+    ),
+    "universal": (
+        "RseLdUiComponents.statusRail(",
+        'RseLdUiComponents.statusTile("01 • SYNC"',
+        'RseLdUiComponents.statusTile("02 • HEALTH"',
+        'RseLdUiComponents.statusTile("03 • OPERATION"',
+        'RseLdUiComponents.statusTile("04 • QUALITY"',
+        'RseLdUiComponents.statusTile("SERVER CONFIRMED • " + primarySymbol(kind)',
+        'RseLdUiComponents.statusTile("SERVER CONFIRMED • " + secondarySymbol(kind)',
+        "menu.snapshotReady() ? primaryDisplay(menu)",
+        "menu.snapshotReady() ? secondaryDisplay(menu)",
+        "applyPrimary(menu, value)",
+        "applySecondary(menu, value)",
+        "READ-ONLY HMI • no fake control",
+    ),
+}
+for area, tokens in checks.items():
+    for token in tokens:
+        if token not in source[area]:
+            errors.append(f"{area}: visual workflow token missing: {token!r}")
+
+# Rail and confirmed-value widgets never compute values from Level/physics.
+for area in ("shared", "field", "universal"):
+    if re.search(r"import dev\.redstoneengineering\.physics\.", source[area]):
+        errors.append(f"{area}: client LDLib2 visual layer must not import physics")
+if "RseLdUiComponents.statusRail(" not in field or "RseLdUiComponents.statusRail(" not in universal:
+    errors.append("both shared HMI surfaces must expose their persistent statuses")
+if errors:
+    print("RSE PR229 VISUAL WORKFLOW: FAIL")
+    for error in errors:
+        print(" -", error)
+    raise SystemExit(1)
+print("RSE PR229 VISUAL WORKFLOW: PASS")
+print(" persistent server-bound health/quality tiles: FieldDevice + Universal")
+print(" confirmed values and exact legal ranges: both configuration families")
+print(" tab navigation has visible active-page feedback in both workspace types")
+print(" does not claim manual Minecraft client, screenshot or GameTest success")
