@@ -44,6 +44,7 @@ jobs:
             tools/rse_130_block_hmi_coverage.py \
             tools/rse_pr229_snapshot_truth_verify.py \
             tools/rse_pr229_visual_workflow_verify.py \
+            tools/test_rse_install_preflight.py \
             tools/rse_bounded_gametest_log_verify.py \
             tools/rse_122_block_closure_verify.py \
             tools/rse_neighbor_update_audit.py \
