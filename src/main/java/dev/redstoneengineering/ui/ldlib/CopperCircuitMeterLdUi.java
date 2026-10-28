@@ -16,6 +16,7 @@ public final class CopperCircuitMeterLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("COPPER CIRCUIT METER"),
+                RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         600, 400, 850,
                         new String[]{"Overview", "Details", "Controls", "Diagnostics", "Evidence"},
