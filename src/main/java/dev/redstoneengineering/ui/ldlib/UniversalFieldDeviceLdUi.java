@@ -251,6 +251,18 @@ public final class UniversalFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(3));
         panel.addChildren(
                 new Label().setText("MECHANISM FLOW • SERVER-AUTHORITATIVE"),
+                // Structural RX/model/TX path is visible without interpreting
+                // a missing client snapshot as a live physical signal.
+                RseLdUiComponents.statusRail(
+                        RseLdUiComponents.statusTile("01 • RX / INPUT", () ->
+                                !menu.hasInputEndpoint() ? "NONE"
+                                        : menu.snapshotReady() ? "DECLARED • SERVER PORTS" : "DECLARED • AWAITING DATA"),
+                        RseLdUiComponents.statusTile("02 • MODEL", () ->
+                                configName(menu.configKind())),
+                        RseLdUiComponents.statusTile("03 • TX / OUTPUT", () ->
+                                !menu.hasOutputEndpoint() ? "NONE"
+                                        : menu.snapshotReady() ? "DECLARED • SERVER PORTS" : "DECLARED • AWAITING DATA")
+                ),
                 RseLdUiComponents.liveRow("RX / INPUT", "endpoint",
                         () -> menu.hasInputEndpoint()
                                  ? (menu.snapshotReady() ? "DECLARED • synchronized port evidence"
