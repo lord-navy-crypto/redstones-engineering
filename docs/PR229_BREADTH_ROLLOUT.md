@@ -461,3 +461,41 @@ in Minecraft. Do not call this a fully game-tested 130/130 release.
 
 **Carry this all-registry requirement forward on every UI change.**
 
+## 2026-10-28 full-registry actionable status & compact inspector
+## 2026-10-28 full-registry actionable status & compact inspector
+
+This change is **applied centrally to every one of the 23 block-facing LDLib2 HMI
+families**, rather than just the oscilloscope, logic analyzer and PID examples.
+Together with the 130-block interaction gate this is the current **all-registry
+source coverage**, not an in-game walkthrough pass.
+
+- The compact header now reports the **actual expected block's localized name**,
+  block coordinates, operating health, aggregate port evidence and a live
+  **NEXT CHECK** suggestion derived from synchronized menu status only. Unlike
+  a generic success badge, it does not claim every internal reading is valid.
+- The server-state advice handles unsynchronized health, explicit FAULT,
+  topology failure, domain mismatch, evidence fault, protective operation,
+  degraded state, stale data, saturation, not-ready sampling, no signal,
+  and unobserved port evidence with different explanations. Missing evidence
+  and NO SIGNAL **do not automatically mean the block is broken**.
+- A **Show evidence ▼ / Hide evidence ▲** toggle reveals the detailed role,
+  evidence and formal RX/TX faces plus a reading key. It is **client-local UI
+  state**; expanding/collapsing sends no server action, modifies no parameters,
+  and leaves original device-specific controls intact.
+- This is mounted inside the shared `deviceContext(EngineeringDeviceMenu)`
+  used by every block-facing UI family (and therefore all registered
+  menu-backed blocks). The compass keeps its independent, read-only
+  world-datum coordinate behavior.
+- The strengthened `tools/rse_130_block_visual_rollout_verify.py`
+  hard gate requires the actual context-to-menu linkage across the 23 families,
+  the status prioritization, safe wording, collapsed initial state and
+  client-only toggle. It emits per-block source coverage and per-family
+  capabilities in JSON and Markdown.
+
+### Runtime acceptance remains separate
+
+The audit does **not** prove that all 129 GUI blocks were opened in Minecraft,
+that every screen scale is readable or that multiplayer sync/GameTests passed.
+The next in-game checklist should verify no new header occludes menus at high
+GUI scale, opening/closing detailed evidence does not send packets, and the
+health/quality strings follow real server sync after a state change.
