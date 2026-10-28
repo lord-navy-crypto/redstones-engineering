@@ -141,8 +141,8 @@ require("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.
 
 workflow = read(".github/workflows/build.yml")
 if workflow and "tools/rse_communication_medium_identity_verify.py" not in workflow: errors.append("communication medium identity verifier is not wired into CI")
-for token in ("Minecraft topology GameTests (manual diagnostic)", "github.event_name == 'workflow_dispatch'", "continue-on-error: true", "./gradlew runGameTestServer", "./gradlew compileJava", "./gradlew test"):
-    if workflow and token not in workflow: errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+for token in ("Minecraft topology GameTests (manual diagnostic)", "github.event_name == 'workflow_dispatch'", "GameTest runtime acceptance evidence", "./gradlew runGameTestServer", "./gradlew compileJava", "./gradlew test"):
+    if workflow and token not in workflow: errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE communication medium identity verification: FAIL")
@@ -163,4 +163,4 @@ print(" guided optical budget observer boundary / no double-counted processor lo
 print(" radio distance/obstruction/adjacent/collision margin evidence: PASS")
 print(" radio HMI observer boundary / no second RF solver: PASS")
 print(" communication medium design contract: PASS")
-print(" registered identity GameTests: 3 (manual diagnostic / non-blocking)")
+print(" registered identity GameTests: 3 (manual runtime gate / failures reported)")
