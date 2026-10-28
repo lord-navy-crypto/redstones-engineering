@@ -29,9 +29,12 @@ require(
     '"PNEUMATIC OUT"',
     '"OPENING COMMAND"',
     "EngineeringDomain.REDSTONE",
-    "PneumaticNetwork.recomputeAround",
+    "PneumaticValveSupport.placed",
+    "PneumaticNetwork.recompute(server, pos)",
     "FieldDeviceUi.open",
 )
+require("src/main/java/dev/redstoneengineering/block/PneumaticValveSupport.java",
+        "PneumaticNetwork.recomputeAround", "PneumaticObservationSupport.observe")
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java",
     "PortKind.SAFETY",
