@@ -42,7 +42,7 @@ public final class LogicAnalyzerPlotElement extends UIElement {
             return;
         }
         int laneH = Math.max(12, (h - 12) / 4);
-        for (int ch = 0; ch < 4; ch++) {
+        for(int ch=0;ch<4;ch++) {
             final int c = ch;
             int laneY = y + 4 + ch * laneH;
             EngineeringPlot.digitalLaneLabel(g.graphics,"" + (char)('A' + ch),traceX,laneY,laneH-2);
