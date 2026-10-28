@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.Minecraft;
 
 import java.util.function.IntUnaryOperator;
 
@@ -33,6 +34,68 @@ public final class EngineeringPlot {
         }
         int centerY = y + height / 2;
         graphics.fill(x, centerY, x + width, centerY + 1, GRID_MAJOR);
+    }
+
+    private static final int AXIS_TEXT = 0xFFBAC7D3;
+
+    /**
+     * Label the visible, server-sampled plot coordinates without pretending
+     * each display slot is an independent wall-clock timestamp. Callers
+     * reserve a 26px left gutter and 15px bottom gutter in their own widget.
+     * These labels are render-only and must never extrapolate missing data.
+     */
+    public static void analogAxisLabels(GuiGraphics graphics, int x, int y,
+                                        int width, int height, int minimum,
+                                        int maximum, int slots) {
+        if (width < 30 || height < 30 || slots < 2 || maximum <= minimum) return;
+        var font = Minecraft.getInstance().font;
+        for (int i = 0; i <= 3; i++) {
+            int value = minimum + Math.round((maximum - minimum) * i / 3.0f);
+            String label = Integer.toString(value);
+            int yy = y + height - 1 - Math.round((height - 1) * i / 3.0f);
+            graphics.drawString(font, label, x - 4 - font.width(label),
+                    Math.max(y, Math.min(y + height - font.lineHeight, yy - 4)),
+                    AXIS_TEXT, false);
+        }
+        slotAxisLabels(graphics, x, y, width, height, slots);
+    }
+
+    /**
+     * Display-slot labels, not absolute times. The timebase must come from
+     * the server-owned instrument and is documented alongside the chart.
+     */
+    public static void slotAxisLabels(GuiGraphics graphics, int x, int y,
+                                      int width, int height, int slots) {
+        if (width < 30 || height < 10 || slots < 2) return;
+        var font = Minecraft.getInstance().font;
+        int[] indices = {0, (slots - 1) / 2, slots - 1};
+        for (int index : indices) {
+            String label = Integer.toString(index);
+            int xx = x + Math.round(index * (width - 1) / (float) (slots - 1));
+            int left = Math.max(x, Math.min(x + width - font.width(label),
+                    xx - font.width(label) / 2));
+            graphics.drawString(font, label, left, y + height + 3, AXIS_TEXT, false);
+        }
+    }
+
+    public static void digitalLaneLabel(GuiGraphics graphics, String label,
+                                        int x, int y, int laneHeight) {
+        if (laneHeight < 9) return;
+        var font = Minecraft.getInstance().font;
+        graphics.drawString(font, label, x - 4 - font.width(label),
+                y + Math.max(0, (laneHeight - font.lineHeight) / 2),
+                AXIS_TEXT, false);
+    }
+
+    /** An empty server capture is a blank chart, never a zero signal. */
+    public static void emptyPlotLabel(GuiGraphics graphics, int x, int y,
+                                      int width, int height, String label) {
+        if (width < 60 || height < 20) return;
+        var font = Minecraft.getInstance().font;
+        String visible = font.plainSubstrByWidth(label, width - 12);
+        graphics.drawString(font, visible,
+                x + Math.max(0, (width - font.width(visible)) / 2),
+                y + Math.max(0, (height - font.lineHeight) / 2), AXIS_TEXT, false);
     }
 
     public static void analogTrace(
