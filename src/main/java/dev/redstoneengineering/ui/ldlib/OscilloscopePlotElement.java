@@ -36,10 +36,21 @@ public final class OscilloscopePlotElement extends UIElement {
         int width = allocatedWidth - 2 * inset;
         int height = allocatedHeight - 2 * inset;
 
+        // Reserve room for real 0..15 signal-level labels and the 0..15
+        // display-slot axis. Do not place traces under the axis text.
+        if (width < 65 || height < 65) return;
+        x += 26;
+        y += 3;
+        width -= 30;
+        height -= 22;
         EngineeringPlot.analogFrame(g.graphics, x, y, width, height);
-        // Tracked DataSlots default to zero before synchronization. A zero
-        // capture count must render an empty grid, not two invented traces.
-        if (menu.sampleCount() <= 0) return;
+        EngineeringPlot.analogAxisLabels(g.graphics, x, y, width, height, 0, 15, 16);
+        // A fresh menu has zero-filled DataSlots: show an explicit empty
+        // capture label rather than a misleading flat zero-value trace.
+        if (menu.sampleCount() <= 0) {
+            EngineeringPlot.emptyPlotLabel(g.graphics, x, y, width, height, "NO CAPTURED SAMPLES");
+            return;
+        }
         plotChannel(g, 0, CHANNEL_A, x, y, width, height);
         plotChannel(g, 1, CHANNEL_B, x, y, width, height);
         EngineeringPlot.horizontalMarker(g.graphics, menu.triggerLevel(), 0, 15, x, y, width, height, TRIGGER);
