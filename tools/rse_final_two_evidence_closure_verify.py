@@ -120,13 +120,13 @@ if workflow:
     for token in (
         "Minecraft topology GameTests (manual diagnostic)",
         "github.event_name == 'workflow_dispatch'",
-        "continue-on-error: true",
+        "GameTest runtime acceptance evidence",
         "./gradlew runGameTestServer",
         "./gradlew compileJava",
         "./gradlew test",
     ):
         if token not in workflow:
-            errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+            errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE final two-block evidence closure verification: FAIL")
@@ -140,4 +140,4 @@ print("  #122 Operations Monitor no-fabricated-KPI evidence gating: PASS")
 print("  first-cycle baseline / second-cycle interval chronology: PASS")
 print("  dedicated Operations UI telemetry-readiness projection: PASS")
 print("  historical stopped+queued CPS acceptance migrated to explicit zero source: PASS")
-print("  registered final-closure GameTests: 3 (manual diagnostic / non-blocking)")
+print("  registered final-closure GameTests: 3 (manual runtime gate / failure-transparent)")
