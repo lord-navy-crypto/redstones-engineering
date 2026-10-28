@@ -27,8 +27,16 @@ public final class LogicAnalyzerLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
 
         var capture = page(
+                RseLdUiComponents.operatorGuide(
+                        "LOGIC ANALYZER • NEXT INSPECTION",
+                        () -> nextLogicStep(menu),
+                        "HIGH/LOW is classified from valid server-captured data. An empty slot is neither HIGH nor LOW."),
                 RseLdUiComponents.formulaCard(() -> "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW"),
                 new LogicAnalyzerPlotElement(menu),
+                new RsePlotLegendElement(
+                        new String[]{"CH-A", "CH-B", "CH-C", "CH-D", "CURSOR A", "CURSOR B"},
+                        new int[]{0xFF66C2FF, 0xFF7DDB8A, 0xFFFFC857, 0xFFE879F9,
+                                0xFF68D391, 0xFFC084FC}),
                 timingPanel(menu)
         );
         var configure = page(controls(menu));
@@ -65,6 +73,34 @@ public final class LogicAnalyzerLdUi {
 
     private static UIElement page(UIElement... children) {
         return new UIElement().layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10)).addChildren(children);
+    }
+
+    /** Navigation hints reflect existing server-owned capture/topology data. */
+    private static String nextLogicStep(LogicAnalyzerMenu m) {
+        if (m.sampleCount() <= 0) {
+            return "01 / CONFIGURE • No retained logic samples. Select trigger source/edge, then arm a capture.";
+        }
+        if (!m.bounded()) {
+            return "02 / NETWORK • Network scan is incomplete. Do not claim a verified signal route.";
+        }
+        if (m.duplicateChannels() > 0) {
+            return "03 / NETWORK • Resolve duplicate channel assignments before interpreting bus edges.";
+        }
+        if (m.validChannels() <= 0) {
+            return "04 / CHANNELS • No channels with qualified samples. Inspect probes and per-channel coverage.";
+        }
+        boolean sharedCursorPair = false;
+        for (int ch = 0; ch < 4; ch++) {
+            if (m.displayState(ch, m.cursorA()) >= 0
+                    && m.displayState(ch, m.cursorB()) >= 0) {
+                sharedCursorPair = true;
+                break;
+            }
+        }
+        if (!sharedCursorPair) {
+            return "05 / CONFIGURE • Cursor A/B must address valid captured slots on the same channel.";
+        }
+        return "06 / CHANNELS • Review each channel's duty, edges and valid coverage before comparing timings.";
     }
 
     private static UIElement timingPanel(LogicAnalyzerMenu m){
