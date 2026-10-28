@@ -331,6 +331,19 @@ public final class EnhancedFieldDeviceLdUi {
         panel.layout(l -> l.paddingAll(5).gapAll(4));
         panel.addChildren(
                 new Label().setText("MECHANISM FLOW • RX → MODEL / STATE → TX"),
+                // Three-stage read-only process diagram. Endpoint presence is
+                // structural; quality/route are server-backed once synchronized.
+                RseLdUiComponents.statusRail(
+                        RseLdUiComponents.statusTile("01 • RX / INPUT", () ->
+                                !m.hasInputEndpoint() ? "NONE"
+                                        : m.snapshotReady() ? "DECLARED • SERVER ROUTE" : "DECLARED • AWAITING DATA"),
+                        RseLdUiComponents.statusTile("02 • PROCESS MODEL", () ->
+                                deviceRole(m.kind()) + " • " + family(m.kind())),
+                        RseLdUiComponents.statusTile("03 • TX / OUTPUT", () ->
+                                !m.hasOutputEndpoint() ? "NONE"
+                                        : !m.snapshotReady() ? "DECLARED • AWAITING DATA"
+                                        : m.topologyValid() ? "DECLARED • SERVER ROUTE" : "TOPOLOGY FAULT")
+                ),
                 RseLdUiComponents.liveRow("ROUTE", "facing", () ->
                         m.snapshotReady() ? facingName(m.facingOrdinal()) : "NOT READY • awaiting server route"),
                 RseLdUiComponents.liveRow("ROUTE", "endpoint flags", () ->
