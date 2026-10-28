@@ -30,6 +30,7 @@ public final class EnhancedFieldDeviceLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RSE FIELD DEVICE • " + deviceName(m.kind())),
+                RseLdUiComponents.deviceContext(m),
                 // Kept outside tabbedWorkspace so critical status survives tab changes.
                 RseLdUiComponents.statusRail(
                         RseLdUiComponents.statusTile("01 • SYNC", () ->
