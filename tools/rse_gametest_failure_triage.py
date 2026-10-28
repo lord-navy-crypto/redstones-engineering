@@ -52,7 +52,7 @@ result = "PASS (log evidence)" if summary and not failures else "INCOMPLETE OR F
 lines = [
     "# RSE GameTest observed failure triage",
     "",
-    f"Input log: \`{log.name}\`",
+    f"Input log: `{log.name}`",
     f"Evidence result: **{result}**",
     f"Distinct reported failures: **{len(failures)}**",
     f"Formal all-required-tests-passed marker: **{'present' if summary else 'absent'}**",
@@ -71,6 +71,6 @@ if not failures:
 lines.extend(["", "## Individual failures", "", "| Test | Family | Reported reason |",
               "| --- | --- | --- |"])
 for name, detail in sorted(failures.items()):
-    lines.append(f"| \`{name}\` | {family(name)} | {detail} |")
+    lines.append(f"| `{name}` | {family(name)} | {detail} |")
 output.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print(f"RSE GameTest triage: {result}; distinct_failures={len(failures)}; formal_pass={summary}; report={output}")
