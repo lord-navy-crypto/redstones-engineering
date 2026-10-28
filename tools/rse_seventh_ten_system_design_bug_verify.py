@@ -134,12 +134,12 @@ require("tools/rse_seventh_ten_system_design_bug_verify.py" in workflow,
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
-    require(token in workflow, f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
+    require(token in workflow, f"build.yml missing manual/failure-transparent GameTest policy token {token!r}")
 
 print("RSE seventh-ten system design + bug verification: PASS")
 print("  entity-density aperture coverage and trusted-count retention: PASS")
@@ -152,4 +152,4 @@ print("  thermal/magnetic coverage propagation: PASS")
 print("  optical upstream topology + unknown-coverage quality propagation: PASS")
 print("  copper upstream quality propagation: PASS")
 print("  precision-range no-target versus unknown coverage: PASS")
-print("  registered seventh-ten GameTests: 10 + optical lifecycle regression (manual diagnostic / non-blocking)")
+print("  registered seventh-ten GameTests: 10 + optical lifecycle regression (manual acceptance / failures reported)")
