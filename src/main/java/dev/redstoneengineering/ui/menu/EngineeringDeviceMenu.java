@@ -109,6 +109,11 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         return blockPos;
     }
 
+    /** Registry identity supplied when the menu opens; not a runtime measurement. */
+    public String deviceDisplayName() {
+        return expectedBlock.getName().getString();
+    }
+
     /**
      * Operational/safety state is intentionally independent from evidence validity.
      * A watchdog timeout, relief event, latched fault, degraded vote, or commanded brake
