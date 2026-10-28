@@ -7,6 +7,7 @@ success. The one explicit passive world-datum exception is preserved.
 from pathlib import Path
 from collections import Counter
 import json
+import csv
 import re
 import sys
 
@@ -159,6 +160,60 @@ if "detailToggle.setOnClick(event ->" not in shared or "setOnServerClick" in sha
         "public static UIElement fixedRow(", 1)[0]:
     errors.append("details toggle must be client-local, never a server parameter action")
 
+
+# All-block detail text must distinguish formal port capabilities from
+# observed connectivity; passive/source/sink devices are not necessarily bad.
+role_start = base.find("public static String portRoleHintLabel(int role, int rxMask, int txMask)")
+role_end = base.find("public String evidenceMeaningLabel()", role_start)
+if role_start < 0 or role_end <= role_start:
+    errors.append("missing pure formal-port role guidance")
+    role_guide = ""
+else:
+    role_guide = base[role_start:role_end]
+for role in (
+    "TOPOLOGY_OBSERVER", "TOPOLOGY_SOURCE", "TOPOLOGY_SINK",
+    "TOPOLOGY_PASSIVE", "TOPOLOGY_PASSIVE_SERIES",
+    "TOPOLOGY_EXPLICIT_JUNCTION", "TOPOLOGY_CONTROLLED_SOURCE",
+    "TOPOLOGY_CONTROLLED_SERIES", "TOPOLOGY_UNKNOWN",
+):
+    if role not in role_guide:
+        errors.append(f"missing non-misleading port contract case: {role}")
+for token in ("not automatic bridging", "not proof of live connectivity",
+              "an absent TX face can be intentional",
+              "an absent RX face can be intentional"):
+    if token not in role_guide:
+        errors.append(f"unsafe/absent role explanation: {token!r}")
+
+quality_start = base.find("public static String evidenceMeaningLabel(int evidence)")
+quality_end = base.find("/** Formal receive/transmit faces", quality_start)
+if quality_start < 0 or quality_end <= quality_start:
+    errors.append("missing quality semantics projection")
+    quality_guide = ""
+else:
+    quality_guide = base[quality_start:quality_end]
+for state in (
+    "EVIDENCE_VALID", "EVIDENCE_NO_SIGNAL", "EVIDENCE_SATURATED",
+    "EVIDENCE_STALE", "EVIDENCE_FAULT", "EVIDENCE_DOMAIN_MISMATCH",
+    "EVIDENCE_TOPOLOGY_ERROR", "EVIDENCE_NOT_READY",
+):
+    if state not in quality_guide:
+        errors.append(f"missing evidence explanation: {state}")
+for phrase in ("not full acceptance", "not a fault verdict",
+               "could be an expected idle input", "not a current sample"):
+    if phrase not in quality_guide:
+        errors.append(f"missing quality caveat: {phrase}")
+
+for scoped in (role_guide, quality_guide):
+    for mutation in ("getBlockState(", "setBlock(", "scheduleTick(", "onServerClick("):
+        if mutation in scoped:
+            errors.append(f"the shared explanation must not mutate the world: {mutation}")
+for token in ('"PORT CONTRACT • " + menu.portRoleHintLabel()',
+              '"QUALITY MEANING • " + menu.evidenceMeaningLabel()'):
+    if token not in shared:
+        errors.append(f"all HMI family details no longer show {token}")
+if "details.setDisplay(false)" not in shared:
+    errors.append("extended role/quality guidance must not block compact devices")
+
 families = []
 for menu_key, screen in block_screens:
     family = screen.removesuffix("Screen")
@@ -225,11 +280,48 @@ summary = {
     "shared_hmi_families": len(families),
     "operator_next_check": "HEALTH_EVIDENCE_READ_ONLY",
     "diagnostics_toggle": "CLIENT_ONLY_EXPANDABLE",
+    "port_role_guidance": "ROLE_AWARE_NON_CONNECTIVITY_PROOF",
+    "quality_guidance": "EVIDENCE_STATE_NOT_FAULT_VERDICT",
+    "manual_checklist": "130_ROWS_ALL_NOT_TESTED",
     "exception": "engineering_compass",
     "source_contract_pass": not errors,
     "errors": errors,
     "scope": "static registry/registration/menu/screen/LDLib2 contract; no real-client or GameTest acceptance",
 }
+
+# In-game checklist is generated for EVERY block, not only selected screens.
+# A status of NOT_TESTED is intentional: static analysis cannot claim the GUI
+# opened, controls were usable or multiplayer values remained server-owned.
+manual_rows = []
+for row in matrix:
+    passive = row["id"] == "engineering_compass"
+    manual_rows.append({
+        "id": row["id"],
+        "registry": row["registry"],
+        "java_class": row["class"],
+        "source_entry": row["source_entry"],
+        "expected_interaction": (
+            "right-click: server-side world-direction/coordinate readout"
+            if passive else "right-click: corresponding LDLib2 engineering HMI"
+        ),
+        "verify_identity": "NOT_APPLICABLE" if passive else "NOT_TESTED",
+        "verify_health_and_evidence": "NOT_APPLICABLE" if passive else "NOT_TESTED",
+        "verify_port_role_and_route": "NOT_APPLICABLE" if passive else "NOT_TESTED",
+        "verify_detail_toggle": "NOT_APPLICABLE" if passive else "NOT_TESTED",
+        "verify_original_controls": "NOT_APPLICABLE" if passive else "NOT_TESTED",
+        "verify_small_gui_scales": "NOT_APPLICABLE" if passive else "NOT_TESTED",
+        "verify_multiplayer": "NOT_TESTED",
+        "verify_game_test": "NOT_TESTED",
+        "notes": "",
+    })
+if len(manual_rows) != 130 or len({x["id"] for x in manual_rows}) != 130:
+    errors.append("not all 130 registry IDs have a unique acceptance checklist row")
+check_path = OUT / "rse-130-block-manual-ui-checklist.csv"
+with check_path.open("w", newline="", encoding="utf-8") as stream:
+    writer = csv.DictWriter(stream, fieldnames=list(manual_rows[0]))
+    writer.writeheader()
+    writer.writerows(manual_rows)
+
 (OUT / "rse-130-block-visual-rollout.json").write_text(
     json.dumps({"summary": summary, "families": families, "blocks": matrix},
                indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -242,7 +334,8 @@ lines = [
     f"- Block-facing LDLib2 families: {len(families)} / 23",
     "- Intentional non-menu block: engineering_compass (server world-datum actionbar)",
     "- Every other block: declared HMI entry; all registered block menus: shared identity/health/evidence/route header",
-    "- All 23 menu families: next-check advice from server-synchronized evidence + optional local-only expanded details",
+    "- All 23 menu families: next-check advice + role-specific port and quality interpretation + local-only expanded details",
+    "- All 130 blocks: manual in-game acceptance row in rse-130-block-manual-ui-checklist.csv (initially NOT_TESTED)",
     "- In-game opening, layout, interactions, multiplayer and GameTests: **not certified**",
     "",
     "| ID | Registry | Source entry | Contract |",
@@ -259,5 +352,6 @@ if errors:
 print("RSE ALL-BLOCK VISUAL CONTRACT: PASS")
 print(f" 130 registry interactions: 129 declared menus + 1 intentional passive datum")
 print(f" {len(families)} block HMI families: registered screen + typed menu + live device strip")
-print(" shared health/quality next-check and collapsed evidence inspector: SOURCE CHECKED")
+print(" shared health/quality next-check, port policy and collapsed evidence inspector: SOURCE CHECKED")
+print(" 130-row in-game acceptance checklist emitted; all items start NOT_TESTED")
 print(" JSON/Markdown evidence generated; runtime and screenshots are not certified")
