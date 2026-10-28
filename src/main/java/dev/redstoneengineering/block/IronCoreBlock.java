@@ -126,6 +126,10 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.DOWN) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 demagnetize(level, pos);
                 BlockState next = level.getBlockState(pos);
