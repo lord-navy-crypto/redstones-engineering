@@ -153,6 +153,7 @@ public final class PidControllerLdUi {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 RseLdUiComponents.note("AUTHORITATIVE TREND • SP / PV / OUT • 2t/sample • 32-sample bounded ring"),
                 new PidTrendPlotElement(m),
+                RseLdUiComponents.note("AXES • Y = Redstone level 0..15; X = retained history slots 0..31. The sample interval is 2 ticks; gaps are not measured values."),
                 new RsePlotLegendElement(
                         new String[]{"SP", "PV", "OUT"},
                         new int[]{0xFFF6C453, 0xFF68D391, 0xFF62B0FF}),
