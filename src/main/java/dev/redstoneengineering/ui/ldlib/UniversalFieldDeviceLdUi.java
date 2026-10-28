@@ -329,7 +329,8 @@ public final class UniversalFieldDeviceLdUi {
             if (hasToggle(kind)) {
                 panel.addChildren(
                         RseLdUiComponents.liveRow("TOGGLE", "invert",
-                                () -> menu.configSecondary() != 0 ? "INVERTED" : "NORMAL"),
+                                () -> !menu.snapshotReady() ? "NOT READY • awaiting server inversion state"
+                                        : menu.configSecondary() != 0 ? "INVERTED" : "NORMAL"),
                         RseLdUiComponents.serverAction("Toggle invert", menu::toggleConfiguration)
                 );
             }
@@ -526,6 +527,9 @@ public final class UniversalFieldDeviceLdUi {
     }
 
     private static String actionLabel(UniversalFieldDeviceMenu menu) {
+        // An uninitialized alarm slot is not evidence that an alarm is clear.
+        // This text is an operator hint, not a client-side authority decision.
+        if (!menu.snapshotReady()) return "NOT READY • awaiting server action state";
         return switch (menu.configKind()) {
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Reset measurement history";
             case UniversalFieldDeviceMenu.CONFIG_ALARM ->
@@ -1027,7 +1031,11 @@ public final class UniversalFieldDeviceLdUi {
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER
                 || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE)
             return menu.configPrimaryProfileName();
-        if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) return Integer.toString(menu.pioneerProcessQuinary());
+        // Gain is configured by SENSITIVITY; it is not a physical sample.
+        // Compute its legal label from the synchronized configuration rather
+        // than the process-evidence slot, which can legitimately be unavailable.
+        if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER)
+            return Integer.toString(MolecularCloudReceiverBlock.gainFor(menu.configPrimary()));
         if (kind == UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR) return Integer.toString(CopperCapacitorBlock.tauTicks(menu.configPrimary()));
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return String.format(Locale.ROOT, "%.2f", menu.configPrimary() * 0.05);
         if (kind == UniversalFieldDeviceMenu.CONFIG_PWM) return Integer.toString(PwmControllerBlock.periodFor(menu.configPrimary()));
