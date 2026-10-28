@@ -89,6 +89,7 @@ public final class UniversalFieldDeviceLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
+                RseLdUiComponents.deviceContext(menu),
                 // Persistent context is displayed while the operator changes
                 // configuration/ports/evidence pages, without phantom pre-sync values.
                 RseLdUiComponents.statusRail(
