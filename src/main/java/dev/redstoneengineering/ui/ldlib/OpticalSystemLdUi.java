@@ -19,6 +19,7 @@ public final class OpticalSystemLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("OPTICAL ENGINEERING HMI"),
+                RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         660, 400, 910,
                         new String[]{"Overview", "Details", "Evidence"},
