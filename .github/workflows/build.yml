@@ -168,34 +168,49 @@ jobs:
       # Run them deliberately from workflow_dispatch when runtime-topology evidence is wanted.
       - name: Minecraft topology GameTests (manual diagnostic)
         if: github.event_name == 'workflow_dispatch'
-        continue-on-error: true
         shell: bash
         run: |
           set -uo pipefail
           mkdir -p .rse-audit
           timeout --signal=TERM 8m ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | python3 tools/rse_bounded_gametest_log.py .rse-audit/gametest-server.log
-          gametest_status=${PIPESTATUS[0]}
+          statuses=("${PIPESTATUS[@]}")
+          gametest_status=${statuses[0]}
+          capture_status=${statuses[1]}
+          # Extraction runs even when the server timed out or produced failures.
+          python3 tools/rse_gametest_failure_triage.py .rse-audit/gametest-server.log .rse-audit/gametest-triage.md || true
+          if (( capture_status != 0 )); then
+            echo "::error::GameTest bounded log collector failed: $capture_status"
+            exit 1
+          fi
           if (( gametest_status == 124 )); then
-            echo "::warning::GameTest server exceeded the 8-minute diagnostic window"
+            echo "::error::GameTest server exceeded the 8-minute diagnostic window"
+            exit 1
           elif (( gametest_status != 0 )); then
-            echo "::warning::GameTest server exited non-zero: $gametest_status"
+            echo "::error::GameTest server exited non-zero: $gametest_status"
+            exit 1
           elif grep -Fq "Too many chained neighbor updates" .rse-audit/gametest-server.log; then
-            echo "::warning::GameTest server triggered the chained-neighbor-update safety cutoff"
+            echo "::error::GameTest server triggered the chained-neighbor-update safety cutoff"
+            exit 1
+          elif grep -Eq 'LogTestReporter.* failed ' .rse-audit/gametest-server.log; then
+            echo "::error::GameTest reports test failures; see gametest-triage.md artifact"
+            exit 1
           else
             summary_line="$(grep -E 'All [0-9]+ required tests passed :\)' .rse-audit/gametest-server.log | tail -n 1 || true)"
             if [[ -n "$summary_line" ]]; then
-              echo "GameTest diagnostic evidence: $summary_line"
+              echo "GameTest runtime acceptance evidence: $summary_line"
             else
-              echo "::warning::GameTest diagnostic completed without an all-tests-passed summary"
+              echo "::error::GameTest diagnostic has no all-required-tests-passed summary"
+              exit 1
             fi
           fi
-          exit 0
       - name: Upload GameTest runtime log
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: rse-gametest-runtime-${{ github.sha }}
-          path: .rse-audit/gametest-server.log
+          path: |
+            .rse-audit/gametest-server.log
+            .rse-audit/gametest-triage.md
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
