@@ -499,3 +499,50 @@ that every screen scale is readable or that multiplayer sync/GameTests passed.
 The next in-game checklist should verify no new header occludes menus at high
 GUI scale, opening/closing detailed evidence does not send packets, and the
 health/quality strings follow real server sync after a state change.
+
+## 2026-10-28 all-block role and quality interpretation
+
+**Mandatory scope:** the full current RSE registry, **130 blocks**
+(122 core, 8 EngineeringSystemsModule). These changes reach all 23
+registered block-facing LDLib2 families by using the existing
+\`RseLdUiComponents.deviceContext(EngineeringDeviceMenu)\` call.
+The passive \`engineering_compass\` intentionally retains its
+non-mutating server-side world-direction/position readout.
+
+The collapsed header still shows authoritative name/location, health,
+aggregate evidence and prioritized next action without covering small
+workbenches. **Show evidence** is still a client-only display toggle.
+Expanding it now adds two deeper, read-only explanations:
+
+- **PORT CONTRACT:** different meanings for SOURCE, SINK, OBSERVER,
+  PASSIVE, explicit JUNCTION and CONTROLLED devices. An observer can
+  correctly omit TX, a source can omit RX and a sink can omit TX.
+  Formally declared receive/transmit faces are **not** tested electrical
+  or physical connectivity; junctions must not invent auto-bridging.
+- **QUALITY MEANING:** eight supported port quality codes have explicit
+  meaning and non-overclaiming warnings. In particular,
+  VALID is not a full device acceptance, NO SIGNAL can be expected,
+  STALE is not a current sample, SATURATED does not extrapolate
+  measurements, and UNOBSERVED does not establish a fault.
+
+Both projections depend only on already synchronized integer DataSlots,
+never new world reads, physics solves or hidden control actions.
+Health is kept distinct from port evidence; an intended protective
+safety state can coexist with valid measurements.
+
+The all-registry CI hard gate now verifies the complete role/quality
+branch coverage and that each of the 23 HMI families mounts the
+server-backed shared panel. It also generates
+\`.rse-audit/rse-130-block-manual-ui-checklist.csv\`: 130 distinct
+per-block rows covering actual opening, identity, health/evidence,
+port contract, expanded panel, original controls, GUI scales,
+multiplayer and GameTests. All execution columns start **NOT_TESTED**
+(or NOT_APPLICABLE where the passive compass has no HMI).
+The checklist is a *test plan*, not a fabricated successful test report.
+
+**Remaining mandatory real-client work:** test all 129 HMI entries
+inside Minecraft (plus the compass actionbar), record screenshot
+and scale observations, verify actual server readback/multiplayer
+behavior and run the manual NeoForge GameTests. Green static, Java,
+unit and packaged build results are not those runtime observations.
+
