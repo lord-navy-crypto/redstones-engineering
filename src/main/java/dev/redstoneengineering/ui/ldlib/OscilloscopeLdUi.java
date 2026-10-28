@@ -102,11 +102,15 @@ public final class OscilloscopeLdUi {
         if (menu.coverage(0) == 0 && menu.coverage(1) == 0) {
             return "04 / NETWORK • No channel has valid sample coverage; inspect probe connections and channel evidence.";
         }
-        boolean cursorAValid = menu.displaySample(0, menu.cursorA()) >= 0
-                || menu.displaySample(1, menu.cursorA()) >= 0;
-        boolean cursorBValid = menu.displaySample(0, menu.cursorB()) >= 0
-                || menu.displaySample(1, menu.cursorB()) >= 0;
-        if (!cursorAValid || !cursorBValid) {
+        boolean sharedCursorPair = false;
+        for (int ch = 0; ch < 2; ch++) {
+            if (menu.displaySample(ch, menu.cursorA()) >= 0
+                    && menu.displaySample(ch, menu.cursorB()) >= 0) {
+                sharedCursorPair = true;
+                break;
+            }
+        }
+        if (!sharedCursorPair) {
             return "05 / TRIGGER • A cursor points to an uncaptured slot. Move both cursors onto valid samples on the same channel.";
         }
         if (menu.aliasRisk(0) != 3 || menu.aliasRisk(1) != 3) {
