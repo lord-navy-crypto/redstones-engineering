@@ -48,6 +48,11 @@ checks = {
         "validDirectValue(m.kind(), parsed)",
         "m.applyPrimaryEngineeringValueFromUi(parsed)",
         "READ-ONLY HMI • no fake control",
+        "private static int configuredSlot(int kind)",
+        'return configuredSlot(kind) == slot ? "SETPOINT"',
+        "return configuredSlot(kind) == slot ? formulaSymbol(kind)",
+        'raw + " • CONFIGURED (SERVER)"',
+        "if (configuredSlot(m.kind()) != slot) return qualifiedRawMetric(m, raw);",
     ),
     "universal": (
         "RseLdUiComponents.statusRail(",
