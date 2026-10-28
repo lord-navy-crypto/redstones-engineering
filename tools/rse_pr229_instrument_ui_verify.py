@@ -107,8 +107,10 @@ guards = {
         "if (menu.sampleCount() <= 0)",
         "if (!menu.bounded())",
         "if (menu.duplicateChannels() > 0)",
-        "menu.displaySample(0, menu.cursorA())",
-        "menu.displaySample(1, menu.cursorB())",
+        "for (int ch = 0; ch < 2; ch++)",
+        "menu.displaySample(ch, menu.cursorA())",
+        "menu.displaySample(ch, menu.cursorB())",
+        "if (!sharedCursorPair)",
         "menu.aliasRisk(0) != 3",
     ]),
     "logic": (logic, [
