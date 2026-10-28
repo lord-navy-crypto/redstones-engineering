@@ -45,6 +45,7 @@ jobs:
             tools/rse_130_block_visual_rollout_verify.py \
             tools/rse_130_block_slimming_audit.py \
             tools/rse_130_block_full_source_review_bundle.py \
+            tools/rse_14_block_commissioning_verify.py \
             tools/rse_pr229_snapshot_truth_verify.py \
             tools/rse_pr229_visual_workflow_verify.py \
             tools/rse_pr229_instrument_ui_verify.py \
