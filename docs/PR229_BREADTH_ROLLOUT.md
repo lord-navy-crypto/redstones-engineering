@@ -211,3 +211,44 @@ be resolved separately before claiming the release fully verified.
 
 This file is a rollout checklist, not a release certification. Keep PR #229
 open until all required runtime/visual gates for its acceptance scope are met.
+
+
+## 2026-10-28 continued repair — source-traced GameTest faults and truthful manual gate
+
+This is a **code and verification** continuation, not a claim that the 421-case
+NeoForge runtime suite has passed.
+
+- Shared Universal LDLib2 no longer displays PWM inversion as NORMAL, an
+  alarm action as already acknowledged, or the Evidence page as synchronized
+  before the initial authoritative server DataSlot snapshot. The molecular
+  receiver's configured gain comes from its synchronized `SENSITIVITY`
+  configuration using `MolecularCloudReceiverBlock.gainFor`, not a possibly
+  missing process sample. The shared snapshot-truth verifier checks this.
+- The original Oct 27 GameTest archive contains **44 distinct
+  `LogTestReporter` failures**. First-pass *triage labels*, not proven root
+  causes, group as signal/control/UI 11; sensors/domain transport 9;
+  communications 8; Copper/electrical 7; pneumatic/pressure 6;
+  topology/test harness 1; other 2.
+- One concrete test harness root cause was inspected:
+  `topologyRoleProjectionUsesFormalPortContract` instantiated unregistered
+  `TestPortBlock` instances after NeoForge froze registries; the log reports
+  `Registry is already frozen`. `EngineeringDeviceMenu` now provides a pure
+  formal-port classifier overload, while the real `BlockState` adapter still
+  supplies junction and directional-domain traits. The GameTest validates
+  source/sink/series/passive/junction roles from port lists without constructing
+  blocks. A static gate prevents reintroducing the old test objects.
+- The **manually dispatched** GameTest task now fails visibly on timeout,
+  nonzero server/collector exit, recorded failures, chained-neighbor-update
+  cutoff or missing all-required-tests-passed marker. It is still skipped on
+  ordinary PR/push builds. It produces a bounded log and an additional
+  `gametest-triage.md` artifact with de-duplicated failed tests grouped for
+  diagnosis. Synthetic fixture tests cover duplicate reports, conflicting
+  success+failure markers and missing conclusions.
+- The legacy game test run pre-dates these changes. **No new in-world
+  runtime success is asserted.** Build/static checks prove source integrity,
+  not that previous individual GameTest failures are resolved.
+
+Next: execute a fresh explicitly dispatched runtime suite and verify the
+previous registry-freeze case is gone, then isolate remaining baseline and
+model/timing failures. A manual Minecraft `runClient` visual and interaction
+review is still required.
