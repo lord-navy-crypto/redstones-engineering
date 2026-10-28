@@ -122,6 +122,7 @@ public final class OscilloscopeLdUi {
     private static UIElement waveformPanel(OscilloscopeMenu menu) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new OscilloscopePlotElement(menu),
+                RseLdUiComponents.note("AXES • Y = Redstone level 0..15; X = display slot 0..15 (not absolute time). Sampling interval is configured in Sampling."),
                 new RsePlotLegendElement(
                         new String[]{"CH-A", "CH-B", "TRIGGER", "CURSOR A", "CURSOR B"},
                         new int[]{0xFFE05555, 0xFF62B0FF, 0xFFF6C453, 0xFF68D391, 0xFFC084FC}),
