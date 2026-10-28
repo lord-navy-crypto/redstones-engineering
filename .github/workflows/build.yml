@@ -255,7 +255,7 @@ jobs:
             --out build/install-kit \
             --source-head "$RSE_SOURCE_HEAD_SHA" \
             --checkout-sha "$RSE_BUILD_CHECKOUT_SHA"
-          sha256sum build/install-kit/*.zip > build/install-kit/SHA256SUMS-kit.txt
+          (cd build/install-kit && sha256sum *.zip > SHA256SUMS-kit.txt && sha256sum -c SHA256SUMS-kit.txt)
           unzip -t build/install-kit/*.zip
 
       - name: Upload verified RSE installation kit
