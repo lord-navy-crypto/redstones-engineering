@@ -25,6 +25,7 @@ public final class OperationsMonitorLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("OPERATIONS MONITOR • OBSERVER-ONLY PLANT EVIDENCE"),
+                RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         760, 440, 1010,
                         new String[]{"Overview", "Details", "Controls", "Evidence"},
