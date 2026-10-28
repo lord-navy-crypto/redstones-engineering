@@ -179,7 +179,7 @@ public final class RseLdUiComponents {
                         (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
                                 ? "NOT READY" : menu.evidenceStateLabel()))
                         .layout(l -> l.widthPercent(100)),
-                liveText(menu::portRouteLabel).layout(l -> l.widthPercent(100)),
+                liveText(() -> menu.portRouteLabel()).layout(l -> l.widthPercent(100)),
                 wrappedLabel("READING KEY • health is the operating/safety state; "
                         + "evidence describes reported port observations, not every internal "
                         + "measurement. UNKNOWN and NO SIGNAL do not by themselves prove a fault.")
