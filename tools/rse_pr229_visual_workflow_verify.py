@@ -77,6 +77,26 @@ for area, tokens in checks.items():
         if token not in source[area]:
             errors.append(f"{area}: visual workflow token missing: {token!r}")
 
+# Every displayed SETPOINT must refer to the same authoritative DataSlot
+# that the existing validated direct editor consumes. A wrong slot can
+# silently display valid-looking but unrelated process values.
+config_section = field.split("private static int configuredSlot(int kind) {", 1)[-1].split(
+    "private static String modelSlotRole(", 1)[0]
+control_section = field.split("private static int controlValue(FieldDeviceMenu m) {", 1)[-1].split(
+    "private static String formulaSymbol(", 1)[0]
+configured = {}
+editor = {}
+for kind_group, index in re.findall(
+        r"case\\s+([\\s\\S]*?)\\s*->\\s*([012]);", config_section):
+    for kind in re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", kind_group):
+        configured[kind] = int(index)
+for kind_group, slot in re.findall(
+        r"case\\s+([\\s\\S]*?)\\s*->\\s*m\\.(primary|secondary|tertiary)\\(\\);", control_section):
+    for kind in re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", kind_group):
+        editor[kind] = {"primary": 0, "secondary": 1, "tertiary": 2}[slot]
+if len(configured) != 14 or configured != editor:
+    errors.append(f"FieldDevice SETPOINT model roles disagree with exact server control slots: {configured} vs {editor}")
+
 # Rail and confirmed-value widgets never compute values from Level/physics.
 for area in ("shared", "field", "universal"):
     if re.search(r"import dev\.redstoneengineering\.physics\.", source[area]):
