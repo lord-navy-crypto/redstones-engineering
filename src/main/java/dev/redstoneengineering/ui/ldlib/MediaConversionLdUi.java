@@ -17,6 +17,7 @@ public final class MediaConversionLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(menu.redstoneToLapis() ? "REDSTONE → LAPIS SCALER" : "LAPIS → REDSTONE QUANTIZER"),
+                RseLdUiComponents.deviceContext(menu),
                 RseLdUiComponents.tabbedWorkspace(
                         600, 400, 850,
                         new String[]{"Overview", "Details", "Controls", "Evidence"},
