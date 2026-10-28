@@ -54,25 +54,18 @@ public class PneumaticCheckValveBlock extends DirectionalDomainBlock implements 
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
-        PneumaticObservationSupport.Observation observation =
-                PneumaticObservationSupport.observe(level, pos.relative(side));
-        return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), observation.pressure(), 0.0, 100.0, observation.quality()
-        ));
+        return Optional.of(PneumaticValveSupport.snapshot(level, pos, side, descriptor.get()));
     }
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, pos);
+        PneumaticValveSupport.placed(level, pos);
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock()) && level instanceof ServerLevel server) {
-            InformationRuntime.clear(level, "pneumatic", pos);
-            PneumaticNetwork.recomputeAround(server, pos);
-        }
+        PneumaticValveSupport.removed(state, level, pos, newState);
         super.onRemove(state, level, pos, newState, moved);
     }
 
