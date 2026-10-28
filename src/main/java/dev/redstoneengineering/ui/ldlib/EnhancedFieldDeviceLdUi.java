@@ -30,6 +30,20 @@ public final class EnhancedFieldDeviceLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RSE FIELD DEVICE • " + deviceName(m.kind())),
+                // Kept outside tabbedWorkspace so critical status survives tab changes.
+                RseLdUiComponents.statusRail(
+                        RseLdUiComponents.statusTile("01 • SYNC", () ->
+                                m.snapshotReady() ? "SERVER SNAPSHOT READY" : "AWAITING SERVER"),
+                        RseLdUiComponents.statusTile("02 • HEALTH", () ->
+                                !m.snapshotReady() ? "NOT EVALUATED"
+                                        : !m.topologyValid() ? "TOPOLOGY FAULT"
+                                        : !m.dataValid() ? "EVIDENCE UNAVAILABLE" : "TOPOLOGY / DATA OK"),
+                        RseLdUiComponents.statusTile("03 • CONTROL", () -> operatorMode(m.kind())),
+                        RseLdUiComponents.statusTile("04 • QUALITY", () ->
+                                !m.snapshotReady() ? "NOT READY"
+                                        : m.evidenceQualityKnown() ? m.evidenceQuality().name()
+                                        : "NOT REPORTED")
+                ),
                 RseLdUiComponents.tabbedWorkspace(
                         720, 430, 900,
                         new String[]{"Overview", "Configure", "Topology", "Evidence", "Integrity", "Transport"},
@@ -238,11 +252,19 @@ public final class EnhancedFieldDeviceLdUi {
                             () -> m.snapshotReady()
                                     ? controlValue(m) + " • " + directRangeLabel(m.kind())
                                     : "NOT READY • awaiting synchronized setpoint"),
+                    RseLdUiComponents.statusRail(
+                            RseLdUiComponents.statusTile("SERVER CONFIRMED VALUE", () ->
+                                    m.snapshotReady() ? Integer.toString(controlValue(m))
+                                            : "AWAITING SERVER READBACK"),
+                            RseLdUiComponents.statusTile("ACCEPTED INPUT", () ->
+                                    directRangeLabel(m.kind()))
+                    ),
                     new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("Exact engineering value").layout(l -> l.width(140)),
                             input,
                             new Label().setText(directRangeLabel(m.kind())).layout(l -> l.flex(1))
-                    )
+                    ),
+                    RseLdUiComponents.note("Legal entries submit immediately; the confirmed value above follows the authoritative server snapshot. Invalid steps are not applied.")
             );
         } else if (hasOperatorActions(m.kind())) {
             panel.addChild(RseLdUiComponents.liveRow("MODE", "current", () -> modeReadback(m)));
