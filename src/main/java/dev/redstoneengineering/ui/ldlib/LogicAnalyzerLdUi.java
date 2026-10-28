@@ -65,6 +65,7 @@ public final class LogicAnalyzerLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("FOUR-CHANNEL LOGIC ANALYZER"),
+                RseLdUiComponents.deviceContext(menu),
                 tabs,
                 new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
