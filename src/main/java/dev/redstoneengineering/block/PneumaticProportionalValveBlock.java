@@ -77,11 +77,7 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
                     descriptor.get(), command.value(), command.quality()
             ));
         }
-        PneumaticObservationSupport.Observation pressure =
-                PneumaticObservationSupport.observe(level, pos.relative(side));
-        return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), pressure.pressure(), 0.0, 100.0, pressure.quality()
-        ));
+        return Optional.of(PneumaticValveSupport.snapshot(level, pos, side, descriptor.get()));
     }
 
     @Override
@@ -113,7 +109,7 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (level instanceof ServerLevel server) {
-            PneumaticNetwork.recomputeAround(server, pos);
+            PneumaticValveSupport.placed(level, pos);
             MechatronicsVisualBlockEntity.push(server, pos, visualState(server, pos));
         }
     }
@@ -128,10 +124,7 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock()) && level instanceof ServerLevel server) {
-            InformationRuntime.clear(level, "pneumatic", pos);
-            PneumaticNetwork.recomputeAround(server, pos);
-        }
+        PneumaticValveSupport.removed(state, level, pos, newState);
         super.onRemove(state, level, pos, newState, moved);
     }
 
