@@ -97,6 +97,48 @@ class TestInstallPreflight(unittest.TestCase):
             self.assertTrue(r["ready"])
             self.assertTrue(any("无法读取" in e for e in r["warnings"]))
 
+    def test_official_ldlib2_all_filename_is_valid_when_metadata_matches(self):
+        # The official LDLib2 Modrinth primary download uses the -all suffix.
+        # File provenance and NeoForge metadata matter; suffix alone must not reject.
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            valid_fixture(base)
+            (base / "ldlib2-neoforge.jar").unlink()
+            jar(base, "ldlib2-neoforge-1.21.1-2.2.26-all.jar", "ldlib2", "2.2.26")
+            self.assertTrue(checker.check(base)["ready"])
+
+    def test_manifest_invalid_json_fails_closed(self):
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            valid_fixture(base)
+            manifest = base / "BUILD_INFO.json"
+            manifest.write_text("{invalid")
+            r = checker.check(base, manifest)
+            self.assertFalse(r["ready"])
+            self.assertEqual(r["integrity"], "failed")
+
+    def test_manifest_missing_digest_fails_closed(self):
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            valid_fixture(base)
+            manifest = base / "BUILD_INFO.json"
+            manifest.write_text('{"jar_name":"redstoneengineering-1.0.20-alpha.jar"}')
+            r = checker.check(base, manifest)
+            self.assertFalse(r["ready"])
+            self.assertEqual(r["integrity"], "failed")
+
+    def test_manifest_rejects_mismatched_jar_filename(self):
+        with TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            rse = valid_fixture(base)
+            manifest = base / "BUILD_INFO.json"
+            manifest.write_text(json.dumps({
+                "jar_sha256": checker.digest(rse), "jar_name": "other.jar"
+            }))
+            r = checker.check(base, manifest)
+            self.assertFalse(r["ready"])
+            self.assertEqual(r["integrity"], "failed")
+
     def test_version_parse(self):
         self.assertEqual(checker.parse_version("1.0.20-alpha"), (1, 0, 20))
         self.assertEqual(checker.parse_version("15.10.6+neoforge"), (15, 10, 6))
