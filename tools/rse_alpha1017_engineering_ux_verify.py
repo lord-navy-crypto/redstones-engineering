@@ -283,6 +283,26 @@ require(
     "ports.size() == 2 ? TOPOLOGY_PASSIVE_SERIES : TOPOLOGY_PASSIVE",
 )
 
+# This regression was observed in the 2026-10-27 NeoForge runtime log:
+# an in-world test constructed TestPortBlock instances after registries froze.
+# Keep pure contract classification separate from real BlockState adaptation.
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
+    "public static int classifyTopologyRole(",
+    "List<EngineeringPort> ports, boolean explicitJunction, boolean directionalSeries",
+    "return classifyTopologyRole(provider.engineeringPorts(state),",
+)
+require(
+    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUxGameTests.java",
+    "topologyRoleProjectionUsesFormalPortContract",
+    "EngineeringDeviceMenu.classifyTopologyRole(source, false, false)",
+    "EngineeringDeviceMenu.classifyTopologyRole(junction, true, false)",
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUxGameTests.java",
+    "new TestPortBlock(", "new TestJunctionBlock(", "class TestPortBlock extends Block",
+)
+
 # Modern safe HMI contract: compact direct endpoint controls live on Route; generic physical
 # interfaces retain a simple Direction control instead of pretending to be RX/TX pairs.
 require(
