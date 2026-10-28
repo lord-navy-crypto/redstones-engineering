@@ -84,6 +84,7 @@ def digest(path: Path) -> str:
 
 def check(mods: Path, manifest: Path | None = None) -> dict:
     report = {"ready": False, "mods": {}, "errors": [], "warnings": [],
+              "integrity": "not_checked",
               "note": "只验证文件版本；不代表游戏或 GameTest 已通过。"}
     if not mods.is_dir():
         report["errors"].append("找不到 mods 目录，请指定实际使用的实例文件夹")
@@ -116,21 +117,30 @@ def check(mods: Path, manifest: Path | None = None) -> dict:
                 report["errors"].append(label + " 版本无法识别：" + entries[0][1])
             elif not minimum <= v < maximum:
                 report["errors"].append(label + " 版本不符：" + entries[0][1])
+    # If a kit manifest exists it is a trust boundary: malformed metadata must
+    # fail, not quietly downgrade integrity verification into a warning.
     if manifest and manifest.is_file() and len(found.get("redstoneengineering", [])) == 1:
         try:
             obj = json.loads(manifest.read_text(encoding="utf-8"))
-            expected = str(obj.get("jar_sha256", "")).lower()
-            if re.fullmatch(r'[a-f0-9]{64}', expected):
-                match = digest(found["redstoneengineering"][0][0]) == expected
-                report["mods"]["redstoneengineering"]["sha256_matches_test_build"] = match
-                if not match:
-                    report["errors"].append("RSE JAR 的 SHA-256 与本测试包原始构建不一致")
-            else:
-                report["warnings"].append("构建清单没有有效 SHA-256")
-        except (OSError, ValueError) as exc:
-            report["warnings"].append("构建清单读取失败：" + type(exc).__name__)
+            if not isinstance(obj, dict):
+                raise ValueError("not a JSON object")
+            expected = obj.get("jar_sha256")
+            if not isinstance(expected, str) or not re.fullmatch(r"[a-fA-F0-9]{64}", expected):
+                raise ValueError("missing/invalid jar_sha256")
+            rse_path = found["redstoneengineering"][0][0]
+            declared_name = obj.get("jar_name")
+            if declared_name is not None and declared_name != rse_path.name:
+                report["errors"].append("RSE JAR 文件名与测试包 BUILD_INFO.json 不一致")
+            match = digest(rse_path) == expected.lower()
+            report["mods"]["redstoneengineering"]["sha256_matches_test_build"] = match
+            report["integrity"] = "verified" if match and (declared_name is None or declared_name == rse_path.name) else "failed"
+            if not match:
+                report["errors"].append("RSE JAR 的 SHA-256 与本测试包原始构建不一致")
+        except (OSError, ValueError, UnicodeError) as exc:
+            report["integrity"] = "failed"
+            report["errors"].append("BUILD_INFO.json 无法用于安全校验：" + type(exc).__name__)
     elif manifest and not manifest.is_file():
-        report["warnings"].append("无 BUILD_INFO.json：跳过 RSE JAR 哈希核验")
+        report["warnings"].append("无 BUILD_INFO.json：仅检查模组元数据，未验证 RSE JAR 来源")
     report["ready"] = not report["errors"]
     return report
 
