@@ -35,10 +35,14 @@ require(
     "InformationRuntime.clear(level, \"hydro\", pos)",
 )
 require(
+    "src/main/java/dev/redstoneengineering/block/ExciterDriveSupport.java",
+    "RedstoneObservationSupport.observe", "drive.quality()",
+    "PortQuality.NO_SIGNAL",
+)
+require(
     "src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
-    "RedstoneObservationSupport.observe",
-    "driveObservation",
-    "drive.quality()",
+    "ExciterDriveSupport.observation", "ExciterDriveSupport.snapshot",
+    "driveObservation", "HydroacousticNetwork.propagate",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/HydroacousticReceiverBlock.java",
