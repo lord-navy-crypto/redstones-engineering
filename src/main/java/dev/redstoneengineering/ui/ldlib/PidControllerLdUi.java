@@ -52,6 +52,7 @@ public final class PidControllerLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("PID CLOSED-LOOP ENGINEERING WORKBENCH"),
+                RseLdUiComponents.deviceContext(m),
                 tabs,
                 new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
