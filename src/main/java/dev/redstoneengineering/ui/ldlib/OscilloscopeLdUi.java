@@ -27,6 +27,10 @@ public final class OscilloscopeLdUi {
                 .layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
 
         var scope = page(
+                RseLdUiComponents.operatorGuide(
+                        "SCOPE • NEXT INSPECTION",
+                        () -> nextScopeStep(menu),
+                        "A/B are sampled channels; an empty display slot is NOT a zero-valued sample. Trigger and cursors mark recorded evidence."),
                 RseLdUiComponents.formulaCard(() ->
                         "Δt = N_ticks / 20 s   •   f_s = 1 / Δt = 20 / N_ticks Hz   •   f_N = f_s / 2"),
                 waveformPanel(menu)
@@ -81,9 +85,42 @@ public final class OscilloscopeLdUi {
                 .addChildren(children);
     }
 
+    /**
+     * The overview gives navigation guidance only. It never claims a
+     * captured waveform is physically validated by an unsynced client.
+     */
+    private static String nextScopeStep(OscilloscopeMenu menu) {
+        if (menu.sampleCount() <= 0) {
+            return "01 / TRIGGER • No retained samples yet. Select source/threshold and use Arm / Hold; inspect Network if probes are absent.";
+        }
+        if (!menu.bounded()) {
+            return "02 / NETWORK • Captured samples exist, but the network scan is incomplete. Do not certify routing from the plot.";
+        }
+        if (menu.duplicateChannels() > 0) {
+            return "03 / NETWORK • Resolve duplicate channel assignments before comparing the recorded traces.";
+        }
+        if (menu.coverage(0) == 0 && menu.coverage(1) == 0) {
+            return "04 / NETWORK • No channel has valid sample coverage; inspect probe connections and channel evidence.";
+        }
+        boolean cursorAValid = menu.displaySample(0, menu.cursorA()) >= 0
+                || menu.displaySample(1, menu.cursorA()) >= 0;
+        boolean cursorBValid = menu.displaySample(0, menu.cursorB()) >= 0
+                || menu.displaySample(1, menu.cursorB()) >= 0;
+        if (!cursorAValid || !cursorBValid) {
+            return "05 / TRIGGER • A cursor points to an uncaptured slot. Move both cursors onto valid samples on the same channel.";
+        }
+        if (menu.aliasRisk(0) != 0 || menu.aliasRisk(1) != 0) {
+            return "06 / SAMPLING • Review channel-specific alias warnings and sampling interval before interpreting frequency.";
+        }
+        return "07 / EXPERIMENT • Inspect both channel coverage and cursor evidence; compare frozen baseline/candidate only after capture.";
+    }
+
     private static UIElement waveformPanel(OscilloscopeMenu menu) {
         return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
                 new OscilloscopePlotElement(menu),
+                new RsePlotLegendElement(
+                        new String[]{"CH-A", "CH-B", "TRIGGER", "CURSOR A", "CURSOR B"},
+                        new int[]{0xFFE05555, 0xFF62B0FF, 0xFFF6C453, 0xFF68D391, 0xFFC084FC}),
                 RseLdUiComponents.note("Plot points are synchronized captures. Lines between samples are visual interpolation, not additional measurements; a cursor pair requires valid samples."),
                 RseLdUiComponents.liveRow("MEASURED", "CH-A", () -> waveform(menu, 0)),
                 RseLdUiComponents.liveRow("MEASURED", "CH-B", () -> waveform(menu, 1)),
