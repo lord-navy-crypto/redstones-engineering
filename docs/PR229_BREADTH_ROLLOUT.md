@@ -154,6 +154,41 @@ GameTest failures, run supported tests to completion, and inspect the
 individual LDLib2 screens inside a real Minecraft client. Do not promote
 static code-entry coverage into in-world functional certification.
 
+## 2026-10-28 visual operations wave — persistent dashboard and process flow
+
+This wave changes **actual LDLib2 component trees**; it does not only add
+textual documentation or new visual mockups.
+
+- **Persistent status rail** on both the lightweight FieldDevice HMI and the
+  Universal engineering HMI: four responsive cards stay above the page
+  selector while the user navigates. They expose snapshot synchronization,
+  health, control capability and source-evidence quality, with **NOT READY**
+  before server DataSlots have arrived. Read-only devices show read-only /
+  routing rather than a fake editable coefficient.
+- **Confirmed-value cards** in both parameter workbenches: legal range and
+  server-synchronized engineering value are visually separated from the
+  editable input. The current direct-entry binding submits legal values as
+  typed; no fictional "Apply" button or speculative success notification is
+  added. Users should judge the result by the separately labeled confirmed
+  server readback.
+- **Active tab breadcrumbs**: shared six-page and standalone instrument
+  workspaces display the current page number and label, and reset scroll
+  position when navigating. Tiles and controls wrap in narrow windows.
+- **Three-stage topology diagrams** on both shared surfaces: RX / INPUT →
+  PROCESS MODEL → TX / OUTPUT. These show declared endpoints and server
+  synchronization status, **not** invented physical measurements or inferred
+  "connected" indicators.
+- **CI coverage**: `tools/rse_pr229_visual_workflow_verify.py` is part of
+  the existing `RSE Build Verification` suite. It asserts shared responsive
+  components, visible navigation/readback/flow and preservation of server
+  intent entry points. CI also retains the older snapshot and whole-block
+  audit gates.
+
+This is a source/build verified UI improvement, not a screenshot or
+Minecraft-client visual acceptance. The existing 421-test runtime diagnostic
+remains inconclusive/nonpassing (44 distinct failed-test reports), so it must
+be resolved separately before claiming the release fully verified.
+
 ## Acceptance gates
 
 1. **Static**: `rse_field_device_pioneer_coverage_verify.py` audits taxonomy
