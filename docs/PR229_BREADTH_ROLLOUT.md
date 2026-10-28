@@ -315,3 +315,53 @@ session before merging:
 Ordinary PR CI and the latest installation-kit build are **not**
 Minecraft GameTest acceptance. The previously documented 44 failed-test
 reports still require a fresh, deliberately dispatched diagnostic.
+
+## 2026-10-28 instrument visualization: legends and first-action guidance
+
+This update changes the **actual LDLib2 screens** for the Oscilloscope,
+Logic Analyzer and PID workbench rather than adding screenshots or a parallel
+physics model.
+
+- **Color-and-text plot legends:** a shared responsive
+  `RsePlotLegendElement` draws labeled swatches for the same colors
+  used by live capture traces. Oscilloscope identifies CH-A/CH-B, trigger
+  threshold, and both cursors. Logic Analyzer identifies four probe
+  channels and both cursors. PID identifies setpoint (SP), process value
+  (PV), and output (OUT). Labels remain readable without color perception.
+  The legend calculates row wraps from its allocated LDLib2 bounds and
+  never reads the world or changes server behavior.
+- **Oscilloscope first action:** no samples → choose/arm trigger;
+  incomplete/duplicated network → inspect Network; absent channel
+  coverage or cursor slots → inspect probe/cursor evidence; alias
+  status not GOOD for both channels → inspect Sampling before frequency
+  interpretation. GOOD is the actual server ordinal 3, not the default 0.
+- **Logic Analyzer first action:** wait for samples, resolve incomplete
+  network scans and duplicate assignments, inspect valid channel
+  coverage, and require cursor points to exist on the *same channel*.
+  Empty digital sample slots are neither HIGH nor LOW.
+- **PID first action:** distinguish inhibited, missing commissioning inputs,
+  manual mode, no retained AUTO solve, missing trend, and a detected
+  but unready pneumatic plant. Retained trends and terms do not
+  certify present AUTO feedback or plant acceptance.
+- **Regression:** ordinary Build Verification now executes
+  `tools/rse_pr229_instrument_ui_verify.py`, checking actual chart
+  palette-to-legend agreement and the existence of the supported
+  server-evidence navigation branches. Previously established
+  compile/unit/static/clean-build/ZIP gates remain in place.
+
+### Real-client acceptance still outstanding
+
+1. Use `runClient` with 320px/640px/690px scaled workspaces:
+   check text/swatches wrap, chart/legend alignment, scroll and
+   long descriptions on GUI Scale 2, 3 and 4.
+2. Test scope two channels, cursor slots without captured data, sampled
+   valid zero, alias GOOD/MARGINAL/RISK/NOT_READY, and duplicate probes.
+3. Test logic all four digital lanes, empty/invalid slots, short
+   captures, trigger edge and valid-cursor channel matching.
+4. Test PID AUTO/MANUAL/INHIBITED, missing PV, retained history with no
+   current signal, and a detected but unready pneumatic plant.
+5. Repeat with a multiplayer server: data, visibility and readbacks
+   must continue to originate on the server. No automatic change of
+   settings should occur when the help/legend is rendered.
+
+**No in-world GameTest pass or screenshot acceptance is claimed here.**
