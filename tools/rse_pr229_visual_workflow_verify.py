@@ -27,6 +27,10 @@ checks = {
         "public static UIElement statusTile(String label, Supplier<String> serverReadback)",
         "liveText(serverReadback)",
         "public static UIElement statusRail(UIElement... tiles)",
+        "public static UIElement operatorGuide(String heading, Supplier<String> nextAction, String readingKey)",
+        "liveText(nextAction)",
+        'wrappedLabel("READING KEY • " + readingKey)',
+        "final int readableMinWidth = Math.min(contentWidth, 320);",
         "flexWrap(FlexWrap.WRAP)",
         "PAGE 1 / ",
         "pageIndicator.setText(",
@@ -39,6 +43,16 @@ checks = {
         'RseLdUiComponents.statusTile("02 • HEALTH"',
         'RseLdUiComponents.statusTile("03 • CONTROL"',
         'RseLdUiComponents.statusTile("04 • QUALITY"',
+        'RseLdUiComponents.operatorGuide(',
+        '"OPERATOR GUIDE • NEXT CHECK"',
+        "private static String nextOperatorStep(FieldDeviceMenu m)",
+        'if (!m.snapshotReady())',
+        'if (!m.topologyValid())',
+        'if (!m.dataValid())',
+        'if (!m.evidenceQualityKnown())',
+        'if (m.evidenceQuality() != dev.redstoneengineering.core.port.PortQuality.VALID)',
+        'if (directEntryKind(m.kind()))',
+        'if (hasOperatorActions(m.kind()))',
         'RseLdUiComponents.statusTile("SERVER CONFIRMED VALUE"',
         'RseLdUiComponents.statusTile("ACCEPTED INPUT"',
         'RseLdUiComponents.statusTile("01 • RX / INPUT"',
@@ -60,6 +74,15 @@ checks = {
         'RseLdUiComponents.statusTile("02 • HEALTH"',
         'RseLdUiComponents.statusTile("03 • OPERATION"',
         'RseLdUiComponents.statusTile("04 • QUALITY"',
+        'RseLdUiComponents.operatorGuide(',
+        '"OPERATOR GUIDE • NEXT CHECK"',
+        "private static String nextOperatorStep(UniversalFieldDeviceMenu menu)",
+        'if (!menu.snapshotReady())',
+        "if (primaryDirectKind(kind) || secondaryDirectKind(kind))",
+        "if (primaryCycleKind(kind))",
+        "if (hasExplicitAction(kind) || hasToggle(kind))",
+        "if (kind == UniversalFieldDeviceMenu.CONFIG_NONE)",
+        "view.layout(l -> l.widthPercent(100).minWidth(320)",
         'RseLdUiComponents.statusTile("SERVER CONFIRMED • " + primarySymbol(kind)',
         'RseLdUiComponents.statusTile("SERVER CONFIRMED • " + secondarySymbol(kind)',
         'RseLdUiComponents.statusTile("01 • RX / INPUT"',
@@ -112,4 +135,6 @@ print("RSE PR229 VISUAL WORKFLOW: PASS")
 print(" persistent server-bound health/quality tiles: FieldDevice + Universal")
 print(" confirmed values and exact legal ranges: both configuration families")
 print(" tab navigation has visible active-page feedback in both workspace types")
+print(" next-action guidance is snapshot-gated and distinguishes tuning from evidence")
+print(" shared and universal viewports wrap at narrower Minecraft dimensions")
 print(" does not claim manual Minecraft client, screenshot or GameTest success")
