@@ -87,12 +87,12 @@ control_section = field.split("private static int controlValue(FieldDeviceMenu m
 configured = {}
 editor = {}
 for kind_group, index in re.findall(
-        r"case\\s+([\\s\\S]*?)\\s*->\\s*([012]);", config_section):
-    for kind in re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", kind_group):
+        r"case\s+([\s\S]*?)\s*->\s*([012]);", config_section):
+    for kind in re.findall(r"FieldDeviceMenu\.(KIND_[A-Z0-9_]+)", kind_group):
         configured[kind] = int(index)
 for kind_group, slot in re.findall(
-        r"case\\s+([\\s\\S]*?)\\s*->\\s*m\\.(primary|secondary|tertiary)\\(\\);", control_section):
-    for kind in re.findall(r"FieldDeviceMenu\\.(KIND_[A-Z0-9_]+)", kind_group):
+        r"case\s+([\s\S]*?)\s*->\s*m\.(primary|secondary|tertiary)\(\);", control_section):
+    for kind in re.findall(r"FieldDeviceMenu\.(KIND_[A-Z0-9_]+)", kind_group):
         editor[kind] = {"primary": 0, "secondary": 1, "tertiary": 2}[slot]
 if len(configured) != 14 or configured != editor:
     errors.append(f"FieldDevice SETPOINT model roles disagree with exact server control slots: {configured} vs {editor}")
