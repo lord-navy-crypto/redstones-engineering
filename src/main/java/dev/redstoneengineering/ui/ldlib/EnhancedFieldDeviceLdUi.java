@@ -48,7 +48,12 @@ public final class EnhancedFieldDeviceLdUi {
                         720, 430, 900,
                         new String[]{"Overview", "Configure", "Topology", "Evidence", "Integrity", "Transport"},
                         new UIElement[]{
-                                RseLdUiComponents.workspacePage(identityPanel(m), modelPanel(m), livePanel(m)),
+                                RseLdUiComponents.workspacePage(
+                                        RseLdUiComponents.operatorGuide(
+                                                "OPERATOR GUIDE • NEXT CHECK",
+                                                () -> nextOperatorStep(m),
+                                                "SETPOINT is synchronized configuration, not a measurement. A missing physical sample is not zero; NOT REPORTED is not VALID."),
+                                        identityPanel(m), modelPanel(m), livePanel(m)),
                                 RseLdUiComponents.workspacePage(controlPanel(m)),
                                 RseLdUiComponents.workspacePage(routePanel(m)),
                                 RseLdUiComponents.workspacePage(evidencePanel(m), RseLdUiComponents.authorityFooter()),
@@ -58,6 +63,35 @@ public final class EnhancedFieldDeviceLdUi {
                 )
         );
         return RseLdUiComponents.responsiveUi(root, player, 740, 470);
+    }
+
+    /**
+     * An operator navigation hint, not a state transition or client-side
+     * safety verdict. All live branches depend on the existing menu snapshot.
+     */
+    private static String nextOperatorStep(FieldDeviceMenu m) {
+        if (!m.snapshotReady()) {
+            return "01 / SYNC • Await the first server snapshot. Do not treat empty or zero measurements as live readings.";
+        }
+        if (!m.topologyValid()) {
+            return "02 / TOPOLOGY • Open Topology, inspect ports and links; the server currently rejects the topology.";
+        }
+        if (!m.dataValid()) {
+            return "03 / EVIDENCE • Open Evidence and check source/data validity. Configured setpoints may still be visible.";
+        }
+        if (!m.evidenceQualityKnown()) {
+            return "04 / EVIDENCE • Port quality is not reported. Review source and topology details before interpreting measurements.";
+        }
+        if (m.evidenceQuality() != dev.redstoneengineering.core.port.PortQuality.VALID) {
+            return "05 / EVIDENCE • Review the reported port quality; do not interpret an unqualified measurement as valid.";
+        }
+        if (directEntryKind(m.kind())) {
+            return "06 / CONFIGURE • Enter a legal engineering value and verify the SERVER CONFIRMED VALUE tile.";
+        }
+        if (hasOperatorActions(m.kind())) {
+            return "06 / CONFIGURE • Review the synchronized mode, use a supported action, then check the server readback.";
+        }
+        return "06 / INSPECT • Use Overview, Topology and Evidence; this device has no shared editable setpoint.";
     }
 
     private static UIElement identityPanel(FieldDeviceMenu m) {
