@@ -135,6 +135,23 @@ public final class RseLdUiComponents {
         return rail;
     }
 
+    /**
+     * Server-guided first action for the Overview pages. Unlike a fake "OK"
+     * badge, this text always comes from the menu's synchronized state and
+     * explains which page to consult without performing an operation.
+     * Kept inside Overview so the persistent status rail stays compact.
+     */
+    public static UIElement operatorGuide(String heading, Supplier<String> nextAction, String readingKey) {
+        var panel = new UIElement().addClass("panel_bg");
+        panel.layout(l -> l.widthPercent(100).paddingAll(8).gapAll(5));
+        panel.addChildren(
+                wrappedLabel(heading).layout(l -> l.widthPercent(100)),
+                liveText(nextAction).layout(l -> l.widthPercent(100)),
+                wrappedLabel("READING KEY • " + readingKey).layout(l -> l.widthPercent(100))
+        );
+        return panel;
+    }
+
     public static UIElement fixedRow(String symbol, Supplier<String> value, String reason) {
         return new UIElement()
                 .layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(9).paddingAll(2))
@@ -181,7 +198,9 @@ public final class RseLdUiComponents {
         // Prefer wrapping to the visible viewport instead of forcing every
         // 620px screen to pan sideways through an 850px wide page.
         // Only very narrow screens fall back to horizontal scrolling.
-        final int readableMinWidth = Math.min(contentWidth, 440);
+        // Use wrapped rows on narrow 320px layouts; horizontal scrolling
+        // remains a fallback when the actual viewport is smaller.
+        final int readableMinWidth = Math.min(contentWidth, 320);
         scroller.viewContainer(view -> view.layout(l ->
                 l.widthPercent(100).minWidth(readableMinWidth).paddingAll(8).gapAll(8)));
 
