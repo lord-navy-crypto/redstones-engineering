@@ -27,6 +27,11 @@ logic_plot = read("LogicAnalyzerPlotElement.java")
 pid = read("PidControllerLdUi.java")
 pid_plot = read("PidTrendPlotElement.java")
 
+axes_path = root / "src/main/java/dev/redstoneengineering/client/ui/EngineeringPlot.java"
+axes = axes_path.read_text(encoding="utf-8") if axes_path.is_file() else ""
+if not axes:
+    errors.append("shared axis drawing primitives are missing")
+
 for token in (
     'operatorGuide(String heading, Supplier<String> nextAction, String readingKey)',
     'liveText(nextAction)',
@@ -145,6 +150,56 @@ for name, source in (("scope", scope), ("logic", logic), ("PID", pid)):
     if re.search(r"import dev\.redstoneengineering\.physics\.", source):
         errors.append(f"{name}: UI must not import independent physics")
 
+
+# The captions describe real display-slot positions, not fictitious wall-clock
+# timestamps. Every new axis must fit inside an allocated LDLib2 plot box.
+axis_tokens = (
+    "public static void analogAxisLabels(",
+    "public static void slotAxisLabels(",
+    "public static void digitalLaneLabel(",
+    "public static void emptyPlotLabel(",
+    "if (width < 30 || height < 30 || slots < 2",
+    "int[] indices = {0, (slots - 1) / 2, slots - 1};",
+    "x + Math.round(index * (width - 1)",
+    "AXIS_TEXT",
+)
+for token in axis_tokens:
+    if token not in axes:
+        errors.append(f"shared plot axis rendering lost: {token!r}")
+for token in ("RuntimeIntStore", "getBlockState(", "scheduleTick(", "setBlock("):
+    if token in axes:
+        errors.append(f"plot rendering illegally depends on world mutation: {token!r}")
+
+axis_plots = {
+    "scope": (scope_plot, scope, [
+        "EngineeringPlot.analogAxisLabels(g.graphics, x, y, width, height, 0, 15, 16)",
+        'EngineeringPlot.emptyPlotLabel(g.graphics, x, y, width, height, "NO CAPTURED SAMPLES")',
+        "if (menu.sampleCount() <= 0)",
+        "width -= 30",
+        "height -= 22",
+    ], "X = display slot 0..15"),
+    "logic": (logic_plot, logic, [
+        "EngineeringPlot.slotAxisLabels(g.graphics,traceX,y,traceWidth,h,16)",
+        "EngineeringPlot.digitalLaneLabel(",
+        'EngineeringPlot.emptyPlotLabel(g.graphics,x,y,w,h,"NO CAPTURED SAMPLES")',
+        "if (menu.sampleCount() <= 0)",
+        "h -= 22",
+    ], "Gaps are missing data"),
+    "PID": (pid_plot, pid, [
+        "EngineeringPlot.analogAxisLabels(g.graphics,x,y,w,h,0,15,PidControllerMenu.TREND_SAMPLES)",
+        'EngineeringPlot.emptyPlotLabel(g.graphics,x,y,w,h,"NO RETAINED PID SAMPLES")',
+        "if (menu.trendCount() <= 0)",
+        "w -= 30",
+        "h -= 22",
+    ], "X = retained history slots 0..31"),
+}
+for name, (plot_src, screen_src, tokens, caption) in axis_plots.items():
+    for token in tokens:
+        if token not in plot_src:
+            errors.append(f"{name}: axis or empty-capture rendering regressed: {token!r}")
+    if caption not in screen_src:
+        errors.append(f"{name}: display-slot provenance caption missing")
+
 if errors:
     print("RSE PR229 INSTRUMENT UI: FAIL")
     for error in errors:
@@ -153,4 +208,5 @@ if errors:
 print("RSE PR229 INSTRUMENT UI: PASS")
 print(" real plotted colors match labeled legends for Scope, Logic and PID")
 print(" acquisition/measurement/plant hints derived from existing server menus")
+print(" bounded axes label actual signal levels and display slots; empty plots are explicit")
 print(" no in-game render, multiplayer sync or GameTest acceptance asserted")
