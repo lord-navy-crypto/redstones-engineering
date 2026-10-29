@@ -37,7 +37,7 @@ public final class RseQuartzSamplingUpgradeGameTests {
         var highPort = device.engineeringSnapshot(helper.getLevel(), world,
                 helper.getBlockState(pos), Direction.EAST).orElseThrow();
         if (lowPort.value() != 0.0 || highPort.value() != 1.0
-                || lowPort.maxValue() != 1.0 || highPort.maxValue() != 1.0
+                || lowPort.maximum() != 1.0 || highPort.maximum() != 1.0
                 || lowPort.quality() != PortQuality.VALID || highPort.quality() != PortQuality.VALID) {
             helper.fail("Lab Quartz port must publish phase 0/1, never nominal period", pos);
             return;
