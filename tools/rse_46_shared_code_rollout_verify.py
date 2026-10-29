@@ -21,7 +21,7 @@ if len(blocks) != 130 or len(candidates) != 46 or len(groups) != 15:
 
 src = root / "src/main/java/dev/redstoneengineering/block"
 reads = {}
-for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport"):
+for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport"):
     path = src / (filename + ".java")
     reads[filename] = path.read_text(encoding="utf-8") if path.is_file() else ""
     if not reads[filename]:
@@ -41,6 +41,14 @@ if "PortQuality.NO_SIGNAL" not in reads["ExciterDriveSupport"]:
     errors.append("exciter zero-amplitude quality semantics lost")
 
 families = {
+    "filtering": ("FilterResponseSupport", {
+        "precision_filter": ("PrecisionFilterBlock", "stepRate(Level level"),
+        "lapis_low_pass_filter": ("LapisLowPassFilterBlock", "DomainNetwork.driveLapis("),
+    }),
+    "range_measurement": ("RangeScanSupport", {
+        "range_sensor": ("RangeSensorBlock", "getEntitiesOfClass("),
+        "lapis_precision_range_sensor": ("LapisPrecisionRangeSensorBlock", "RangeSample rangeSample("),
+    }),
     "quartz_clock": ("QuartzClockSupport", {
         "quartz_oscillator": ("QuartzOscillatorBlock", "DomainNetwork.recomputeQuartz(l,p)"),
         "quartz_lab_oscillator": ("QuartzLabOscillatorBlock", "timingEvidence(Level level"),
@@ -73,11 +81,14 @@ for family, (helper, mapping) in families.items():
             errors.append(f"{block_id}: no reuse of {helper}")
         if distinct not in source:
             errors.append(f"{block_id}: distinct physics/operation missing: {distinct}")
-        if "engineeringSnapshot(" not in source:
+        if "engineeringSnapshot(" not in source and not (
+                block_id == "lapis_precision_range_sensor"
+                and "extends AbstractLapisTransducerBlock" in source
+                and "sense(ServerLevel" in source):
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
-if len(wired) != 11:
-    errors.append(f"expected 11 helper users after clock phase upgrade, got {len(wired)}")
+if len(wired) != 15:
+    errors.append(f"expected 15 helper users after DSP/range upgrade, got {len(wired)}")
 if not set(wired).issubset({r["id"] for r in candidates}):
     errors.append("an implemented refactor is not a registered 46-candidate")
 
@@ -101,6 +112,8 @@ enhanced = {
     "sample_hold": ("SampleHoldBlock", ("RedstoneObservationSupport.observe", "DOWN=inspect", "outputQuality(level, pos)")),
     "quartz_triggered_lapis_sampler": ("QuartzTriggeredLapisSamplerBlock",
         ("WAITING_FOR_VALID_CLOCK", "PrecisionObservationSupport.quartz", "PrecisionObservationSupport.lapis")),
+    "signal_conditioner": ("SignalConditionerBlock",
+        ("CONDITIONER FIELD TEST", "RedstoneObservationSupport.observe", "limitingActive")),
 }
 for block_id, (klass, markers) in enhanced.items():
     source = (src / (klass + ".java")).read_text(encoding="utf-8")
