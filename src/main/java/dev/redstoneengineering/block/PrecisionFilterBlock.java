@@ -2,9 +2,11 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,6 +19,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+
+import java.util.Optional;
 
 /**
  * Dynamic slew filter. It intentionally owns response speed, not static gain/offset or
@@ -39,6 +43,21 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(RATE);
+    }
+
+    /**
+     * A missing upstream redstone source and a deliberately driven zero are
+     * different measurement conditions. Snapshot reads do not run the filter
+     * or change the configured slew response.
+     */
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side) {
+        Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
+        if (base.isEmpty() || side != inputSide(state)) return base;
+        var input = RedstoneObservationSupport.observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                base.get().port(), input.value(), input.quality()));
     }
 
     @Override
