@@ -60,13 +60,14 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
         BlockPos input = inputPos(pos, state);
         PortQuality inputQuality = DataBusNetwork.quality(level, input);
         if (side == inputSide(state)) {
-            return Optional.of(new EngineeringPortSnapshot(port.get(), DataBusNetwork.sample(level, input),
+            return Optional.of(new EngineeringPortSnapshot(port.get(),
+                    inputQuality == PortQuality.VALID ? DataBusNetwork.sample(level, input) : 0,
                     0.0, 255.0, inputQuality));
         }
         InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "serial", pos);
-        PortQuality quality = output.ageTicks() < 0 ? PortQuality.STALE : inputQuality;
+        PortQuality quality = DigitalEndpointEvidenceSupport.outputQuality(inputQuality, output);
         return Optional.of(new EngineeringPortSnapshot(port.get(),
-                output.value() & 0xFF,
+                DigitalEndpointEvidenceSupport.valueWhenValid(quality, output, 0xFF),
                 0.0, 255.0, quality));
     }
 
@@ -75,11 +76,12 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
         BlockPos output = outputPos(pos, state);
         PortQuality inputQuality = DataBusNetwork.quality(level, input);
         boolean valid = inputQuality == PortQuality.VALID;
-        InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "serial", pos);
-        int value = valid ? DataBusNetwork.sample(level, input)
-                : inputQuality == PortQuality.STALE ? previous.value() & 0xFF : 0;
+        // Never retain the previously framed byte as the active output when
+        // its bus input is missing, stale, or in contention.
+        int value = valid ? DataBusNetwork.sample(level, input) : 0;
         InformationRuntime.write(level, "serial", pos, value, 8, valid, valid ? 100 : 0);
-        if (level.getBlockState(output).getBlock() instanceof SerialDataLineBlock) {
+        if (level.hasChunkAt(output)
+                && level.getBlockState(output).getBlock() instanceof SerialDataLineBlock) {
             SerialNetwork.recompute(level, output);
         }
     }
@@ -113,8 +115,8 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
             InformationRuntime.clear(level, "serial", pos);
             BlockPos output = outputPos(pos, state);
-            BlockState outputState = level.getBlockState(output);
-            if (outputState.getBlock() instanceof SerialDataLineBlock line) {
+            if (level.hasChunkAt(output)
+                    && level.getBlockState(output).getBlock() instanceof SerialDataLineBlock line) {
                 serverLevel.scheduleTick(output, line, 1);
             }
         }
