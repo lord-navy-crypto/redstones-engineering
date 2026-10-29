@@ -21,7 +21,7 @@ if len(blocks) != 130 or len(candidates) != 46 or len(groups) != 15:
 
 src = root / "src/main/java/dev/redstoneengineering/block"
 reads = {}
-for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport", "SafetyObservationSupport", "CommunicationLineEvidenceSupport", "FreeSpaceOpticalChannelSupport", "DigitalEndpointEvidenceSupport"):
+for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport", "SafetyObservationSupport", "CommunicationLineEvidenceSupport", "FreeSpaceOpticalChannelSupport", "DigitalEndpointEvidenceSupport", "AmethystFrequencySupport"):
     path = src / (filename + ".java")
     reads[filename] = path.read_text(encoding="utf-8") if path.is_file() else ""
     if not reads[filename]:
@@ -45,6 +45,11 @@ if "quality == PortQuality.VALID" not in reads["CommunicationLineEvidenceSupport
     errors.append("communication payload display must reject invalid/conflicted data")
 
 families = {
+    "amethyst_frequency": ("AmethystFrequencySupport", {
+        "amethyst_resonator": ("AmethystResonatorBlock", "DomainNetwork.recomputeAmethyst(serverLevel, pos)"),
+        "amethyst_frequency_filter": ("AmethystFrequencyFilterBlock", "evidence.matched() && evidence.expectedOutputAmplitude() > 0"),
+        "amethyst_tuned_resonator": ("AmethystTunedResonatorBlock", "EngineeringMath.clamp(raw, 0, 15)"),
+    }),
     "digital_transport_endpoints": ("DigitalEndpointEvidenceSupport", {
         "differential_driver": ("DifferentialDriverBlock", "DifferentialNetwork.recompute(level, output)"),
         "differential_receiver": ("DifferentialReceiverBlock", "DifferentialNetwork.quality(level, input)"),
@@ -114,8 +119,8 @@ for family, (helper, mapping) in families.items():
                     and "readBackInput(level, pos, state)" in source)):
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
-if len(wired) != 27:
-    errors.append(f"expected 27 shared helper users after differential receiver fail-closed upgrade, got {len(wired)}")
+if len(wired) != 30:
+    errors.append(f"expected 30 shared helper users after Amethyst quality upgrade, got {len(wired)}")
 if not set(wired).issubset({r["id"] for r in candidates}):
     errors.append("an implemented refactor is not a registered 46-candidate")
 
@@ -162,6 +167,9 @@ hardened = {
     "deserializer": "INVALID_FRAME_RELEASES_BUS_BYTE_AND_WATCHDOG",
     "differential_driver": "WATCHDOG_REVOKES_ORPHANED_DIFFERENTIAL_BIT",
     "differential_receiver": "INPUT_QUALITY_GATES_OUTPUT_AND_16_TICK_WATCHDOG",
+    "amethyst_resonator": "SOURCE_PULSE_VS_CONFIGURED_AMPLITUDE",
+    "amethyst_frequency_filter": "LOADED_SAMPLE_AND_CONFLICT_OUTPUT_MASK",
+    "amethyst_tuned_resonator": "LOADED_SAMPLE_AND_STALE_OUTPUT_MASK",
 }
 for block_id, evidence in hardened.items():
     source_path = src / (next(item["class"] for item in candidates if item["id"] == block_id) + ".java")
@@ -178,6 +186,9 @@ for block_id, evidence in hardened.items():
         "deserializer": "boolean valid = inputQuality == PortQuality.VALID && serial.valid();",
         "differential_driver": "int bit = input.valid() && input.value() > 0 ? 1 : 0;",
         "differential_receiver": "level.scheduleTick(pos, this, 16);",
+        "amethyst_resonator": "AmethystFrequencySupport.sourcePort(",
+        "amethyst_frequency_filter": "AmethystFrequencySupport.outputQuality(",
+        "amethyst_tuned_resonator": "AmethystFrequencySupport.outputQuality(",
     }[block_id]
     if marker not in source_text:
         errors.append(f"{block_id}: hardening regression {evidence}")
