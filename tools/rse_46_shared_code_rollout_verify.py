@@ -47,6 +47,7 @@ if "quality == PortQuality.VALID" not in reads["CommunicationLineEvidenceSupport
 families = {
     "digital_transport_endpoints": ("DigitalEndpointEvidenceSupport", {
         "differential_driver": ("DifferentialDriverBlock", "DifferentialNetwork.recompute(level, output)"),
+        "differential_receiver": ("DifferentialReceiverBlock", "DifferentialNetwork.quality(level, input)"),
         "serializer": ("SerializerBlock", "SerialNetwork.recompute(level, output)"),
         "deserializer": ("DeserializerBlock", "DataBusNetwork.resolve(level, DataBusNetwork.collect(level, output))"),
     }),
@@ -113,8 +114,8 @@ for family, (helper, mapping) in families.items():
                     and "readBackInput(level, pos, state)" in source)):
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
-if len(wired) != 26:
-    errors.append(f"expected 26 shared helper users after digital endpoint hardening, got {len(wired)}")
+if len(wired) != 27:
+    errors.append(f"expected 27 shared helper users after differential receiver fail-closed upgrade, got {len(wired)}")
 if not set(wired).issubset({r["id"] for r in candidates}):
     errors.append("an implemented refactor is not a registered 46-candidate")
 
@@ -160,6 +161,7 @@ hardened = {
     "serializer": "INVALID_BUS_CLEARS_SERIAL_BYTE_AND_WATCHDOG",
     "deserializer": "INVALID_FRAME_RELEASES_BUS_BYTE_AND_WATCHDOG",
     "differential_driver": "WATCHDOG_REVOKES_ORPHANED_DIFFERENTIAL_BIT",
+    "differential_receiver": "INPUT_QUALITY_GATES_OUTPUT_AND_16_TICK_WATCHDOG",
 }
 for block_id, evidence in hardened.items():
     source_path = src / (next(item["class"] for item in candidates if item["id"] == block_id) + ".java")
@@ -175,6 +177,7 @@ for block_id, evidence in hardened.items():
         "serializer": "int value = valid ? DataBusNetwork.sample(level, input) : 0;",
         "deserializer": "boolean valid = inputQuality == PortQuality.VALID && serial.valid();",
         "differential_driver": "int bit = input.valid() && input.value() > 0 ? 1 : 0;",
+        "differential_receiver": "level.scheduleTick(pos, this, 16);",
     }[block_id]
     if marker not in source_text:
         errors.append(f"{block_id}: hardening regression {evidence}")
