@@ -163,7 +163,7 @@ for block_id, evidence in hardened.items():
         "copper_circuit_meter": "return new CopperObservationSupport.Observation(0, PortQuality.STALE);",
         "optical_power_meter": "return new Measurement(0, 0, PortQuality.STALE);",
         "free_space_optical_transmitter": "transmitter.emit(server, pos, updated);",
-        "free_space_optical_receiver": "receiver.updateOutput(level, pos, updated, 0);",
+        "free_space_optical_receiver": "receiver.updateOutput(level, pos, state, 0);",
     }[block_id]
     if marker not in source_text:
         errors.append(f"{block_id}: hardening regression {evidence}")
