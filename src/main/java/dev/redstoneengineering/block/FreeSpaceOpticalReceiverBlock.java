@@ -87,12 +87,20 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
         BlockState current = level.getBlockState(pos);
         if (!(current.getBlock() instanceof FreeSpaceOpticalReceiverBlock receiver)) return false;
         if (current.getValue(CHANNEL) == channel) return true;
-        InformationRuntime.clear(level, "free_optical", pos);
         BlockState updated = current.setValue(CHANNEL, channel);
         level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
-        receiver.updateOutput(level, pos, updated, 0);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, receiver, 1);
+        invalidateReception(level, pos);
         return true;
+    }
+
+    /** A route or channel change must never reuse evidence from the old optical aperture. */
+    public static void invalidateReception(Level level, BlockPos pos) {
+        if (level.isClientSide) return;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof FreeSpaceOpticalReceiverBlock receiver)) return;
+        InformationRuntime.clear(level, "free_optical", pos);
+        receiver.updateOutput(level, pos, state, 0);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, receiver, 1);
     }
 
     @Override
