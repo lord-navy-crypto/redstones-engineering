@@ -46,6 +46,7 @@ jobs:
             tools/rse_130_block_slimming_audit.py \
             tools/rse_46_shared_code_rollout_verify.py \
             tools/rse_quartz_sampling_upgrade_verify.py \
+            tools/rse_filter_range_sampling_upgrade_verify.py \
             tools/rse_130_block_full_source_review_bundle.py \
             tools/rse_14_block_commissioning_verify.py \
             tools/rse_pr229_snapshot_truth_verify.py \
