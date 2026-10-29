@@ -619,10 +619,13 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             primary.set(providerValue(receiver, state, DirectionalSignalBlock.seriesInputSide(state)));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set(state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL));
-            boolean valid = InformationRuntime.valid(level, "free_optical", blockPos)
-                    && InformationRuntime.aux(level, "free_optical", blockPos) == state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL);
-            dataValid.set(valid ? 1 : 0);
-            quality.set(boundedQuality("free_optical", blockPos));
+            // Use the same freshness/channel/validity decision as the actual
+            // output device, not the raw retained envelope's validity flag.
+            var opticalPort = receiver.engineeringSnapshot(
+                    level, blockPos, state, DirectionalSignalBlock.seriesInputSide(state));
+            PortQuality opticalQuality = opticalPort.map(p -> p.quality()).orElse(PortQuality.STALE);
+            dataValid.set(opticalQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(opticalQuality));
             facing.set(output.ordinal());
         } else if (block instanceof QuartzClockDividerBlock) {
             Direction output = DirectionalDomainBlock.seriesOutputSide(state);
