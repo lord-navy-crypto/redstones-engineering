@@ -49,6 +49,8 @@ for token in (
 for token in (
     "public static boolean setChannel(Level level, BlockPos pos, int channel)",
     'InformationRuntime.clear(level, "free_optical", pos);',
+    "invalidateReception(level, pos);",
+    "public static void invalidateReception(Level level, BlockPos pos)",
     "receiver.updateOutput(level, pos, updated, 0);",
     "FreeSpaceOpticalChannelSupport.receiveQuality(packet, state.getValue(CHANNEL))",
     "packet.ageTicks() > FreeSpaceOpticalChannelSupport.RETAIN_STALE_TICKS",
@@ -67,16 +69,19 @@ require(menu.count("FreeSpaceOpticalTransmitterBlock.setChannel(level, blockPos,
         "TX direct/cycle HMI paths must use authoritative setChannel")
 require(menu.count("FreeSpaceOpticalReceiverBlock.setChannel(level, blockPos,") == 2,
         "RX direct/cycle HMI paths must use authoritative setChannel")
+require("FreeSpaceOpticalReceiverBlock.invalidateReception(level, blockPos);" in menu,
+        "RX route rotation must revoke old optical packet and output immediately")
 require("opticalPort.map(p -> p.quality())" in field
         and "dataValid.set(opticalQuality == PortQuality.VALID ? 1 : 0);" in field,
         "Field Device HMI must not use raw retained payload validity as fresh signal")
 for method in (
     "void receiverTimeoutCannotBeExtendedByOwnTicks(",
     "void receiverChannelRoundTripCannotResurrectOldPacket(",
+    "void receiverRouteChangeInvalidatesOldEvidence(",
     "void transmitterNoOpChannelDoesNotScheduleOrChangeBlock(",
 ):
     require(method in tests, "missing GameTest: "+method)
-require(tests.count("@GameTest(") == 3, "must register exactly 3 optical GameTests")
+require(tests.count("@GameTest(") == 4, "must register exactly 4 optical GameTests")
 require("event.register(RseFreeSpaceOpticalFreshnessGameTests.class);" in registration,
         "GameTests not registered")
 require("tools/rse_free_space_optics_freshness_verify.py" in workflow,
@@ -88,4 +93,4 @@ if errors:
 print("RSE FREE-SPACE OPTICAL FRESHNESS: PASS")
 print(" TX/RX authoritative channel controls; RX old packet revoked on switch")
 print(" true TX-timestamp freshness; no RX self-renewal; output fails closed")
-print(" three registered in-world GameTests (runtime still unexecuted)")
+print(" four registered in-world GameTests (runtime still unexecuted)")
