@@ -99,7 +99,9 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
                 RangeScanSupport.RayResult ray = RangeScanSupport.scan(
                         server, pos, state.getValue(FACING).getOpposite(),
                         rangeBlocks(state), RangeScanSupport::solidOrFluid);
-                RangeSample sample = rangeSample(server, pos, state);
+                RangeSample sample = new RangeSample(
+                        ray.status() == RangeScanSupport.Status.TARGET ? ray.distance() : -1,
+                        ray.maxRange(), ray.complete());
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal(
                         "LAPIS RANGE FIELD TEST | status=" + ray.status()
                                 + " | covered=" + ray.scannedCells() + "/" + ray.maxRange()
