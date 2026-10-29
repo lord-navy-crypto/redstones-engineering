@@ -40,7 +40,9 @@ require("GuidedOpticalEvidenceSupport.source(" in emitter
         "Optical Emitter must distinguish valid source configuration from downstream dark carrier")
 require("recomputeOpticalAround" in receiver and "recomputeOptical(serverLevel,pos)" not in receiver,
         "Optical Receiver must recompute adjacent components, never seed transparent traversal")
-require("PHYSICAL_INPUTS" in receiver and "inputCount" in receiver and "PortQuality.TOPOLOGY_ERROR" in receiver,
+require("PHYSICAL_INPUTS" in receiver and "inputCount" in receiver
+        and "GuidedOpticalEvidenceSupport.sinkQuality(" in receiver
+        and "PortQuality.TOPOLOGY_ERROR" in text("block/GuidedOpticalEvidenceSupport.java"),
         "Optical Receiver must expose multi-feed terminal conflict")
 
 # Shared graph bug: sinks are opaque even when they happen to be the traversal start.
