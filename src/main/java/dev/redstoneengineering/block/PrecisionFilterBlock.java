@@ -2,7 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
-import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -45,7 +45,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int input = readBackInput(level, pos, state);
         int current = state.getValue(OUTPUT);
-        int nextValue = SignalMath.approach(current, input, state.getValue(RATE));
+        int nextValue = FilterResponseSupport.slewStep(current, input, state.getValue(RATE));
         updateOutput(level, pos, state, nextValue);
         if (nextValue != input) level.scheduleTick(pos, this, 1);
     }
@@ -95,6 +95,22 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
             BlockHitResult hitResult
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hitResult.getDirection() == net.minecraft.core.Direction.UP) {
+                var observed = RedstoneObservationSupport.observe(level, pos, seriesInputSide(state));
+                int held = state.getValue(OUTPUT);
+                int rate = state.getValue(RATE);
+                int predicted = observed.valid()
+                        ? FilterResponseSupport.slewStep(held, observed.value(), rate) : held;
+                player.displayClientMessage(Component.literal(
+                        "SLEW FILTER FIELD TEST | input=" + observed.value() + "/15:" + observed.quality()
+                                + " | output=" + held + "/15 | max-step=" + rate + "/tick"
+                                + " | next=" + (observed.valid() ? Integer.toString(predicted) : "UNKNOWN")
+                                + " | remaining-ticks=" + (observed.valid()
+                                    ? Integer.toString(FilterResponseSupport.slewTicksToTarget(
+                                            held, observed.value(), rate)) : "UNKNOWN")
+                                + " | assumes stable valid input; UP=inspect, other Shift=adjust"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 if (stepRate(level, pos, true)) {
                     BlockState next = level.getBlockState(pos);
