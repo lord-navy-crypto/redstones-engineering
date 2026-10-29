@@ -98,6 +98,7 @@ public final class RseGameTestRegistration {
         event.register(RseCopperConfigurationLifecycleSystemGameTests.class);
         event.register(RseRangeSensorEvidenceGameTests.class);
         event.register(RseRangeReconfigurationGameTests.class);
+        event.register(RseMeterObserverNeutralityGameTests.class);
         event.register(RseLogicAnalyzerEvidenceGameTests.class);
         event.register(RseDiscreteTransportEvidenceGameTests.class);
         event.register(RsePioneerWave14GameTests.class);
