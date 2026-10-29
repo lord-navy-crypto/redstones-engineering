@@ -106,8 +106,13 @@ require("opticalTransducerDistinguishesUnknownApertureFromLoadedNoSignal" in opt
 require("DomainNetwork.sampleCopperVoltage" in voltage and "CopperObservationSupport.measure" in voltage and "observation.quality()" in voltage,
         "Voltage transducer does not separate numeric voltage from source quality")
 
-for token in ("record RangeSample", "new RangeSample(-1, max, false)", "PortQuality.STALE", "PortQuality.NO_SIGNAL"):
+ray = text("block/RangeScanSupport.java")
+for token in ("record RangeSample", "RangeScanSupport.scan(", "ray.complete()",
+              "PortQuality.STALE", "PortQuality.NO_SIGNAL"):
     require(token in range_sensor, f"Precision Range Sensor coverage contract missing {token}")
+require("hasChunkAt(cell)" in ray and "INCOMPLETE_UNLOADED" in ray
+        and "distance - 1" in ray,
+        "Shared range scan must distinguish unloaded coverage from a clear, complete ray")
 
 methods = (
     "entityDensityIncompleteCoverageIsStaleInsteadOfLowCount",
