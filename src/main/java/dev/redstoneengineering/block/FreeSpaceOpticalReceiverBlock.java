@@ -63,9 +63,7 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
     private static PortQuality opticalQuality(
             InformationRuntime.Snapshot packet, BlockState state
     ) {
-        if (packet.ageTicks() < 0 || packet.qualityPercent() <= 0) return PortQuality.NO_SIGNAL;
-        if (packet.selector() != state.getValue(CHANNEL)) return PortQuality.DOMAIN_MISMATCH;
-        return packet.valid() ? PortQuality.VALID : PortQuality.STALE;
+        return FreeSpaceOpticalChannelSupport.receiveQuality(packet, state.getValue(CHANNEL));
     }
 
     private static int opticalValue(InformationRuntime.Snapshot packet, BlockState state) {
@@ -82,6 +80,21 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
         updateOutput(level, pos, state, 0);
     }
 
+    /** Changing RX channel discards the previous channel's packet immediately.
+     * Switching back cannot resurrect the old carrier. */
+    public static boolean setChannel(Level level, BlockPos pos, int channel) {
+        if (level.isClientSide || !FreeSpaceOpticalChannelSupport.supportedChannel(channel)) return false;
+        BlockState current = level.getBlockState(pos);
+        if (!(current.getBlock() instanceof FreeSpaceOpticalReceiverBlock receiver)) return false;
+        if (current.getValue(CHANNEL) == channel) return true;
+        InformationRuntime.clear(level, "free_optical", pos);
+        BlockState updated = current.setValue(CHANNEL, channel);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        receiver.updateOutput(level, pos, updated, 0);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, receiver, 1);
+        return true;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -92,11 +105,12 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
         PortQuality quality = opticalQuality(packet, state);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), Math.max(0, Math.min(15, packet.value())),
+                    port.get(), quality == PortQuality.VALID
+                            ? FreeSpaceOpticalChannelSupport.boundedPower(packet.value()) : 0,
                     0.0, 15.0, quality));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), state.getValue(OUTPUT), quality));
+                port.get(), quality == PortQuality.VALID ? state.getValue(OUTPUT) : 0, quality));
     }
 
     @Override
@@ -114,29 +128,18 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, this, 5);
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, this, 2);
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "free_optical", pos);
-        if (packet.ageTicks() >= 0) {
-            if (packet.qualityPercent() <= 20) {
-                InformationRuntime.clear(level, "free_optical", pos);
-            } else {
-                InformationRuntime.write(
-                        level,
-                        "free_optical",
-                        pos,
-                        packet.value(),
-                        packet.selector(),
-                        packet.valid(),
-                        packet.qualityPercent() - 20
-                );
-            }
-        }
+        // Only actual line-of-sight emissions renew the packet timestamp.
+        // A receiver's own maintenance tick must never make an old packet fresh.
+        if (packet.ageTicks() > FreeSpaceOpticalChannelSupport.RETAIN_STALE_TICKS)
+            InformationRuntime.clear(level, "free_optical", pos);
         updateOutput(level, pos, state, computeOutput(level, pos, state));
-        level.scheduleTick(pos, this, 5);
+        level.scheduleTick(pos, this, 2);
     }
 
     @Override
@@ -151,16 +154,14 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int channel = (state.getValue(CHANNEL) + 1) % 4;
-                BlockState next = state.setValue(CHANNEL, channel);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                updateOutput(level, pos, next, computeOutput(level, pos, next));
+                int channel = FreeSpaceOpticalChannelSupport.nextChannel(state.getValue(CHANNEL));
+                setChannel(level, pos, channel);
                 InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "free_optical", pos);
                 player.displayClientMessage(Component.literal(
                         "Free-space optical RX channel=" + channel
                                 + " power=" + packet.value()
                                 + " quality=" + packet.qualityPercent()
-                                + "% | alignment required"), true);
+                                + "% | fresh=8t timeout; alignment required"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
