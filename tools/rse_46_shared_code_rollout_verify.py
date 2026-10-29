@@ -21,7 +21,7 @@ if len(blocks) != 130 or len(candidates) != 46 or len(groups) != 15:
 
 src = root / "src/main/java/dev/redstoneengineering/block"
 reads = {}
-for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport"):
+for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport"):
     path = src / (filename + ".java")
     reads[filename] = path.read_text(encoding="utf-8") if path.is_file() else ""
     if not reads[filename]:
@@ -41,6 +41,10 @@ if "PortQuality.NO_SIGNAL" not in reads["ExciterDriveSupport"]:
     errors.append("exciter zero-amplitude quality semantics lost")
 
 families = {
+    "quartz_clock": ("QuartzClockSupport", {
+        "quartz_oscillator": ("QuartzOscillatorBlock", "DomainNetwork.recomputeQuartz(l,p)"),
+        "quartz_lab_oscillator": ("QuartzLabOscillatorBlock", "timingEvidence(Level level"),
+    }),
     "optical_series": ("OpticalSeriesSupport", {
         "optical_attenuator": ("OpticalAttenuatorBlock", "EngineeringMath.opticalAfterLoss("),
         "optical_channel_filter": ("OpticalChannelFilterBlock", "input.channel() == target"),
@@ -72,8 +76,8 @@ for family, (helper, mapping) in families.items():
         if "engineeringSnapshot(" not in source:
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
-if len(wired) != 9:
-    errors.append(f"expected 9 first-wave helper users, got {len(wired)}")
+if len(wired) != 11:
+    errors.append(f"expected 11 helper users after clock phase upgrade, got {len(wired)}")
 if not set(wired).issubset({r["id"] for r in candidates}):
     errors.append("an implemented refactor is not a registered 46-candidate")
 
@@ -93,18 +97,34 @@ def recommendation(family):
         "optical_sensor_conversion": "Only share common observation; preserve quantization and signal medium.",
     }.get(family, "Candidate reviewed; no proved functional equivalence. Retain block identity.")
 
+enhanced = {
+    "sample_hold": ("SampleHoldBlock", ("RedstoneObservationSupport.observe", "DOWN=inspect", "outputQuality(level, pos)")),
+    "quartz_triggered_lapis_sampler": ("QuartzTriggeredLapisSamplerBlock",
+        ("WAITING_FOR_VALID_CLOCK", "PrecisionObservationSupport.quartz", "PrecisionObservationSupport.lapis")),
+}
+for block_id, (klass, markers) in enhanced.items():
+    source = (src / (klass + ".java")).read_text(encoding="utf-8")
+    if any(marker not in source for marker in markers):
+        errors.append(f"{block_id}: source-aware sampling improvement missing")
+if "phasePort(port, state.getValue(ACTIVE))" not in (src / "QuartzLabOscillatorBlock.java").read_text():
+    errors.append("lab oscillator may still emit a period value as the clock port output")
+if "new EngineeringPortSnapshot(port, active ? 1.0 : 0.0, 0.0, 1.0, PortQuality.VALID)" not in reads["QuartzClockSupport"]:
+    errors.append("shared clock must publish 0/1 phase with VALID source evidence")
 rows = []
 for r in candidates:
     family = r["review_group"]
     is_done = r["id"] in wired
+    has_new_diagnostics = r["id"] in enhanced
     rows.append({
         "registry_id": r["id"], "source_class": r["class"], "family": family,
         "public_block_id": "PRESERVE", "physics_transfer": "PRESERVE",
         "port_domain_and_direction": "PRESERVE", "old_world_save": "PRESERVE",
-        "review": "SHARED_HELPER_WIRED_SOURCE_CHECKED" if is_done else "NOT_REFACTORED",
+        "review": ("SHARED_HELPER_WIRED_SOURCE_CHECKED" if is_done
+                   else "FUNCTIONAL_EVIDENCE_ENHANCED" if has_new_diagnostics
+                   else "NOT_REFACTORED"),
         "shared_helper": wired.get(r["id"], ""),
         "next_action": ("Run runtime GameTest, old-save and multiplayer checks."
-                        if is_done else recommendation(family)),
+                        if (is_done or has_new_diagnostics) else recommendation(family)),
         "runtime_acceptance": "NOT_TESTED",
         "behavioral_equivalence": "NOT_PROVEN",
         "save_migration": "NOT_REQUIRED_NO_ID_CHANGE",
@@ -117,8 +137,9 @@ with (out / "rse-46-shared-code-rollout.csv").open("w", newline="", encoding="ut
 summary = {
     "review_candidates": len(rows),
     "groups": len(groups),
-    "first_wave_wired": len(wired),
-    "queued": len(rows)-len(wired),
+    "shared_helper_wired": len(wired),
+    "other_functional_enhancements": len(enhanced),
+    "queued": len(rows)-len(wired)-len(enhanced),
     "registry_changed": False,
     "runtime_acceptance": False,
     "errors": errors,
@@ -131,5 +152,6 @@ if errors:
         print(" -", err)
     sys.exit(1)
 print("RSE 46 SHARED CODE ROLLOUT: PASS")
-print(f" {len(rows)} candidates / {len(groups)} families; {len(wired)} shared-helper users, {len(rows)-len(wired)} queued")
+print(f" {len(rows)} candidates / {len(groups)} families; {len(wired)} shared-helper users, "
+      f"{len(enhanced)} quality/diagnostics upgrades, {len(rows)-len(wired)-len(enhanced)} queued")
 print(" no deleted IDs, no physics law merges; runtime equivalence not yet verified")
