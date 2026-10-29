@@ -21,7 +21,7 @@ if len(blocks) != 130 or len(candidates) != 46 or len(groups) != 15:
 
 src = root / "src/main/java/dev/redstoneengineering/block"
 reads = {}
-for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport", "SafetyObservationSupport", "CommunicationLineEvidenceSupport"):
+for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport", "SafetyObservationSupport", "CommunicationLineEvidenceSupport", "FreeSpaceOpticalChannelSupport"):
     path = src / (filename + ".java")
     reads[filename] = path.read_text(encoding="utf-8") if path.is_file() else ""
     if not reads[filename]:
@@ -45,6 +45,10 @@ if "quality == PortQuality.VALID" not in reads["CommunicationLineEvidenceSupport
     errors.append("communication payload display must reject invalid/conflicted data")
 
 families = {
+    "optical_transport": ("FreeSpaceOpticalChannelSupport", {
+        "free_space_optical_transmitter": ("FreeSpaceOpticalTransmitterBlock", "FreeSpaceOpticsKernel.emit("),
+        "free_space_optical_receiver": ("FreeSpaceOpticalReceiverBlock", "InformationRuntime.clear("),
+    }),
     "failure_diagnostics": ("SafetyObservationSupport", {
         "watchdog": ("WatchdogBlock", "timeoutTicks(s.getValue(TIMEOUT))"),
         "fault_latch": ("FaultLatchBlock", "manualReset(Level level, BlockPos pos)"),
@@ -104,8 +108,8 @@ for family, (helper, mapping) in families.items():
                     and "readBackInput(level, pos, state)" in source)):
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
-if len(wired) != 21:
-    errors.append(f"expected 21 helper users after safety/communication upgrade, got {len(wired)}")
+if len(wired) != 23:
+    errors.append(f"expected 23 shared helper users after optical freshness upgrade, got {len(wired)}")
 if not set(wired).issubset({r["id"] for r in candidates}):
     errors.append("an implemented refactor is not a registered 46-candidate")
 
@@ -146,6 +150,8 @@ hardened = {
     "signal_analyzer": "HMI_SNAPSHOT_OBSERVER_NEUTRAL_MISSING_CHUNK_STALE",
     "copper_circuit_meter": "NO_UNLOADED_COPPER_READ_OR_STALE_VOLTAGE",
     "optical_power_meter": "NO_UNLOADED_OPTICAL_SAMPLE",
+    "free_space_optical_transmitter": "CHANNEL_CONFIG_BOUNDED_AND_FRESH_EMIT",
+    "free_space_optical_receiver": "CHANNEL_RESET_AND_REAL_PACKET_FRESHNESS",
 }
 for block_id, evidence in hardened.items():
     source_path = src / (next(item["class"] for item in candidates if item["id"] == block_id) + ".java")
@@ -156,6 +162,8 @@ for block_id, evidence in hardened.items():
         "signal_analyzer": "RuntimeIntStore.peek(level, KEY, pos)",
         "copper_circuit_meter": "return new CopperObservationSupport.Observation(0, PortQuality.STALE);",
         "optical_power_meter": "return new Measurement(0, 0, PortQuality.STALE);",
+        "free_space_optical_transmitter": "transmitter.emit(server, pos, updated);",
+        "free_space_optical_receiver": "receiver.updateOutput(level, pos, updated, 0);",
     }[block_id]
     if marker not in source_text:
         errors.append(f"{block_id}: hardening regression {evidence}")
