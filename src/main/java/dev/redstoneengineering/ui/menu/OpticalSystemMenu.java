@@ -232,7 +232,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         };
     }
     private boolean routeSignal(int id) {
-        return switch (id) {
+        boolean changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, false);
             case BUTTON_ROTATE_RIGHT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, true);
             case BUTTON_INPUT_LEFT -> DirectionalSignalBlock.rotateSeriesInput(level, blockPos, false);
@@ -241,6 +241,10 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             case BUTTON_OUTPUT_RIGHT -> DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, true);
             default -> false;
         };
+        if (changed && level.getBlockState(blockPos).getBlock() instanceof FreeSpaceOpticalReceiverBlock) {
+            FreeSpaceOpticalReceiverBlock.invalidateReception(level, blockPos);
+        }
+        return changed;
     }
     private boolean routeSplitter(int id) {
         if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) return DirectionalDomainBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
