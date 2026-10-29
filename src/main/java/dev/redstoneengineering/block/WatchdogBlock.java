@@ -157,6 +157,25 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
 
     @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide && pl instanceof ServerPlayer serverPlayer) {
+            if (pl.isShiftKeyDown() && h.getDirection() == Direction.DOWN) {
+                var heartbeat = SafetyObservationSupport.input(l, p, inputSide(s));
+                int deadline = timeoutTicks(s.getValue(TIMEOUT));
+                int age = ageTicks(l, p);
+                int[] observed = RuntimeIntStore.peek(l, KEY, p);
+                boolean baseline = observed != null && observed.length == RUNTIME_SIZE
+                        && observed[SOURCE_SEEN] != 0;
+                pl.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "WATCHDOG FIELD TEST | heartbeat=" + SafetyObservationSupport.evidence(heartbeat)
+                                + " | observed-baseline=" + baseline
+                                + " | elapsed=" + age + "t/" + deadline + "t"
+                                + " | remaining=" + Math.max(0, deadline - age) + "t"
+                                + " | transitions=" + transitionCount(l, p)
+                                + " | timeouts=" + timeoutCount(l, p)
+                                + " | output=" + s.getValue(OUTPUT) + "/15"
+                                + " | only changes in VALID heartbeat restart the timer"
+                                + " | DOWN=inspect; other Shift faces=reset diagnostics"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (pl.isShiftKeyDown()) {
                 resetDiagnostics(l, p);
                 pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Watchdog diagnostics reset"), true);
