@@ -60,7 +60,7 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level l,BlockPos p,BlockState s,Direction side){
         Optional<EngineeringPort>d=engineeringPort(s,side);
-        return d.map(port->new EngineeringPortSnapshot(port,s.getValue(ACTIVE)?1.0:0.0,0.0,1.0,PortQuality.VALID));
+        return d.map(port -> QuartzClockSupport.phasePort(port, s.getValue(ACTIVE)));
     }
 
     @Override
@@ -81,7 +81,7 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         BlockState n=s.setValue(ACTIVE,!s.getValue(ACTIVE));
         l.setBlock(p,n,Block.UPDATE_CLIENTS);
         DomainNetwork.recomputeQuartz(l,p);
-        l.scheduleTick(p,this,Math.max(1,period/2));
+        l.scheduleTick(p,this,QuartzClockSupport.halfPeriodTicks(s.getValue(PERIOD_INDEX)));
     }
 
     @Override
@@ -92,13 +92,18 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
                 return InteractionResult.CONSUME;
             }
 
+            if (hit.getDirection() == Direction.DOWN) {
+                serverPlayer.displayClientMessage(Component.literal(
+                        QuartzClockSupport.fieldReport(l, p, s)), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (hit.getDirection().getAxis().isHorizontal()) {
                 if (rotateOutput(l, p, true) && l instanceof ServerLevel sl) {
                     DomainNetwork.recomputeQuartzAround(sl, p);
                     BlockState next = l.getBlockState(p);
                     pl.displayClientMessage(Component.literal(
                             "Quartz oscillator OUT=" + outputSide(next).getName().toUpperCase()
-                                    + " | shift-click UP/DOWN changes period"), true);
+                                    + " | shift-click UP changes period; DOWN inspects phase"), true);
                 }
             } else {
                 int i=(s.getValue(PERIOD_INDEX)+1)%5;
