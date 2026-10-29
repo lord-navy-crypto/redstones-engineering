@@ -21,7 +21,7 @@ if len(blocks) != 130 or len(candidates) != 46 or len(groups) != 15:
 
 src = root / "src/main/java/dev/redstoneengineering/block"
 reads = {}
-for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport"):
+for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport", "SafetyObservationSupport", "CommunicationLineEvidenceSupport"):
     path = src / (filename + ".java")
     reads[filename] = path.read_text(encoding="utf-8") if path.is_file() else ""
     if not reads[filename]:
@@ -39,8 +39,22 @@ if "PneumaticNetwork.recomputeAround(server, pos)" not in reads["PneumaticValveS
     errors.append("pneumatic topology recompute lost")
 if "PortQuality.NO_SIGNAL" not in reads["ExciterDriveSupport"]:
     errors.append("exciter zero-amplitude quality semantics lost")
+if "observation.valid() && observation.value() > 0" not in reads["SafetyObservationSupport"]:
+    errors.append("safety permissive must require valid asserted input, never unknown/absent signal")
+if "quality == PortQuality.VALID" not in reads["CommunicationLineEvidenceSupport"]:
+    errors.append("communication payload display must reject invalid/conflicted data")
 
 families = {
+    "failure_diagnostics": ("SafetyObservationSupport", {
+        "watchdog": ("WatchdogBlock", "timeoutTicks(s.getValue(TIMEOUT))"),
+        "fault_latch": ("FaultLatchBlock", "manualReset(Level level, BlockPos pos)"),
+        "alarm_processor": ("AlarmProcessorBlock", "SystemEventTimeline.record("),
+        "safety_interlock": ("SafetyInterlockBlock", "SafetyObservationSupport.failedMask(a, b, c)"),
+    }),
+    "digital_transport": ("CommunicationLineEvidenceSupport", {
+        "serial_data_line": ("SerialDataLineBlock", "SerialNetwork.recompute(level, pos)"),
+        "differential_data_pair": ("DifferentialDataPairBlock", "DifferentialNetwork.recompute(level, pos)"),
+    }),
     "filtering": ("FilterResponseSupport", {
         "precision_filter": ("PrecisionFilterBlock", "stepRate(Level level"),
         "lapis_low_pass_filter": ("LapisLowPassFilterBlock", "DomainNetwork.driveLapis("),
@@ -90,8 +104,8 @@ for family, (helper, mapping) in families.items():
                     and "readBackInput(level, pos, state)" in source)):
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
-if len(wired) != 15:
-    errors.append(f"expected 15 helper users after DSP/range upgrade, got {len(wired)}")
+if len(wired) != 21:
+    errors.append(f"expected 21 helper users after safety/communication upgrade, got {len(wired)}")
 if not set(wired).issubset({r["id"] for r in candidates}):
     errors.append("an implemented refactor is not a registered 46-candidate")
 
