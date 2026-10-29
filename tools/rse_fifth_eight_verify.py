@@ -95,8 +95,7 @@ contracts = {
     "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalReceiverBlock.java": (
         "EngineeringDomain.OPTICAL",
         "EngineeringDomain.REDSTONE",
-        "PortQuality.DOMAIN_MISMATCH",
-        "packet.selector()",
+        "FreeSpaceOpticalChannelSupport.receiveQuality",
         "canConnectRedstone",
         'InformationRuntime.clear(level, "free_optical"',
         "FieldDeviceUi.open",
