@@ -141,5 +141,30 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)sl.scheduleTick(p,this,2);}
     @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource rnd){updateOutput(l,p,s,outputValue(l,p,s));l.scheduleTick(p,this,2);}
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) { if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos); super.onRemove(state, level, pos, newState, movedByPiston); }
-    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) { if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){ if(player.isShiftKeyDown()){ manualReset(level, pos); player.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true); } else FieldDeviceUi.open(serverPlayer,pos); } return InteractionResult.sidedSuccess(level.isClientSide); }
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.DOWN) {
+                var fault = SafetyObservationSupport.input(level, pos, inputSide(state));
+                var reset = SafetyObservationSupport.input(level, pos, rightOf(outputSide(state)));
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "FAULT LATCH FIELD TEST | fault=" + SafetyObservationSupport.evidence(fault)
+                                + " | threshold=" + thresholdValue(state.getValue(THRESHOLD))
+                                + " | reset=" + SafetyObservationSupport.evidence(reset)
+                                + " | latched=" + latched(level, pos)
+                                + " | trips=" + tripCount(level, pos)
+                                + " | resets=" + resetCount(level, pos)
+                                + " | reset-held=" + resetActive(level, pos)
+                                + " | DOWN=inspect; other Shift faces=manual reset"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
+            if (player.isShiftKeyDown()) {
+                manualReset(level, pos);
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "Fault latch manual reset"), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
 }
