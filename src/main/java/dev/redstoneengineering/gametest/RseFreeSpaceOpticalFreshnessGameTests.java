@@ -83,6 +83,34 @@ public final class RseFreeSpaceOpticalFreshnessGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
+    public static void receiverRouteChangeInvalidatesOldEvidence(GameTestHelper helper) {
+        BlockPos local = new BlockPos(2, 1, 2);
+        BlockPos world = helper.absolutePos(local);
+        BlockState state = RedstoneEngineering.FREE_SPACE_OPTICAL_RECEIVER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.OUTPUT, 13);
+        helper.setBlock(local, state);
+        InformationRuntime.write(helper.getLevel(), "free_optical", world, 13, 0, true, 100);
+        if (!DirectionalSignalBlock.rotateWholeRoute(helper.getLevel(), world, true)) {
+            helper.fail("Valid optical RX route change was unexpectedly rejected", local);
+            return;
+        }
+        FreeSpaceOpticalReceiverBlock.invalidateReception(helper.getLevel(), world);
+        var updated = helper.getBlockState(local);
+        var result = RedstoneEngineering.FREE_SPACE_OPTICAL_RECEIVER.get()
+                .engineeringSnapshot(helper.getLevel(), world, updated,
+                        DirectionalSignalBlock.seriesInputSide(updated)).orElseThrow();
+        if (updated.getValue(DirectionalSignalBlock.OUTPUT) != 0
+                || result.quality() != PortQuality.NO_SIGNAL
+                || InformationRuntime.ageTicks(helper.getLevel(), "free_optical", world) >= 0) {
+            helper.fail("Rotating the optical RX retained an old ray's optical packet/output", local);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
     public static void transmitterNoOpChannelDoesNotScheduleOrChangeBlock(GameTestHelper helper) {
         BlockPos local = new BlockPos(2, 1, 2);
         BlockPos world = helper.absolutePos(local);
