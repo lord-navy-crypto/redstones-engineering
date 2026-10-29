@@ -133,7 +133,9 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         ScanResult scan = lastScan(level, pos, state);
-        PortQuality quality = scan.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        // A complete CLEAR scan is a valid zero-distance measurement.
+        // Uninitialized and unloaded scans are unknown, never "no signal".
+        PortQuality quality = scan.complete() ? PortQuality.VALID : PortQuality.STALE;
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), quality));
     }
 
@@ -193,6 +195,20 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
+            if (hitResult.getDirection() == Direction.UP) {
+                ScanResult observed = lastScan(level, pos, state);
+                PortQuality quality = observed.complete() ? PortQuality.VALID : PortQuality.STALE;
+                player.displayClientMessage(Component.literal(
+                        "RANGE FIELD TEST | direction=" + sensingSide(state).getName().toUpperCase()
+                                + " | mode=" + modeName(state.getValue(MODE))
+                                + " | scan=" + observed.status()
+                                + " | coverage=" + observed.scannedCells() + "/" + observed.configuredRange()
+                                + " | target-distance=" + (observed.targetDetected() ? observed.distance() : "NONE")
+                                + " | output=" + state.getValue(OUTPUT) + "/15:" + quality
+                                + " | UP=inspect only; other Shift faces=configure"
+                                + " | CLEAR is a complete scan; UNLOADED is not a measurement"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             BlockState next = state;
             Direction sensingFace = state.getValue(FACING);
             if (hitResult.getDirection() == sensingFace) {
@@ -219,29 +235,23 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     }
 
     private static ScanResult scan(Level level, BlockPos pos, BlockState state) {
-        Direction facing = sensingSide(state);
-        int range = configuredRange(state);
         int mode = state.getValue(MODE);
-        for (int distance = 1; distance <= range; distance++) {
-            BlockPos target = pos.relative(facing, distance);
-            if (!level.hasChunkAt(target)) {
-                return new ScanResult(0, ScanStatus.INCOMPLETE_UNLOADED, distance - 1, range);
-            }
-
-            boolean blockDetected = !level.getBlockState(target).isAir();
-            AABB box = new AABB(target.getX(), target.getY(), target.getZ(),
-                    target.getX() + 1, target.getY() + 1, target.getZ() + 1);
-            boolean entityDetected = !level.getEntitiesOfClass(LivingEntity.class, box).isEmpty();
-            boolean detected = switch (mode) {
-                case 0 -> blockDetected;
-                case 1 -> entityDetected;
-                case 2 -> blockDetected || entityDetected;
-                default -> false;
-            };
-            if (detected) return new ScanResult(distance, ScanStatus.TARGET, distance, range);
-        }
-        // A complete scan that finds nothing is valid measurement evidence: the measured range is clear.
-        return new ScanResult(0, ScanStatus.CLEAR, range, range);
+        RangeScanSupport.RayResult ray = RangeScanSupport.scan(
+                level, pos, sensingSide(state), configuredRange(state),
+                (world, cell) -> {
+                    // Skip costly entity queries when BLOCK-only mode is selected.
+                    if (mode != 1 && !world.getBlockState(cell).isAir()) return true;
+                    if (mode == 0) return false;
+                    AABB area = new AABB(cell.getX(), cell.getY(), cell.getZ(),
+                            cell.getX() + 1, cell.getY() + 1, cell.getZ() + 1);
+                    return !world.getEntitiesOfClass(LivingEntity.class, area).isEmpty();
+                });
+        ScanStatus status = switch (ray.status()) {
+            case TARGET -> ScanStatus.TARGET;
+            case CLEAR -> ScanStatus.CLEAR;
+            case INCOMPLETE_UNLOADED -> ScanStatus.INCOMPLETE_UNLOADED;
+        };
+        return new ScanResult(ray.distance(), status, ray.scannedCells(), ray.maxRange());
     }
 
     private static int responseSignal(int distance, int range, int response) {
