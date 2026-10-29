@@ -49,15 +49,10 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
     public static RangeSample rangeSample(ServerLevel level, BlockPos pos, BlockState state) {
         int max = RANGES[state.getValue(RANGE_INDEX)];
         Direction direction = state.getValue(DirectionalDomainBlock.FACING).getOpposite();
-        for (int i = 1; i <= max; i++) {
-            BlockPos p = pos.relative(direction, i);
-            if (!level.hasChunkAt(p)) return new RangeSample(-1, max, false);
-            BlockState target = level.getBlockState(p);
-            if (!target.isAir() || !level.getFluidState(p).isEmpty()) {
-                return new RangeSample(i, max, true);
-            }
-        }
-        return new RangeSample(-1, max, true);
+        RangeScanSupport.RayResult ray = RangeScanSupport.scan(
+                level, pos, direction, max, RangeScanSupport::solidOrFluid);
+        return new RangeSample(ray.status() == RangeScanSupport.Status.TARGET ? ray.distance() : -1,
+                max, ray.complete());
     }
 
     @Override
@@ -98,6 +93,23 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
     @Override
     protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, net.minecraft.world.level.Level level, BlockPos pos, net.minecraft.world.entity.player.Player player, net.minecraft.world.phys.BlockHitResult hit) {
         if (!level.isClientSide && player.isShiftKeyDown()) {
+            if (hit.getDirection() == Direction.UP && level instanceof ServerLevel server) {
+                // Explicitly requested measurement: bounded and read-only, never
+                // silently re-run the scan when drawing the normal HMI.
+                RangeScanSupport.RayResult ray = RangeScanSupport.scan(
+                        server, pos, state.getValue(FACING).getOpposite(),
+                        rangeBlocks(state), RangeScanSupport::solidOrFluid);
+                RangeSample sample = rangeSample(server, pos, state);
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "LAPIS RANGE FIELD TEST | status=" + ray.status()
+                                + " | covered=" + ray.scannedCells() + "/" + ray.maxRange()
+                                + " | target-distance=" + (sample.distance() > 0 ? sample.distance() : "NONE")
+                                + " | raw-quality=" + sample.quality()
+                                + " | conditioned=" + output(level, pos) + "/100:" + outputQuality(level, pos)
+                                + " | UP=inspect only; other Shift faces=change range"
+                                + " | clear beam and unloaded coverage are different"), false);
+                return net.minecraft.world.InteractionResult.SUCCESS;
+            }
             adjustRange(level, pos, 1);
             BlockState updated = level.getBlockState(pos);
             player.displayClientMessage(net.minecraft.network.chat.Component.literal(
