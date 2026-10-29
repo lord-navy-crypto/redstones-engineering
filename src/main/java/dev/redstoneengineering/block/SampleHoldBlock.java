@@ -106,24 +106,36 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         Direction facing = state.getValue(FACING);
-        boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
-        boolean resetNow = readInputFrom(level, pos, rightOf(facing)) > 0;
+        var trigger = RedstoneObservationSupport.observe(level, pos, leftOf(facing));
+        var reset = RedstoneObservationSupport.observe(level, pos, rightOf(facing));
+        boolean triggerNow = trigger.valid() && trigger.value() > 0;
+        boolean resetNow = reset.valid() && reset.value() > 0;
         int[] rt = runtime(level, pos, state, triggerNow);
         boolean triggerBefore = rt[TRIGGER_STATE_SLOT] == 1;
         boolean rising = !triggerBefore && triggerNow;
         boolean falling = triggerBefore && !triggerNow;
-        boolean sample = switch (state.getValue(TRIGGER_MODE)) {
+        boolean sample = trigger.valid() && switch (state.getValue(TRIGGER_MODE)) {
             case 0 -> rising; case 1 -> falling; case 2 -> rising || falling; default -> rising;
         };
 
+        if (!trigger.valid()) {
+            // An absent or unloaded clock must never create a false falling
+            // edge; the next valid level re-establishes an edge baseline.
+            rt[INITIALIZED_SLOT] = 0;
+        }
         if (resetNow) {
             rt[HELD_SLOT] = 0;
             rt[OUTPUT_READY_SLOT] = 1;
         } else if (sample) {
-            rt[HELD_SLOT] = readBackInput(level, pos, state);
-            rt[OUTPUT_READY_SLOT] = 1;
-            rt[CAPTURE_COUNT]++;
-            rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
+            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            if (input.valid()) {
+                // Driven zero is a legitimate capture. Missing/unloaded
+                // input is not an authoritative zero-valued measurement.
+                rt[HELD_SLOT] = input.value();
+                rt[OUTPUT_READY_SLOT] = 1;
+                rt[CAPTURE_COUNT]++;
+                rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
+            }
         }
         rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
         updateOutput(level, pos, state, rt[HELD_SLOT]);
