@@ -94,13 +94,28 @@ public class FreeSpaceOpticalTransmitterBlock extends DirectionalDomainBlock imp
         return direction != null && direction.getOpposite() == inputSide(state);
     }
 
+    /** One server-authoritative channel route for HMI and field interaction. */
+    public static boolean setChannel(Level level, BlockPos pos, int channel) {
+        if (level.isClientSide || !FreeSpaceOpticalChannelSupport.supportedChannel(channel)) return false;
+        BlockState current = level.getBlockState(pos);
+        if (!(current.getBlock() instanceof FreeSpaceOpticalTransmitterBlock transmitter)) return false;
+        if (current.getValue(CHANNEL) == channel) return true;
+        BlockState updated = current.setValue(CHANNEL, channel);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            transmitter.emit(server, pos, updated);
+            server.scheduleTick(pos, transmitter, 1);
+        }
+        return true;
+    }
+
     private int inputPower(Level level, BlockPos pos, BlockState state) {
         RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
         return input.valid() ? input.value() : 0;
     }
 
     private void emit(ServerLevel level, BlockPos pos, BlockState state) {
-        int power = inputPower(level, pos, state);
+        int power = FreeSpaceOpticalChannelSupport.boundedPower(inputPower(level, pos, state));
         if (power > 0) {
             FreeSpaceOpticsKernel.emit(level, pos, outputSide(state), power, state.getValue(CHANNEL));
         }
@@ -134,10 +149,8 @@ public class FreeSpaceOpticalTransmitterBlock extends DirectionalDomainBlock imp
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int channel = (state.getValue(CHANNEL) + 1) % 4;
-                BlockState next = state.setValue(CHANNEL, channel);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                emit(serverPlayer.serverLevel(), pos, next);
+                int channel = FreeSpaceOpticalChannelSupport.nextChannel(state.getValue(CHANNEL));
+                setChannel(level, pos, channel);
                 player.displayClientMessage(Component.literal(
                         "Free-space optical TX channel=" + channel + " range<=48, LOS required"), true);
             } else {
