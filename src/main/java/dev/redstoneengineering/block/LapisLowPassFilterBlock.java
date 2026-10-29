@@ -170,8 +170,8 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         if (input.valid() && inputQuality == PortQuality.VALID) {
             int previous = runtime[VALID_SLOT] == 0 ? input.value() : runtime[OUTPUT_SLOT];
             runtime[PREVIOUS_OUTPUT_SLOT] = previous;
-            runtime[OUTPUT_SLOT] = EngineeringMath.clamp(
-                    (int) Math.round(previous + alpha(state.getValue(ALPHA)) * (input.value() - previous)), 0, 100);
+            runtime[OUTPUT_SLOT] = FilterResponseSupport.lapisLowPassStep(
+                    previous, input.value(), alpha(state.getValue(ALPHA)));
             runtime[VALID_SLOT] = 1;
             runtime[QUALITY_SLOT] = PortQuality.VALID.ordinal();
             DomainNetwork.driveLapis(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT], true);
@@ -186,6 +186,9 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     }
 
     private static PortQuality inputQuality(Level level, BlockPos inputPos, DomainNetwork.LapisSample sample) {
+        // A truncated/unloaded input must not be read as a solved zero, nor
+        // cause an implicit chunk read during inspection.
+        if (!level.hasChunkAt(inputPos)) return PortQuality.STALE;
         return level.getBlockState(inputPos).getBlock() instanceof LapisSignalLineBlock
                 ? LapisSignalLineBlock.quality(level, inputPos)
                 : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
@@ -193,6 +196,28 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.UP) {
+                BlockPos inputPos = inputPos(pos, state);
+                DomainNetwork.LapisSample observed = DomainNetwork.sampleLapis(level, inputPos);
+                PortQuality quality = inputQuality(level, inputPos, observed);
+                FilterState measured = filterState(level, pos);
+                int prior = measured.output();
+                int index = state.getValue(ALPHA);
+                boolean validInput = observed.valid() && quality == PortQuality.VALID;
+                player.displayClientMessage(Component.literal(
+                        "LAPIS LOW-PASS FIELD TEST | alpha=" + String.format("%.2f", alpha(index))
+                                + " | IN=" + observed.value() + "/100:" + quality
+                                + " | OUT=" + prior + "/100:" + measured.quality()
+                                + " | previous=" + previousOutput(level, pos)
+                                + " | predicted-next=" + (validInput
+                                        ? Integer.toString(FilterResponseSupport.predictedNextLapis(
+                                                prior, observed.value(), index)) : "UNKNOWN")
+                                + " | nominal-90%-samples=" + FilterResponseSupport.nominalNinetyPercentSamples(alpha(index))
+                                + " | period=" + EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS + "t"
+                                + " | prediction assumes stable valid input and ignores integer rounding"
+                                + " | UP=inspect, other Shift=alpha"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 adjustAlpha(level, pos, 1);
                 BlockState next = level.getBlockState(pos);
