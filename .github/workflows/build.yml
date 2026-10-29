@@ -49,6 +49,7 @@ jobs:
             tools/rse_meter_observer_neutrality_verify.py \
             tools/rse_free_space_optics_freshness_verify.py \
             tools/rse_digital_endpoint_fail_closed_verify.py \
+            tools/rse_differential_receiver_safety_verify.py \
             tools/rse_quartz_sampling_upgrade_verify.py \
             tools/rse_filter_range_sampling_upgrade_verify.py \
             tools/rse_safety_communication_upgrade_verify.py \
