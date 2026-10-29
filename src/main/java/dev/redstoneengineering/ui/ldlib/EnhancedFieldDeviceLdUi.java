@@ -336,6 +336,9 @@ public final class EnhancedFieldDeviceLdUi {
                             RseLdUiComponents.statusTile("ACCEPTED INPUT", () ->
                                     directRangeLabel(m.kind()))
                     ),
+                    new ParameterScaleElement(formulaSymbol(m.kind()), m::snapshotReady,
+                            () -> controlValue(m), directMinimum(m.kind()),
+                            directMaximum(m.kind()), directVisualMarks(m.kind())),
                     new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("Exact engineering value").layout(l -> l.width(140)),
                             input,
@@ -614,6 +617,16 @@ public final class EnhancedFieldDeviceLdUi {
                  FieldDeviceMenu.KIND_HYDRO_EXCITER -> true;
             default -> false;
         };
+    }
+
+    /**
+     * Mark only legal engineering setpoints on the readback diagram.
+     * The scale is observational; direct-entry validity remains server-owned.
+     */
+    private static double[] directVisualMarks(int kind) {
+        return java.util.stream.IntStream.rangeClosed(directMinimum(kind), directMaximum(kind))
+                .filter(value -> validDirectValue(kind, value))
+                .asDoubleStream().toArray();
     }
 
     /** Field bounds are per-device rather than a misleading global 0..127. */
