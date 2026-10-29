@@ -131,7 +131,7 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
             BlockPos input = inputPos(pos, state);
-            DomainNetwork.LapisSample sample = DomainNetwork.sampleLapis(level, input);
+            DomainNetwork.LapisSample sample = observedInput(level, input);
             PortQuality quality = inputQuality(level, input, sample);
             return Optional.of(new EngineeringPortSnapshot(port.get(), sample.value(), 0.0, 100.0, quality));
         }
@@ -164,7 +164,7 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         BlockPos inputPos = inputPos(pos, state);
-        DomainNetwork.LapisSample input = DomainNetwork.sampleLapis(level, inputPos);
+        DomainNetwork.LapisSample input = observedInput(level, inputPos);
         PortQuality inputQuality = inputQuality(level, inputPos, input);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (input.valid() && inputQuality == PortQuality.VALID) {
@@ -185,6 +185,13 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         level.scheduleTick(pos, this, EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS);
     }
 
+    /** Avoid accidental chunk access for invalid/unknown upstream coverage. */
+    private static DomainNetwork.LapisSample observedInput(Level level, BlockPos inputPos) {
+        return level.hasChunkAt(inputPos)
+                ? DomainNetwork.sampleLapis(level, inputPos)
+                : new DomainNetwork.LapisSample(0, false);
+    }
+
     private static PortQuality inputQuality(Level level, BlockPos inputPos, DomainNetwork.LapisSample sample) {
         // A truncated/unloaded input must not be read as a solved zero, nor
         // cause an implicit chunk read during inspection.
@@ -198,12 +205,15 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown() && hit.getDirection() == Direction.UP) {
                 BlockPos inputPos = inputPos(pos, state);
-                DomainNetwork.LapisSample observed = DomainNetwork.sampleLapis(level, inputPos);
+                DomainNetwork.LapisSample observed = observedInput(level, inputPos);
                 PortQuality quality = inputQuality(level, inputPos, observed);
                 FilterState measured = filterState(level, pos);
                 int prior = measured.output();
                 int index = state.getValue(ALPHA);
                 boolean validInput = observed.valid() && quality == PortQuality.VALID;
+                // First valid sample seeds y=x rather than interpolating from
+                // a fictitious historic zero. Prediction must match that path.
+                int seedOrPrior = measured.valid() ? prior : observed.value();
                 player.displayClientMessage(Component.literal(
                         "LAPIS LOW-PASS FIELD TEST | alpha=" + String.format("%.2f", alpha(index))
                                 + " | IN=" + observed.value() + "/100:" + quality
@@ -211,7 +221,7 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
                                 + " | previous=" + previousOutput(level, pos)
                                 + " | predicted-next=" + (validInput
                                         ? Integer.toString(FilterResponseSupport.predictedNextLapis(
-                                                prior, observed.value(), index)) : "UNKNOWN")
+                                                seedOrPrior, observed.value(), index)) : "UNKNOWN")
                                 + " | nominal-90%-samples=" + FilterResponseSupport.nominalNinetyPercentSamples(alpha(index))
                                 + " | period=" + EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS + "t"
                                 + " | prediction assumes stable valid input and ignores integer rounding"
