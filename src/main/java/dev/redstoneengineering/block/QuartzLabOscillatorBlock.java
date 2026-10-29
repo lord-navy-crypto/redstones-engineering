@@ -60,7 +60,7 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
     private static EngineeringPort port(Direction side) {
         return new EngineeringPort(
                 "QUARTZ LAB CLOCK OUT", side, EngineeringDomain.QUARTZ,
-                PortKind.TRIGGER, PortDirection.OUTPUT, false, "ticks");
+                PortKind.TRIGGER, PortDirection.OUTPUT, false, "clock");
     }
 
     @Override
