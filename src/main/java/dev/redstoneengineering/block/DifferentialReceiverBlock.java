@@ -14,6 +14,8 @@ import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -62,14 +64,17 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
         if (port.isEmpty()) return Optional.empty();
         BlockPos input = inputPos(pos, state);
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", input);
-        PortQuality quality = inputQuality(level, pos, state);
+        PortQuality quality = DigitalEndpointEvidenceSupport.outputQuality(
+                inputQuality(level, pos, state), snapshot);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), snapshot.value() & 1,
+                    port.get(), DigitalEndpointEvidenceSupport.valueWhenValid(quality, snapshot, 1),
                     0.0, 1.0, quality));
         }
+        // The physical output is updated on the server tick; an invalid input
+        // may never be presented as an authoritative retained HIGH.
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), state.getValue(OUTPUT), quality));
+                port.get(), quality == PortQuality.VALID ? state.getValue(OUTPUT) : 0, quality));
     }
 
     @Override
@@ -84,7 +89,17 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
         BlockPos input = inputPos(pos, state);
         PortQuality quality = inputQuality(level, pos, state);
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", input);
-        return quality == PortQuality.VALID && snapshot.valid() && (snapshot.value() & 1) != 0 ? 15 : 0;
+        return DigitalEndpointEvidenceSupport.valueWhenValid(
+                DigitalEndpointEvidenceSupport.outputQuality(quality, snapshot), snapshot, 1) != 0
+                ? 15 : 0;
+    }
+
+    // Normal neighbor events update promptly. This low-rate watchdog revokes
+    // stale HIGH outputs even when chunk coverage changes without an event.
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        super.tick(state, level, pos, random);
+        level.scheduleTick(pos, this, 16);
     }
 
     @Override
