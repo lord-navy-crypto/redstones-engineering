@@ -34,7 +34,9 @@ magnetic_system_tests = text("gametest/RseMagneticMeasurementSystemGameTests.jav
 # 21-23: optical medium/source/sink identities and terminal opacity.
 for token in ("DRIVER_COUNT", "PortQuality.TOPOLOGY_ERROR", "RuntimeIntStore.peek"):
     require(token in fiber, f"Optical Fiber source-conflict evidence missing {token}")
-require("PortQuality.VALID" in emitter and "configured zero-intensity source" in emitter,
+require("GuidedOpticalEvidenceSupport.source(" in emitter
+        and "configured zero-intensity source" in emitter
+        and "PortQuality.VALID" in text("block/GuidedOpticalEvidenceSupport.java"),
         "Optical Emitter must distinguish valid source configuration from downstream dark carrier")
 require("recomputeOpticalAround" in receiver and "recomputeOptical(serverLevel,pos)" not in receiver,
         "Optical Receiver must recompute adjacent components, never seed transparent traversal")
