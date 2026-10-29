@@ -93,6 +93,7 @@ public final class RseGameTestRegistration {
         event.register(RseDomainDriverLifecycleSystemGameTests.class);
         event.register(RseQuartzLabConfigurationLifecycleSystemGameTests.class);
         event.register(RseQuartzSamplingUpgradeGameTests.class);
+        event.register(RseFilterRangeSamplingUpgradeGameTests.class);
         event.register(RseCopperConfigurationLifecycleSystemGameTests.class);
         event.register(RseRangeSensorEvidenceGameTests.class);
         event.register(RseLogicAnalyzerEvidenceGameTests.class);
