@@ -129,9 +129,12 @@ for family, (helper, mapping) in families.items():
         if distinct not in source:
             errors.append(f"{block_id}: distinct physics/operation missing: {distinct}")
         if "engineeringSnapshot(" not in source and not (
-                (block_id == "lapis_precision_range_sensor"
+                (block_id in {"lapis_precision_range_sensor", "lapis_optical_transducer"}
                  and "extends AbstractLapisTransducerBlock" in source
                  and "sense(ServerLevel" in source)
+                or (block_id == "shielded_instrument_cable"
+                    and "extends InstrumentCableBlock" in source
+                    and "InstrumentCableEvidenceSupport.interference(" in source)
                 or (block_id == "precision_filter"
                     and "extends DirectionalSignalBlock" in source
                     and "readBackInput(level, pos, state)" in source)):
