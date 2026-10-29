@@ -36,6 +36,8 @@ require("QuartzClockSupport.phasePort(port, s.getValue(ACTIVE))" in osc,
         "ordinary Quartz oscillator no longer uses phase-only observation")
 require("QuartzClockSupport.phasePort(port, state.getValue(ACTIVE))" in lab,
         "laboratory oscillator still reports nominal period as clock amplitude")
+require('PortKind.TRIGGER, PortDirection.OUTPUT, false, "clock");' in lab,
+        "lab oscillator port unit must describe clock phase, not nominal ticks")
 require("QuartzClockSupport.halfPeriodTicks" in osc and "QuartzClockSupport.halfPeriodTicks" in lab,
         "two oscillator timers have drifted apart")
 require("QuartzClockSupport.fieldReport(l, p, s)" in osc
