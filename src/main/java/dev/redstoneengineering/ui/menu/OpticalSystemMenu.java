@@ -177,13 +177,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
                 if (level instanceof ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
                 changed = true;
             } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter && value <= 3) {
-                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalTransmitterBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
-                level.scheduleTick(blockPos, transmitter, 1);
-                changed = true;
+                changed = FreeSpaceOpticalTransmitterBlock.setChannel(level, blockPos, value);
             } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver && value <= 3) {
-                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalReceiverBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
-                level.scheduleTick(blockPos, receiver, 1);
-                changed = true;
+                changed = FreeSpaceOpticalReceiverBlock.setChannel(level, blockPos, value);
             } else return false;
             refreshAuthoritativeSnapshot(); broadcastChanges(); return changed;
         }
@@ -213,12 +209,12 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter) {
             if (id == BUTTON_SECONDARY_PREVIOUS || id == BUTTON_SECONDARY_NEXT) {
                 int channel = state.getValue(FreeSpaceOpticalTransmitterBlock.CHANNEL); channel = id == BUTTON_SECONDARY_NEXT ? (channel + 1) % 4 : Math.floorMod(channel - 1, 4);
-                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalTransmitterBlock.CHANNEL, channel), Block.UPDATE_CLIENTS); level.scheduleTick(blockPos, transmitter, 1); changed = true;
+                changed = FreeSpaceOpticalTransmitterBlock.setChannel(level, blockPos, channel);
             } else changed = routeDomain(id);
         } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver) {
             if (id == BUTTON_SECONDARY_PREVIOUS || id == BUTTON_SECONDARY_NEXT) {
                 int channel = state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL); channel = id == BUTTON_SECONDARY_NEXT ? (channel + 1) % 4 : Math.floorMod(channel - 1, 4);
-                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalReceiverBlock.CHANNEL, channel), Block.UPDATE_CLIENTS); level.scheduleTick(blockPos, receiver, 1); changed = true;
+                changed = FreeSpaceOpticalReceiverBlock.setChannel(level, blockPos, channel);
             } else changed = routeSignal(id);
         } else return false;
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); } return changed;
