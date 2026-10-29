@@ -21,7 +21,7 @@ if len(blocks) != 130 or len(candidates) != 46 or len(groups) != 15:
 
 src = root / "src/main/java/dev/redstoneengineering/block"
 reads = {}
-for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport", "SafetyObservationSupport", "CommunicationLineEvidenceSupport", "FreeSpaceOpticalChannelSupport", "DigitalEndpointEvidenceSupport", "AmethystFrequencySupport"):
+for filename in ("OpticalSeriesSupport", "PneumaticValveSupport", "ExciterDriveSupport", "QuartzClockSupport", "RangeScanSupport", "FilterResponseSupport", "SafetyObservationSupport", "CommunicationLineEvidenceSupport", "FreeSpaceOpticalChannelSupport", "DigitalEndpointEvidenceSupport", "AmethystFrequencySupport", "MeterEvidenceSupport", "GuidedOpticalEvidenceSupport", "JunctionEvidenceSupport", "InstrumentCableEvidenceSupport"):
     path = src / (filename + ".java")
     reads[filename] = path.read_text(encoding="utf-8") if path.is_file() else ""
     if not reads[filename]:
@@ -45,6 +45,24 @@ if "quality == PortQuality.VALID" not in reads["CommunicationLineEvidenceSupport
     errors.append("communication payload display must reject invalid/conflicted data")
 
 families = {
+    "metering_quality": ("MeterEvidenceSupport", {
+        "lapis_precision_meter": ("LapisPrecisionMeterBlock", "PrecisionObservationSupport.lapis("),
+        "lapis_optical_transducer": ("LapisOpticalTransducerBlock", "OpticalObservationSupport.observe("),
+        "topology_debugger": ("TopologyDebuggerBlock", "recordTopologyTransition(level, pos, issue, previousIssue"),
+    }),
+    "guided_optical_terminals": ("GuidedOpticalEvidenceSupport", {
+        "optical_emitter": ("OpticalEmitterBlock", "DomainNetwork.recomputeOptical(serverLevel, pos)"),
+        "optical_receiver": ("OpticalReceiverBlock", "DomainNetwork.recomputeOpticalAround(serverLevel,pos)"),
+    }),
+    "junction_quality": ("JunctionEvidenceSupport", {
+        "redstone_cable_junction": ("RedstoneCableJunctionBlock", "TransmissionTopology.inferJunctionMedium("),
+        "copper_cable_junction": ("CopperCableJunctionBlock", "CopperNetworkSupport.recomputeAround(server, pos)"),
+        "optical_fiber_junction": ("OpticalFiberJunctionBlock", "setServiceOpen(Level level, BlockPos pos, boolean open)"),
+    }),
+    "instrument_quality": ("InstrumentCableEvidenceSupport", {
+        "instrument_cable": ("InstrumentCableBlock", "TransmissionTopology.instrumentCablePort("),
+        "shielded_instrument_cable": ("ShieldedInstrumentCableBlock", "bus.shieldedExposedNodes()"),
+    }),
     "amethyst_frequency": ("AmethystFrequencySupport", {
         "amethyst_resonator": ("AmethystResonatorBlock", "DomainNetwork.recomputeAmethyst(serverLevel, pos)"),
         "amethyst_frequency_filter": ("AmethystFrequencyFilterBlock", "evidence.matched() && evidence.expectedOutputAmplitude() > 0"),
@@ -119,8 +137,8 @@ for family, (helper, mapping) in families.items():
                     and "readBackInput(level, pos, state)" in source)):
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
-if len(wired) != 30:
-    errors.append(f"expected 30 shared helper users after Amethyst quality upgrade, got {len(wired)}")
+if len(wired) != 40:
+    errors.append(f"expected 40 shared-helper users after the last 10 candidate improvements, got {len(wired)}")
 if not set(wired).issubset({r["id"] for r in candidates}):
     errors.append("an implemented refactor is not a registered 46-candidate")
 
@@ -170,6 +188,16 @@ hardened = {
     "amethyst_resonator": "SOURCE_PULSE_VS_CONFIGURED_AMPLITUDE",
     "amethyst_frequency_filter": "LOADED_SAMPLE_AND_CONFLICT_OUTPUT_MASK",
     "amethyst_tuned_resonator": "LOADED_SAMPLE_AND_STALE_OUTPUT_MASK",
+    "lapis_precision_meter": "INVALID_PRECISION_VALUE_ZEROED",
+    "lapis_optical_transducer": "UNTRUSTED_OPTICAL_SAMPLE_ZEROED",
+    "topology_debugger": "UNLOADED_TARGET_FAILSAFE_ALARM",
+    "optical_emitter": "GUIDED_SOURCE_CONFIGURATION_EVIDENCE",
+    "optical_receiver": "CONFLICT_CARRIER_VALUE_GATED_AND_LOADED_NEIGHBORS",
+    "redstone_cable_junction": "MEDIUM_ISOLATION_AND_UNLOADED_PORT_QUALITY",
+    "copper_cable_junction": "INVALID_DRIVER_CLEARS_VOLTAGE",
+    "optical_fiber_junction": "SERVICE_SPLICE_PORT_QUALITY_GATING",
+    "instrument_cable": "UNOBSERVED_CONNECTED_ARM_STALE",
+    "shielded_instrument_cable": "COMMON_SHIELDING_EXPOSURE_REPORT",
 }
 for block_id, evidence in hardened.items():
     source_path = src / (next(item["class"] for item in candidates if item["id"] == block_id) + ".java")
@@ -189,6 +217,16 @@ for block_id, evidence in hardened.items():
         "amethyst_resonator": "AmethystFrequencySupport.sourcePort(",
         "amethyst_frequency_filter": "AmethystFrequencySupport.outputQuality(",
         "amethyst_tuned_resonator": "AmethystFrequencySupport.outputQuality(",
+        "lapis_precision_meter": "MeterEvidenceSupport.snapshot(",
+        "lapis_optical_transducer": "MeterEvidenceSupport.readable(",
+        "topology_debugger": "MeterEvidenceSupport.alarmSnapshot(",
+        "optical_emitter": "GuidedOpticalEvidenceSupport.source(",
+        "optical_receiver": "GuidedOpticalEvidenceSupport.sink(",
+        "redstone_cable_junction": "JunctionEvidenceSupport.loadedPortQuality(",
+        "copper_cable_junction": "JunctionEvidenceSupport.loadedPortQuality(",
+        "optical_fiber_junction": "JunctionEvidenceSupport.loadedPortQuality(",
+        "instrument_cable": "InstrumentCableEvidenceSupport.snapshot(",
+        "shielded_instrument_cable": "InstrumentCableEvidenceSupport.interference(",
     }[block_id]
     if marker not in source_text:
         errors.append(f"{block_id}: hardening regression {evidence}")
