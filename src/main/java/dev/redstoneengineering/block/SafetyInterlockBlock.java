@@ -78,9 +78,7 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
             return Optional.of(EngineeringPortSnapshot.redstone(
                     port.get(), state.getValue(OUTPUT), quality));
         }
-        int value = readInputFrom(level, pos, side);
-        return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), value, value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        return Optional.of(SafetyObservationSupport.inputPort(level, pos, side, port.get()));
     }
 
     @Override
@@ -103,10 +101,12 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         Direction front = outputSide(state);
-        int a = readBackInput(level, pos, state);
-        int b = readInputFrom(level, pos, leftOf(front));
-        int c = readInputFrom(level, pos, rightOf(front));
-        int mask = (a <= 0 ? 1 : 0) | (b <= 0 ? 2 : 0) | (c <= 0 ? 4 : 0);
+        var a = SafetyObservationSupport.input(level, pos, inputSide(state));
+        var b = SafetyObservationSupport.input(level, pos, leftOf(front));
+        var c = SafetyObservationSupport.input(level, pos, rightOf(front));
+        // Each channel must be a positively asserted, VALID redstone source.
+        // Missing/unloaded input never turns into a true safety permissive.
+        int mask = SafetyObservationSupport.failedMask(a, b, c);
         int permit = mask == 0 ? 1 : 0;
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
@@ -194,6 +194,26 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.DOWN) {
+                Direction front = outputSide(state);
+                var a = SafetyObservationSupport.input(level, pos, inputSide(state));
+                var b = SafetyObservationSupport.input(level, pos, leftOf(front));
+                var c = SafetyObservationSupport.input(level, pos, rightOf(front));
+                int liveFailed = SafetyObservationSupport.failedMask(a, b, c);
+                player.displayClientMessage(Component.literal(
+                        "INTERLOCK FIELD TEST | A=" + SafetyObservationSupport.evidence(a)
+                                + "/" + SafetyObservationSupport.faultReason(a)
+                                + " | B=" + SafetyObservationSupport.evidence(b)
+                                + "/" + SafetyObservationSupport.faultReason(b)
+                                + " | C=" + SafetyObservationSupport.evidence(c)
+                                + "/" + SafetyObservationSupport.faultReason(c)
+                                + " | liveFailedMask=" + liveFailed
+                                + " | evaluatedMask=" + failedMask(level, pos)
+                                + " | permit=" + state.getValue(OUTPUT)
+                                + " | transitions=" + transitionCount(level, pos)
+                                + " | DOWN=inspect; other Shift faces=reset diagnostics"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 resetDiagnostics(level, pos);
                 player.displayClientMessage(Component.literal("Interlock diagnostics reset"), true);
