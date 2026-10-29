@@ -140,6 +140,16 @@ if "phasePort(port, state.getValue(ACTIVE))" not in (src / "QuartzLabOscillatorB
     errors.append("lab oscillator may still emit a period value as the clock port output")
 if "new EngineeringPortSnapshot(port, active ? 1.0 : 0.0, 0.0, 1.0, PortQuality.VALID)" not in reads["QuartzClockSupport"]:
     errors.append("shared clock must publish 0/1 phase with VALID source evidence")
+hardened = {
+    "range_sensor": "CONFIG_CHANGE_REVOKES_SCAN_AND_OLD_REDSTONE_OUTPUT",
+    "precision_filter": "INPUT_PORT_REPORTS_DRIVEN_ZERO_VS_NO_SIGNAL",
+}
+for block_id, evidence in hardened.items():
+    source_path = src / (next(item["class"] for item in candidates if item["id"] == block_id) + ".java")
+    source_text = source_path.read_text(encoding="utf-8")
+    marker = "applyConfiguration(level, pos, next)" if block_id == "range_sensor" else "RedstoneObservationSupport.observe(level, pos, side)"
+    if marker not in source_text:
+        errors.append(f"{block_id}: hardening regression {evidence}")
 rows = []
 for r in candidates:
     family = r["review_group"]
@@ -153,6 +163,7 @@ for r in candidates:
                    else "FUNCTIONAL_EVIDENCE_ENHANCED" if has_new_diagnostics
                    else "NOT_REFACTORED"),
         "shared_helper": wired.get(r["id"], ""),
+        "latest_hardening": hardened.get(r["id"], ""),
         "next_action": ("Run runtime GameTest, old-save and multiplayer checks."
                         if (is_done or has_new_diagnostics) else recommendation(family)),
         "runtime_acceptance": "NOT_TESTED",
@@ -169,6 +180,7 @@ summary = {
     "groups": len(groups),
     "shared_helper_wired": len(wired),
     "other_functional_enhancements": len(enhanced),
+    "additional_robustness_hardening": len(hardened),
     "queued": len(rows)-len(wired)-len(enhanced),
     "registry_changed": False,
     "runtime_acceptance": False,
