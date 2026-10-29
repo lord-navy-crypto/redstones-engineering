@@ -92,6 +92,7 @@ public final class RseGameTestRegistration {
         event.register(RseDomainNetworkCoverageSystemGameTests.class);
         event.register(RseDomainDriverLifecycleSystemGameTests.class);
         event.register(RseQuartzLabConfigurationLifecycleSystemGameTests.class);
+        event.register(RseQuartzSamplingUpgradeGameTests.class);
         event.register(RseCopperConfigurationLifecycleSystemGameTests.class);
         event.register(RseRangeSensorEvidenceGameTests.class);
         event.register(RseLogicAnalyzerEvidenceGameTests.class);
