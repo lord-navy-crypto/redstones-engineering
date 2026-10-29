@@ -82,9 +82,12 @@ for family, (helper, mapping) in families.items():
         if distinct not in source:
             errors.append(f"{block_id}: distinct physics/operation missing: {distinct}")
         if "engineeringSnapshot(" not in source and not (
-                block_id == "lapis_precision_range_sensor"
-                and "extends AbstractLapisTransducerBlock" in source
-                and "sense(ServerLevel" in source):
+                (block_id == "lapis_precision_range_sensor"
+                 and "extends AbstractLapisTransducerBlock" in source
+                 and "sense(ServerLevel" in source)
+                or (block_id == "precision_filter"
+                    and "extends DirectionalSignalBlock" in source
+                    and "readBackInput(level, pos, state)" in source)):
             errors.append(f"{block_id}: formal port evidence missing")
         wired[block_id] = helper
 if len(wired) != 15:
