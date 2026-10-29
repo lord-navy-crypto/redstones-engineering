@@ -143,11 +143,20 @@ if "new EngineeringPortSnapshot(port, active ? 1.0 : 0.0, 0.0, 1.0, PortQuality.
 hardened = {
     "range_sensor": "CONFIG_CHANGE_REVOKES_SCAN_AND_OLD_REDSTONE_OUTPUT",
     "precision_filter": "INPUT_PORT_REPORTS_DRIVEN_ZERO_VS_NO_SIGNAL",
+    "signal_analyzer": "HMI_SNAPSHOT_OBSERVER_NEUTRAL_MISSING_CHUNK_STALE",
+    "copper_circuit_meter": "NO_UNLOADED_COPPER_READ_OR_STALE_VOLTAGE",
+    "optical_power_meter": "NO_UNLOADED_OPTICAL_SAMPLE",
 }
 for block_id, evidence in hardened.items():
     source_path = src / (next(item["class"] for item in candidates if item["id"] == block_id) + ".java")
     source_text = source_path.read_text(encoding="utf-8")
-    marker = "applyConfiguration(level, pos, next)" if block_id == "range_sensor" else "RedstoneObservationSupport.observe(level, pos, side)"
+    marker = {
+        "range_sensor": "applyConfiguration(level, pos, next)",
+        "precision_filter": "RedstoneObservationSupport.observe(level, pos, side)",
+        "signal_analyzer": "RuntimeIntStore.peek(level, KEY, pos)",
+        "copper_circuit_meter": "return new CopperObservationSupport.Observation(0, PortQuality.STALE);",
+        "optical_power_meter": "return new Measurement(0, 0, PortQuality.STALE);",
+    }[block_id]
     if marker not in source_text:
         errors.append(f"{block_id}: hardening regression {evidence}")
 rows = []
@@ -155,17 +164,19 @@ for r in candidates:
     family = r["review_group"]
     is_done = r["id"] in wired
     has_new_diagnostics = r["id"] in enhanced
+    has_hardening = r["id"] in hardened
     rows.append({
         "registry_id": r["id"], "source_class": r["class"], "family": family,
         "public_block_id": "PRESERVE", "physics_transfer": "PRESERVE",
         "port_domain_and_direction": "PRESERVE", "old_world_save": "PRESERVE",
         "review": ("SHARED_HELPER_WIRED_SOURCE_CHECKED" if is_done
                    else "FUNCTIONAL_EVIDENCE_ENHANCED" if has_new_diagnostics
+                   else "MEASUREMENT_SAFETY_HARDENED" if has_hardening
                    else "NOT_REFACTORED"),
         "shared_helper": wired.get(r["id"], ""),
         "latest_hardening": hardened.get(r["id"], ""),
         "next_action": ("Run runtime GameTest, old-save and multiplayer checks."
-                        if (is_done or has_new_diagnostics) else recommendation(family)),
+                        if (is_done or has_new_diagnostics or has_hardening) else recommendation(family)),
         "runtime_acceptance": "NOT_TESTED",
         "behavioral_equivalence": "NOT_PROVEN",
         "save_migration": "NOT_REQUIRED_NO_ID_CHANGE",
@@ -181,7 +192,7 @@ summary = {
     "shared_helper_wired": len(wired),
     "other_functional_enhancements": len(enhanced),
     "additional_robustness_hardening": len(hardened),
-    "queued": len(rows)-len(wired)-len(enhanced),
+    "queued": len(rows)-len(set(wired) | set(enhanced) | set(hardened)),
     "registry_changed": False,
     "runtime_acceptance": False,
     "errors": errors,
@@ -195,5 +206,6 @@ if errors:
     sys.exit(1)
 print("RSE 46 SHARED CODE ROLLOUT: PASS")
 print(f" {len(rows)} candidates / {len(groups)} families; {len(wired)} shared-helper users, "
-      f"{len(enhanced)} quality/diagnostics upgrades, {len(rows)-len(wired)-len(enhanced)} queued")
+      f"{len(enhanced)} quality/diagnostics upgrades, {len(hardened)} robust-safety flags (some overlap), "
+      f"{len(rows)-len(set(wired) | set(enhanced) | set(hardened))} queued")
 print(" no deleted IDs, no physics law merges; runtime equivalence not yet verified")
