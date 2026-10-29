@@ -664,24 +664,26 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(resonanceQuality == PortQuality.VALID ? 1 : 0);
             quality.set(portQualityPercent(resonanceQuality));
             fillCompatibleTopology(state, dust);
-        } else if (block instanceof AmethystFrequencyFilterBlock) {
+        } else if (block instanceof AmethystFrequencyFilterBlock filter) {
             Direction output = DirectionalDomainBlock.seriesOutputSide(state);
-            var input = DomainNetwork.sampleAmethyst(level, blockPos.relative(DirectionalDomainBlock.seriesInputSide(state)));
-            var filtered = DomainNetwork.sampleAmethyst(level, blockPos.relative(output));
-            primary.set(input.frequency());
-            secondary.set(filtered.amplitude());
+            var input = AmethystFrequencyFilterBlock.evidence(level, blockPos, state);
+            var observed = filter.engineeringSnapshot(level, blockPos, state, output);
+            PortQuality measuredQuality = observed.map(p -> p.quality()).orElse(PortQuality.STALE);
+            primary.set(input.inputFrequency());
+            secondary.set(observed.map(p -> (int) Math.round(p.value())).orElse(0));
             tertiary.set(state.getValue(AmethystFrequencyFilterBlock.TARGET));
-            dataValid.set(filtered.active() ? 1 : 0);
-            quality.set(filtered.active() ? 100 : 0);
+            dataValid.set(measuredQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(measuredQuality));
             facing.set(output.ordinal());
-        } else if (block instanceof AmethystTunedResonatorBlock) {
+        } else if (block instanceof AmethystTunedResonatorBlock tuned) {
             Direction output = DirectionalDomainBlock.seriesOutputSide(state);
-            var resonant = DomainNetwork.sampleAmethyst(level, blockPos.relative(output));
+            var observed = tuned.engineeringSnapshot(level, blockPos, state, output);
+            PortQuality measuredQuality = observed.map(p -> p.quality()).orElse(PortQuality.STALE);
             primary.set(state.getValue(AmethystTunedResonatorBlock.NATURAL));
-            secondary.set(resonant.amplitude());
+            secondary.set(observed.map(p -> (int) Math.round(p.value())).orElse(0));
             tertiary.set(state.getValue(AmethystTunedResonatorBlock.Q_INDEX));
-            dataValid.set(resonant.active() ? 1 : 0);
-            quality.set(resonant.active() ? 100 : 0);
+            dataValid.set(measuredQuality == PortQuality.VALID || measuredQuality == PortQuality.SATURATED ? 1 : 0);
+            quality.set(portQualityPercent(measuredQuality));
             facing.set(output.ordinal());
         } else if (block instanceof AmethystSpectrumAnalyzerBlock) {
             var spectrum = AmethystSpectrumAnalyzerBlock.spectrum(level, blockPos);
