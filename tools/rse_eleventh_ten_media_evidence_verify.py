@@ -95,9 +95,17 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalReceiverBlock.java",
     "opticalQuality",
+    "FreeSpaceOpticalChannelSupport.receiveQuality",
+    "InformationRuntime.snapshot",
+    "InformationRuntime.clear",
+    "updateOutput",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalChannelSupport.java",
     "PortQuality.DOMAIN_MISMATCH",
     "packet.selector()",
-    "packet.qualityPercent() <= 20",
+    "packet.ageTicks() > FRESH_TICKS",
+    "packet.valid() ? PortQuality.VALID : PortQuality.STALE",
 )
 
 # Guided optical fiber now follows the same player-facing routing law as the other cable media:
