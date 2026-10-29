@@ -56,10 +56,8 @@ ensure("SafetyObservationSupport.inputPort(level, pos, side, port.get())" in ala
        "alarm controls must report actual source quality")
 
 for token in ("InformationRuntime.snapshot(level, carrier, pos)",
-              "quality == PortQuality.VALID", "PortQuality.TOPOLOGY_ERROR",
-              "PortQuality.STALE", "PortQuality.NO_SIGNAL",
-              "maxValue"):
-    if token == "maxValue":continue
+              "quality == PortQuality.VALID", "case TOPOLOGY_ERROR",
+              "case STALE", "case NO_SIGNAL"):
     ensure(token in comm, "shared bit/byte evidence missing "+token)
 for src,name,medium,solver,drivers in (
         (serial,"serial","\"serial\"","SerialNetwork.recompute(level, pos)","info.driverCount()"),
