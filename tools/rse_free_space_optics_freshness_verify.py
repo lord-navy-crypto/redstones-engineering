@@ -51,7 +51,7 @@ for token in (
     'InformationRuntime.clear(level, "free_optical", pos);',
     "invalidateReception(level, pos);",
     "public static void invalidateReception(Level level, BlockPos pos)",
-    "receiver.updateOutput(level, pos, updated, 0);",
+    "receiver.updateOutput(level, pos, state, 0);",
     "FreeSpaceOpticalChannelSupport.receiveQuality(packet, state.getValue(CHANNEL))",
     "packet.ageTicks() > FreeSpaceOpticalChannelSupport.RETAIN_STALE_TICKS",
     "level.scheduleTick(pos, this, 2);",
