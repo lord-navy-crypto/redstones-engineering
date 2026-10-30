@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.world.entity.player.Inventory;
 
 import java.util.List;
@@ -31,6 +32,8 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private int scrollY;
     private Button newerButton;
     private Button olderButton;
+    private String copyFeedback = "";
+    private int copyFeedbackTicks;
 
     public DiagnosticTabletScreen(DiagnosticTabletMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -47,6 +50,8 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         addRenderableWidget(Button.builder(Component.literal("Diagnostics"), button ->
                         Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(this)))
                 .bounds(leftPos + 12, topPos + imageHeight - 28, 96, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Copy Snapshot"), button -> copySnapshot())
+                .bounds(leftPos + 116, topPos + imageHeight - 28, 84, 20).build());
         newerButton = addRenderableWidget(Button.builder(Component.literal("Newer"), button -> {
                     page = Math.max(0, page - 1);
                     scrollY = 0;
@@ -60,6 +65,40 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
                 })
                 .bounds(leftPos + imageWidth - 70, topPos + imageHeight - 28, 56, 20).build());
         refreshHistoryButtons();
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (copyFeedbackTicks > 0) copyFeedbackTicks--;
+        if (copyFeedbackTicks == 0) copyFeedback = "";
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_C) {
+            copySnapshot();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private void copySnapshot() {
+        List<String> history = menu.history();
+        if (history.isEmpty()) {
+            copyFeedback = "NO SNAPSHOT TO COPY";
+        } else {
+            page = Math.max(0, Math.min(page, history.size() - 1));
+            Minecraft.getInstance().keyboardHandler.setClipboard(history.get(page));
+            copyFeedback = "SNAPSHOT COPIED • C";
+        }
+        copyFeedbackTicks = 60;
+    }
+
+    /** Avoid the vanilla background blur pass on the diagnostic tablet too. */
+    @Override
+    protected void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.fill(0, 0, width, height, 0xFF080C10);
     }
 
     private void refreshHistoryButtons() {
@@ -153,6 +192,9 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         graphics.drawString(font, footer, 120, imageHeight - 43, MUTED, false);
         String compare = comparisonCue(history);
         graphics.drawString(font, compare, 120, imageHeight - 31, comparisonColor(history), false);
+        if (!copyFeedback.isEmpty()) {
+            graphics.drawString(font, copyFeedback, 18, imageHeight - 31, GOOD, false);
+        }
     }
 
     private String chronologyCue(List<String> history) {
