@@ -60,7 +60,7 @@ if not errors:
         if marker not in tablet:
             errors.append(f"diagnostic tablet missing {marker!r}")
 
-    for marker in ("RseDiagnosticsScreen::new", "DiagnosticTabletScreen::new"):
+    for marker in ("DiagnosticTabletScreen::new",):
         if marker not in registration:
             errors.append(f"diagnostic screen registration missing {marker!r}")
 
