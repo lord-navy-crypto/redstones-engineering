@@ -30,6 +30,12 @@ public final class RseLdUiComponents {
      * The same preferred dimensions still work on the logical server menu.
      */
     public static ModularUI responsiveUi(UIElement root, Player player, int preferredWidth, int preferredHeight) {
+        // Every RSE device HMI (including Enhanced, Universal, scopes, PID
+        // and the 20+ specialized families) uses this same screen entrypoint.
+        // A content-sized minimum height on the root would make nested
+        // ScrollerViews expand rather than overflow at narrow GUI scales.
+        // Force a shrinkable root without altering any page content or controls.
+        root.layout(layout -> layout.minHeight(0));
         var ui = UI.of(
                 root,
                 java.util.List.of(StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.GDP)),
