@@ -226,6 +226,10 @@ public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.DOWN) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 resetHistory(level, pos);
                 player.displayClientMessage(Component.literal("Molecular sensor history reset | runtime cleared"), true);

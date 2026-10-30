@@ -45,7 +45,7 @@ need(workflow, "tools/rse_system_level_closure_phase1_verify.py", "build.yml")
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
@@ -97,7 +97,7 @@ if errors:
 
 print("RSE SYSTEM-LEVEL CLOSURE PHASE 1 VERIFY: PASS")
 print("  phase: deterministic chains and recovery")
-print("  registered cross-system GameTests: 5 (manual diagnostic / non-blocking)")
+print("  registered cross-system GameTests: 5 (manual runtime gate / failures reported)")
 print("  gameplay blocks added by test suite: 0")
 print("  covered chains: signal conditioning / servo actuation+measurement / command-loss recovery / fault+alarm / cable lifecycle")
 print("  automatic acceptance: static + compileJava + Gradle tests")

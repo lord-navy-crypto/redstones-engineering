@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.Minecraft;
 
 import java.util.function.IntUnaryOperator;
 
@@ -21,6 +22,7 @@ public final class EngineeringPlot {
     }
 
     public static void analogFrame(GuiGraphics graphics, int x, int y, int width, int height) {
+        if (width <= 0 || height <= 0) return;
         graphics.fill(x, y, x + width, y + height, BACKGROUND);
         for (int division = 1; division < 4; division++) {
             int gx = x + Math.round(division * width / 4.0f);
@@ -32,6 +34,68 @@ public final class EngineeringPlot {
         }
         int centerY = y + height / 2;
         graphics.fill(x, centerY, x + width, centerY + 1, GRID_MAJOR);
+    }
+
+    private static final int AXIS_TEXT = 0xFFBAC7D3;
+
+    /**
+     * Label the visible, server-sampled plot coordinates without pretending
+     * each display slot is an independent wall-clock timestamp. Callers
+     * reserve a 26px left gutter and 15px bottom gutter in their own widget.
+     * These labels are render-only and must never extrapolate missing data.
+     */
+    public static void analogAxisLabels(GuiGraphics graphics, int x, int y,
+                                        int width, int height, int minimum,
+                                        int maximum, int slots) {
+        if (width < 30 || height < 30 || slots < 2 || maximum <= minimum) return;
+        var font = Minecraft.getInstance().font;
+        for (int i = 0; i <= 3; i++) {
+            int value = minimum + Math.round((maximum - minimum) * i / 3.0f);
+            String label = Integer.toString(value);
+            int yy = y + height - 1 - Math.round((height - 1) * i / 3.0f);
+            graphics.drawString(font, label, x - 4 - font.width(label),
+                    Math.max(y, Math.min(y + height - font.lineHeight, yy - 4)),
+                    AXIS_TEXT, false);
+        }
+        slotAxisLabels(graphics, x, y, width, height, slots);
+    }
+
+    /**
+     * Display-slot labels, not absolute times. The timebase must come from
+     * the server-owned instrument and is documented alongside the chart.
+     */
+    public static void slotAxisLabels(GuiGraphics graphics, int x, int y,
+                                      int width, int height, int slots) {
+        if (width < 30 || height < 10 || slots < 2) return;
+        var font = Minecraft.getInstance().font;
+        int[] indices = {0, (slots - 1) / 2, slots - 1};
+        for (int index : indices) {
+            String label = Integer.toString(index);
+            int xx = x + Math.round(index * (width - 1) / (float) (slots - 1));
+            int left = Math.max(x, Math.min(x + width - font.width(label),
+                    xx - font.width(label) / 2));
+            graphics.drawString(font, label, left, y + height + 3, AXIS_TEXT, false);
+        }
+    }
+
+    public static void digitalLaneLabel(GuiGraphics graphics, String label,
+                                        int x, int y, int laneHeight) {
+        if (laneHeight < 9) return;
+        var font = Minecraft.getInstance().font;
+        graphics.drawString(font, label, x - 4 - font.width(label),
+                y + Math.max(0, (laneHeight - font.lineHeight) / 2),
+                AXIS_TEXT, false);
+    }
+
+    /** An empty server capture is a blank chart, never a zero signal. */
+    public static void emptyPlotLabel(GuiGraphics graphics, int x, int y,
+                                      int width, int height, String label) {
+        if (width < 60 || height < 20) return;
+        var font = Minecraft.getInstance().font;
+        String visible = font.plainSubstrByWidth(label, width - 12);
+        graphics.drawString(font, visible,
+                x + Math.max(0, (width - font.width(visible)) / 2),
+                y + Math.max(0, (height - font.lineHeight) / 2), AXIS_TEXT, false);
     }
 
     public static void analogTrace(
@@ -46,7 +110,7 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (sampleCount <= 0 || maximum <= minimum) return;
+        if (sampleCount <= 0 || maximum <= minimum || width < 3 || height < 3) return;
         int previousX = -1;
         int previousY = -1;
         int denominator = Math.max(1, sampleCount - 1);
@@ -58,13 +122,17 @@ public final class EngineeringPlot {
                 previousY = -1;
                 continue;
             }
-            int px = x + Math.round(slot * width / (float) denominator);
-            int py = y + height - Math.round((sample - minimum) * height / (float) span);
+            // Pixel rectangles are half-open. Never draw onto the next widget.
+            int px = x + Math.round(slot * (width - 1) / (float) denominator);
+            int py = y + (height - 1) - Math.round((sample - minimum) * (height - 1) / (float) span);
             if (previousX >= 0) {
-                graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
+                // Analogue traces interpolate consecutive valid readings.
+                // The old horizontal-then-vertical staircase depicted
+                // artificial instantaneous jumps. Digital traces below
+                // deliberately retain that step geometry.
+                analogSegment(graphics, previousX, previousY, px, py, color);
             }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
+            boundedPoint(graphics, px, py, x, y, width, height, color);
             previousX = px;
             previousY = py;
         }
@@ -80,26 +148,26 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (sampleCount <= 0) return;
+        if (sampleCount <= 0 || width < 3 || height < 3) return;
         int previousX = -1;
         int previousY = -1;
         int denominator = Math.max(1, sampleCount - 1);
         for (int slot = 0; slot < sampleCount; slot++) {
             int state = stateAt.applyAsInt(slot);
-            int px = x + Math.round(slot * width / (float) denominator);
+            int px = x + Math.round(slot * (width - 1) / (float) denominator);
             if (state < 0) {
                 int invalidY = y + height / 2;
-                graphics.fill(px - 1, invalidY, px + 2, invalidY + 2, INVALID);
+                boundedPoint(graphics, px, invalidY, x, y, width, height, INVALID);
                 previousX = -1;
                 previousY = -1;
                 continue;
             }
-            int py = state > 0 ? y : y + height;
+            int py = state > 0 ? y : y + height - 1;
             if (previousX >= 0) {
                 graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
                 graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
             }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
+            boundedPoint(graphics, px, py, x, y, width, height, color);
             previousX = px;
             previousY = py;
         }
@@ -115,11 +183,11 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (sampleCount <= 1) return;
-        int bounded = Math.max(0, Math.min(sampleCount - 1, slot));
-        int px = x + Math.round(bounded * width / (float) (sampleCount - 1));
+        if (sampleCount <= 1 || width < 1 || height < 1 || slot < 0 || slot >= sampleCount) return;
+        int px = x + Math.round(slot * (width - 1) / (float) (sampleCount - 1));
         graphics.fill(px, y, px + 1, y + height, color);
-        graphics.fill(px - 2, y, px + 3, y + 2, color);
+        graphics.fill(Math.max(x, px - 2), y, Math.min(x + width, px + 3),
+                Math.min(y + height, y + 2), color);
     }
 
     public static void horizontalMarker(
@@ -133,11 +201,45 @@ public final class EngineeringPlot {
             int height,
             int color
     ) {
-        if (maximum <= minimum) return;
+        if (maximum <= minimum || width < 1 || height < 1) return;
         int bounded = Math.max(minimum, Math.min(maximum, value));
-        int py = y + height - Math.round((bounded - minimum) * height / (float) (maximum - minimum));
+        int py = y + (height - 1) - Math.round((bounded - minimum) * (height - 1) / (float) (maximum - minimum));
         for (int px = x; px < x + width; px += 4) {
             graphics.fill(px, py, Math.min(px + 2, x + width), py + 1, color);
         }
+    }
+
+    /**
+     * Integer line rasterization between two in-bounds sample coordinates.
+     * A convex half-open trace rectangle contains the entire segment when
+     * both endpoints are inside it. Breaks remain breaks for invalid samples.
+     */
+    private static void analogSegment(GuiGraphics graphics,
+                                      int x0, int y0, int x1, int y1, int color) {
+        int dx = Math.abs(x1 - x0);
+        int sx = x0 < x1 ? 1 : -1;
+        int dy = -Math.abs(y1 - y0);
+        int sy = y0 < y1 ? 1 : -1;
+        int error = dx + dy;
+        while (true) {
+            graphics.fill(x0, y0, x0 + 1, y0 + 1, color);
+            if (x0 == x1 && y0 == y1) break;
+            int twiceError = 2 * error;
+            if (twiceError >= dy) {
+                error += dy;
+                x0 += sx;
+            }
+            if (twiceError <= dx) {
+                error += dx;
+                y0 += sy;
+            }
+        }
+    }
+
+    /** Clamp the 3px sample marker to the trace's own allocated rectangle. */
+    private static void boundedPoint(GuiGraphics graphics, int px, int py,
+                                     int x, int y, int width, int height, int color) {
+        graphics.fill(Math.max(x, px - 1), Math.max(y, py - 1),
+                Math.min(x + width, px + 2), Math.min(y + height, py + 2), color);
     }
 }

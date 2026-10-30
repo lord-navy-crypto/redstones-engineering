@@ -188,13 +188,13 @@ if "rse_sixth_ten_system_design_bug_verify.py" not in workflow:
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
     if token not in workflow:
-        raise SystemExit(f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
+        raise SystemExit(f"build.yml missing manual/failure-transparent GameTest policy token {token!r}")
 
 print("RSE sixth-ten system design + bug verification: PASS")
 print("  induction transient/read-only/coverage evidence: PASS")
@@ -203,4 +203,4 @@ print("  heater/radiator/calorimeter role boundaries: PASS")
 print("  insulated redstone actual-source/value/terminal lifecycle: PASS")
 print("  reference valid-zero and FRONT-only source: PASS")
 print("  metrology first-sample NOT_READY + observer-neutral/tank coverage semantics: PASS")
-print("  registered sixth-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered sixth-ten GameTests: 10 (manual acceptance / failures reported)")

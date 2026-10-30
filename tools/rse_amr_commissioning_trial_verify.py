@@ -149,9 +149,9 @@ for token in (
         errors.append(f"DiagnosticTabletItem missing AMR trial token {token!r}")
 
 for token in (
-    "MIN_WIDTH = 420",
+    "imageWidth = Math.max(1, Math.min(MAX_WIDTH, width - 20))",
     "MAX_WIDTH = 720",
-    "MIN_HEIGHT = 300",
+    "imageHeight = Math.max(1, Math.min(MAX_HEIGHT, height - 20))",
     "MAX_HEIGHT = 460",
     "public boolean mouseScrolled",
     "graphics.enableScissor",

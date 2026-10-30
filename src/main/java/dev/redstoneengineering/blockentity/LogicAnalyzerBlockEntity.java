@@ -122,6 +122,20 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    public boolean setCursorA(int slot) {
+        if (slot < 0 || slot >= DISPLAY_SAMPLES) return false;
+        cursorA = slot;
+        setChanged();
+        return true;
+    }
+
+    public boolean setCursorB(int slot) {
+        if (slot < 0 || slot >= DISPLAY_SAMPLES) return false;
+        cursorB = slot;
+        setChanged();
+        return true;
+    }
+
     public int triggerChannel() {
         return triggerChannel;
     }

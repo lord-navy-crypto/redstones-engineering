@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.world.entity.player.Inventory;
 
 import java.util.List;
@@ -23,14 +24,13 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private static final int WARN = 0xFFFFB45C;
     private static final int BAD = 0xFFFF7373;
     private static final int ACCENT = 0xFFE25757;
-    private static final int MIN_WIDTH = 420;
     private static final int MAX_WIDTH = 720;
-    private static final int MIN_HEIGHT = 300;
     private static final int MAX_HEIGHT = 460;
     private int page;
     private int scrollY;
     private Button newerButton;
     private Button olderButton;
+    private String copyFeedback = "";
 
     public DiagnosticTabletScreen(DiagnosticTabletMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -40,26 +40,66 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
 
     @Override
     protected void init() {
-        imageWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width - 20));
-        imageHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, height - 20));
+        imageWidth = Math.max(1, Math.min(MAX_WIDTH, width - 20));
+        imageHeight = Math.max(1, Math.min(MAX_HEIGHT, height - 20));
         super.init();
         scrollY = 0;
+        int gap = 3;
+        int availableButtonWidth = Math.max(1, imageWidth - 16 - gap * 3);
+        int diagnosticsWidth = Math.min(76, Math.max(48, availableButtonWidth * 42 / 100));
+        int copyWidth = Math.min(46, Math.max(34, availableButtonWidth * 26 / 100));
+        int arrowWidth = Math.min(32, Math.max(20,
+                (availableButtonWidth - diagnosticsWidth - copyWidth) / 2));
+        int buttonRowWidth = diagnosticsWidth + copyWidth + arrowWidth * 2 + gap * 3;
+        int buttonX = leftPos + (imageWidth - buttonRowWidth) / 2;
+        int buttonY = topPos + imageHeight - 28;
         addRenderableWidget(Button.builder(Component.literal("Diagnostics"), button ->
                         Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(this)))
-                .bounds(leftPos + 12, topPos + imageHeight - 28, 96, 20).build());
-        newerButton = addRenderableWidget(Button.builder(Component.literal("Newer"), button -> {
+                .bounds(buttonX, buttonY, diagnosticsWidth, 20).build());
+        buttonX += diagnosticsWidth + gap;
+        addRenderableWidget(Button.builder(Component.literal("Copy"), button -> copySnapshot())
+                .bounds(buttonX, buttonY, copyWidth, 20).build());
+        buttonX += copyWidth + gap;
+        newerButton = addRenderableWidget(Button.builder(Component.literal("<"), button -> {
                     page = Math.max(0, page - 1);
                     scrollY = 0;
                     refreshHistoryButtons();
                 })
-                .bounds(leftPos + imageWidth - 132, topPos + imageHeight - 28, 56, 20).build());
-        olderButton = addRenderableWidget(Button.builder(Component.literal("Older"), button -> {
+                .bounds(buttonX, buttonY, arrowWidth, 20).build());
+        buttonX += arrowWidth + gap;
+        olderButton = addRenderableWidget(Button.builder(Component.literal(">"), button -> {
                     page = Math.min(Math.max(0, menu.history().size() - 1), page + 1);
                     scrollY = 0;
                     refreshHistoryButtons();
                 })
-                .bounds(leftPos + imageWidth - 70, topPos + imageHeight - 28, 56, 20).build());
+                .bounds(buttonX, buttonY, arrowWidth, 20).build());
         refreshHistoryButtons();
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_C) {
+            copySnapshot();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private void copySnapshot() {
+        List<String> history = menu.history();
+        if (history.isEmpty()) {
+            copyFeedback = "NO SNAPSHOT TO COPY";
+        } else {
+            page = Math.max(0, Math.min(page, history.size() - 1));
+            Minecraft.getInstance().keyboardHandler.setClipboard(history.get(page));
+            copyFeedback = "SNAPSHOT COPIED • C";
+        }
+    }
+
+    /** Avoid the vanilla background blur pass on the diagnostic tablet too. */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        graphics.fill(0, 0, width, height, 0xFF080C10);
     }
 
     private void refreshHistoryButtons() {
@@ -150,9 +190,17 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         String footer = "Snapshot " + (page + 1) + " / " + history.size()
                 + " • " + chronologyCue(history)
                 + " • scroll " + scrollY + "/" + maxScrollY();
-        graphics.drawString(font, footer, 120, imageHeight - 43, MUTED, false);
+        int footerWidth = Math.max(0, imageWidth - 130);
+        graphics.drawString(font, font.plainSubstrByWidth(footer, footerWidth),
+                120, imageHeight - 43, MUTED, false);
         String compare = comparisonCue(history);
-        graphics.drawString(font, compare, 120, imageHeight - 31, comparisonColor(history), false);
+        if (copyFeedback.isEmpty()) {
+            graphics.drawString(font, font.plainSubstrByWidth(compare, footerWidth),
+                    120, imageHeight - 31, comparisonColor(history), false);
+        } else {
+            graphics.drawCenteredString(font, copyFeedback, imageWidth / 2,
+                    imageHeight - 31, GOOD);
+        }
     }
 
     private String chronologyCue(List<String> history) {

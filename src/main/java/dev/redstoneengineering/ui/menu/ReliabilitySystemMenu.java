@@ -4,6 +4,8 @@ import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.ReliabilitySystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -30,6 +32,9 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
     public static final int BUTTON_ACTION = 8;
+    /** Exact visible engineering parameter encoded as BASE + value. */
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 10000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 10160;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -51,7 +56,25 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public ReliabilitySystemMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.RELIABILITY_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        quality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(ReliabilitySystemLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** UI-shape only; the physics values are synchronized from the server. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof WatchdogBlock) kind.set(KIND_WATCHDOG);
+        else if (block instanceof ServoActuatorBlock) kind.set(KIND_SERVO);
+        else if (block instanceof ServoPositionSensorBlock) kind.set(KIND_POSITION_SENSOR);
+        else if (block instanceof RedundantVoterBlock) kind.set(KIND_VOTER);
+        else if (block instanceof FaultLatchBlock) kind.set(KIND_FAULT_LATCH);
+        else kind.set(-1);
     }
 
     @Override
@@ -149,7 +172,34 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (id == BUTTON_ACTION) {
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX) {
+            int value = id - BUTTON_PARAMETER_DIRECT_BASE;
+            if (block instanceof WatchdogBlock watchdog) {
+                int index = value == 20 ? 0 : value == 40 ? 1 : value == 80 ? 2 : value == 160 ? 3 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(WatchdogBlock.TIMEOUT, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, watchdog, 1);
+                changed = true;
+            } else if (block instanceof ServoActuatorBlock servo) {
+                int index = value >= 1 && value <= 3 ? value - 1 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(ServoActuatorBlock.SLEW, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, servo, 1);
+                changed = true;
+            } else if (block instanceof RedundantVoterBlock voter) {
+                int index = value == 0 ? 0 : value == 1 ? 1 : value == 2 ? 2 : value == 4 ? 3 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(RedundantVoterBlock.TOLERANCE, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, voter, 1);
+                changed = true;
+            } else if (block instanceof FaultLatchBlock latch) {
+                int index = value == 1 ? 0 : value == 4 ? 1 : value == 8 ? 2 : value == 12 ? 3 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(FaultLatchBlock.THRESHOLD, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, latch, 1);
+                changed = true;
+            } else return false;
+        } else if (id == BUTTON_ACTION) {
             changed = runMaintenanceAction(block);
         } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
             changed = routeEndpoint(block, id);
@@ -262,6 +312,40 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             case SOUTH -> Direction.WEST;
             case WEST -> Direction.NORTH;
             default -> Direction.EAST;
+        };
+    }
+
+    /** LDLib2 HMI intent facade; safety/reliability mutation remains server-authoritative. */
+    public boolean applyParameterFromUi(int value) {
+        if (!validVisibleParameter(kind(), value)) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_DIRECT_BASE + value);
+    }
+
+    public boolean runMaintenance() {
+        return clickMenuButton(playerInventory.player, BUTTON_ACTION);
+    }
+
+    public boolean cycleWholeRouteForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleInputForward() {
+        if (!hasInputEndpoint()) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        if (!hasOutputEndpoint()) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    private static boolean validVisibleParameter(int kind, int value) {
+        return switch (kind) {
+            case KIND_WATCHDOG -> value == 20 || value == 40 || value == 80 || value == 160;
+            case KIND_SERVO -> value >= 1 && value <= 3;
+            case KIND_VOTER -> value == 0 || value == 1 || value == 2 || value == 4;
+            case KIND_FAULT_LATCH -> value == 1 || value == 4 || value == 8 || value == 12;
+            default -> false;
         };
     }
 

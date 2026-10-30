@@ -14,7 +14,8 @@ def read(rel):
     return path.read_text(errors="ignore")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
 field_ui = read("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java")
 redstone_net = read("src/main/java/dev/redstoneengineering/physics/RedstoneCableNetwork.java")
 terminal = read("src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java")
@@ -92,7 +93,7 @@ for token in (
 
 for token in (
     "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY",
-    "isSourceMediumIntegrityDevice()",
+    "isSourceMediumIntegrityDevice(int k)",
     "configured zero remains VALID evidence",
     "valid zero ≠ no source",
     "multi-source=TOPOLOGY_ERROR; truncated scan=STALE",
@@ -103,7 +104,10 @@ for token in (
     "KIND_OPTICAL_FIBER_JUNCTION",
 ):
     if token not in screen:
-        errors.append(f"EnhancedFieldDeviceScreen missing Wave-8 contract {token!r}")
+        errors.append(f"EnhancedFieldDeviceLdUi missing Wave-8 contract {token!r}")
+
+if host and "extends LdlibEngineeringHostScreen<FieldDeviceMenu>" not in host:
+    errors.append("EnhancedFieldDeviceScreen missing LDLib2 host contract")
 
 # Real Lapis source controls: not decorative; menu mutates server state and recomputes the network.
 for token in (
@@ -171,6 +175,125 @@ for power in range(16):
         errors.append(f"Redstone cable hop escaped 0..15 at power={power}")
     if power == 0 and next_power != 0:
         errors.append("zero-valued Redstone propagation must remain zero")
+
+# The historical driverCount DataSlot is used as several distinct metrics
+# (pressure, travel, pulse timers, channel counts, fault events...). Its LDLib2
+# row must not be labeled 'sources / drivers' or fake a source-count zero.
+expected_auxiliary = {
+    "KIND_PNEUMATIC_FLOW_METER", "KIND_PNEUMATIC_PROPORTIONAL_VALVE",
+    "KIND_PNEUMATIC_RELIEF_VALVE", "KIND_PNEUMATIC_CYLINDER",
+    "KIND_MAGNETIC_GRADIENT_METER", "KIND_OPTICAL_FIBER", "KIND_OPTICAL_FIBER_JUNCTION",
+    "KIND_EDGE_DETECTOR", "KIND_PULSE_SHAPER", "KIND_RANGE_SENSOR",
+    "KIND_LAPIS_LINE", "KIND_QUARTZ_LINE", "KIND_TERMINAL", "KIND_REDSTONE_CABLE",
+    "KIND_REDSTONE_JUNCTION", "KIND_SHIELDED_INSTRUMENT_CABLE",
+    "KIND_INSTRUMENT_CABLE", "KIND_DATA_BUS_8", "KIND_RADIO_TRANSMITTER",
+    "KIND_RADIO_RECEIVER", "KIND_AMETHYST_SPECTRUM", "KIND_SCULK_INTERFACE",
+    "KIND_WATCHDOG", "KIND_SERVO_ACTUATOR", "KIND_REDUNDANT_VOTER",
+    "KIND_FAULT_LATCH", "KIND_OPERATIONS_MONITOR",
+}
+aux_start = screen.find("private static boolean hasAuxiliaryMetric(")
+aux_end = screen.find("private static String auxiliarySymbol(", aux_start)
+if aux_start < 0 or aux_end <= aux_start:
+    errors.append("FieldDevice auxiliary metric coverage selector missing")
+else:
+    actual_auxiliary = set(re.findall(r"FieldDeviceMenu\.(KIND_[A-Z0-9_]+)", screen[aux_start:aux_end]))
+    if actual_auxiliary != expected_auxiliary:
+        errors.append(f"FieldDevice auxiliary mapping drift missing={sorted(expected_auxiliary-actual_auxiliary)} extra={sorted(actual_auxiliary-expected_auxiliary)}")
+for token in (
+    'liveRow(auxiliaryRole(m.kind()), auxiliarySymbol(m.kind())',
+    'hasAuxiliaryMetric(m.kind()) ? Integer.toString(m.driverCount())',
+    '"NOT REPORTED • no auxiliary metric"',
+    'case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> "outlet pressure"',
+    'case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "vent events"',
+    'case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "gradient Z"',
+    'case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "cable nodes"',
+    'FieldDeviceMenu.KIND_PULSE_SHAPER -> "pulse ticks remaining"',
+    'case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "monitor state code"',
+):
+    if token not in screen:
+        errors.append(f"FieldDevice auxiliary semantic contract missing {token!r}")
+if '"sources / drivers"' in screen:
+    errors.append("FieldDevice cannot label reused auxiliary telemetry universally as sources/drivers")
+
+# PR229 breadth rollout: direct-entry equality is checked AFTER range validation
+# and BEFORE a real block write, network recompute, or scheduled device tick.
+common_direct = (
+    ("SignalProbeBlock", "SignalProbeBlock.CHANNEL", "value"),
+    ("PrecisionFilterBlock", "PrecisionFilterBlock.RATE", "value"),
+    ("RedstoneReferenceSourceBlock", "RedstoneReferenceSourceBlock.POWER", "value"),
+    ("LapisPrecisionSourceBlock", "LapisPrecisionSourceBlock.VALUE", "value"),
+    ("DigitalRegeneratorBlock", "DigitalRegeneratorBlock.THRESHOLD", "value"),
+    ("PressureRegulatorBlock", "PressureRegulatorBlock.SETPOINT", "value / 25"),
+    ("PneumaticReliefValveBlock", "PneumaticReliefValveBlock.SETPOINT", "value / 25"),
+    ("PermanentMagnetBlock", "PermanentMagnetBlock.STRENGTH", "value"),
+    ("InductionCoilBlock", "InductionCoilBlock.TURNS", "value"),
+    ("OpticalEmitterBlock", "OpticalEmitterBlock.INTENSITY", "value"),
+    ("OpticalChannelFilterBlock", "OpticalChannelFilterBlock.TARGET", "value"),
+    ("OpticalAttenuatorBlock", "OpticalAttenuatorBlock.LOSS", "value"),
+)
+method_start = menu.find("private boolean applyDirectPrimaryEngineeringValue(")
+method_end = menu.find("private boolean rotateEndpoint(", method_start)
+direct_method = menu[method_start:method_end] if method_start >= 0 and method_end > method_start else ""
+if not direct_method:
+    errors.append("Missing shared server-authoritative FieldDevice numeric entry path")
+
+for name, property_name, value in common_direct:
+    import re
+    marker = "if (block instanceof " + name
+    start = direct_method.find(marker)
+    end = direct_method.find("\n        if (block instanceof ", start + len(marker)) if start >= 0 else -1
+    if end < 0:
+        end = direct_method.rfind("\n        return false;")
+    if start < 0 or end <= start:
+        errors.append(f"{name}: missing direct-entry server branch")
+        continue
+    body = direct_method[start:end]
+    guard = f"if (state.getValue({property_name}) == {value}) return true;"
+    if guard not in body:
+        errors.append(f"{name}: unchanged value must not cause a new server write")
+    elif body.find("return false;") > body.find(guard):
+        errors.append(f"{name}: validation must precede the idempotency guard")
+    if "level.setBlock(" not in body or body.find(guard) > body.find("level.setBlock("):
+        errors.append(f"{name}: idempotency guard must precede the block write")
+
+for token in (
+    "setNumbersOnlyInt(directMinimum(m.kind()), directMaximum(m.kind()))",
+    "if (!m.snapshotReady()) return;",
+    "m.snapshotReady() ? Integer.toString(controlValue(m)) :",
+    "m.snapshotReady()",
+    "private static int directMinimum(int kind)",
+    "private static int directMaximum(int kind)",
+    "private static String modeReadback(FieldDeviceMenu m)",
+    "CABLE → VANILLA (OUTPUT)",
+    "VANILLA → CABLE (INPUT)",
+    'm.tertiary() != 0 ? "OPEN" : "CLOSED"',
+    "READ-ONLY HMI • no fake control",
+    'RseLdUiComponents.fixedRow("MODEL"',
+):
+    if token not in screen:
+        errors.append(f"Shared LDLib2 HMI breadth contract missing {token!r}")
+
+for name in ("MechanicalExciterBlock", "HydroacousticExciterBlock"):
+    content = read(f"src/main/java/dev/redstoneengineering/block/{name}.java")
+    if "if (state.getValue(FREQUENCY) == frequency) return true;" not in content:
+        errors.append(f"{name}: repeated frequency must not retrigger excitation")
+    if "if (level.isClientSide || frequency < 1 || frequency > 15) return false;" not in content:
+        errors.append(f"{name}: direct frequency must be server-only and bounded")
+
+universal_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java")
+for token in (
+    'menu.snapshotReady() ? primaryDisplay(menu) : ""',
+    'menu.snapshotReady() ? secondaryDisplay(menu) : ""',
+    "if (menu.snapshotReady()) applyPrimary(menu, value);",
+    "if (menu.snapshotReady()) applySecondary(menu, value);",
+    'RseLdUiComponents.liveRow("SYNC", "parameter state"',
+):
+    if token not in universal_ui:
+        errors.append(f"Universal LDLib2 parameter rollout missing {token!r}")
+
+engineering_tests = read("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java")
+if "mechanicalAndHydroExactFrequencyEntriesAreBounded" not in engineering_tests:
+    errors.append("Missing two-medium frequency GameTest in registered EngineeringUi suite")
 
 # Client must remain presentation-only.
 for forbidden in (

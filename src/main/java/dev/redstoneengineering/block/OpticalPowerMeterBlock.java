@@ -47,6 +47,10 @@ public class OpticalPowerMeterBlock extends DomainBlock implements EngineeringPo
 
     public static Measurement measurement(Level level, BlockPos pos, BlockState state) {
         BlockPos target = pos.relative(state.getValue(FACING));
+        // Missing source coverage is an unknown observation, not darkness or
+        // a reason for an HMI to load the distant neighboring chunk.
+        if (!level.hasChunkAt(target))
+            return new Measurement(0, 0, PortQuality.STALE);
         // Preserve the established guided-optical ownership boundary: DomainNetwork
         // remains the authoritative value sampler; the observation helper adds the
         // independent carrier/topology quality classification without rewriting it.

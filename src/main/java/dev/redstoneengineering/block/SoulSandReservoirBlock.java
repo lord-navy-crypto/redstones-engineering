@@ -109,6 +109,7 @@ public class SoulSandReservoirBlock extends Block implements EngineeringPortProv
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
                 return InteractionResult.sidedSuccess(false);
             }
+            NicheDeviceCommissioning.send(serverPlayer, pos, state);
             InformationRuntime.Snapshot stored = SoulFluxNetwork.chargeSnapshot(level, pos);
             player.displayClientMessage(Component.literal(
                     "Soul reservoir | six-face SOUL_FLUX storage | Qs="

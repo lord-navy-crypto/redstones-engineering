@@ -6,10 +6,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DIAGNOSTICS = ROOT / "src/main/java/dev/redstoneengineering/diagnostics/RseDiagnostics.java"
 CAPTURE = ROOT / "src/main/java/dev/redstoneengineering/client/diagnostics/RseLogCapture.java"
 SCREEN = ROOT / "src/main/java/dev/redstoneengineering/client/ui/RseDiagnosticsScreen.java"
+TABLET = ROOT / "src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java"
 REGISTRATION = ROOT / "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java"
 
 errors = []
-for path in (DIAGNOSTICS, CAPTURE, SCREEN, REGISTRATION):
+for path in (DIAGNOSTICS, CAPTURE, SCREEN, TABLET, REGISTRATION):
     if not path.is_file():
         errors.append(f"missing diagnostics-console file: {path.relative_to(ROOT)}")
 
@@ -17,6 +18,7 @@ if not errors:
     diagnostics = DIAGNOSTICS.read_text(encoding="utf-8")
     capture = CAPTURE.read_text(encoding="utf-8")
     screen = SCREEN.read_text(encoding="utf-8")
+    tablet = TABLET.read_text(encoding="utf-8")
     registration = REGISTRATION.read_text(encoding="utf-8")
 
     required_diagnostics = (
@@ -44,8 +46,12 @@ if not errors:
             errors.append(f"automatic RSE log capture is missing contract: {marker}")
 
     required_ui = (
-        "Copy Report",
+        'Component.literal("Copy")',
         "keyboardHandler.setClipboard",
+        "GLFW.GLFW_KEY_C",
+        "displaySummary()",
+        "getGuiScaledWidth()",
+        "graphics.fill(0,0,width,height,0xFF080C10)",
         "Filter.values()",
         "RseDiagnosticSeverity.WARN",
         "RseDiagnosticSeverity.ERROR",
@@ -55,11 +61,33 @@ if not errors:
         if marker not in screen:
             errors.append(f"diagnostics console UI is missing contract: {marker}")
 
+    required_tablet = (
+        'Component.literal("Copy")',
+        "copySnapshot()",
+        "keyboardHandler.setClipboard",
+        "GLFW.GLFW_KEY_C",
+        "public void renderBackground(",
+        "0xFF080C10",
+        "imageWidth = Math.max(1, Math.min(MAX_WIDTH, width - 20))",
+        "imageHeight = Math.max(1, Math.min(MAX_HEIGHT, height - 20))",
+        "int buttonRowWidth = diagnosticsWidth + copyWidth + arrowWidth * 2 + gap * 3",
+    )
+    for marker in required_tablet:
+        if marker not in tablet:
+            errors.append(f"diagnostic tablet copy/render isolation is missing contract: {marker}")
+
+    if "renderBackground(graphics" in screen:
+        errors.append("diagnostics console must not invoke vanilla background blur")
+    if "MIN_WIDTH" in tablet or "MIN_HEIGHT" in tablet:
+        errors.append("diagnostic tablet must not force a panel larger than the scaled viewport")
+    if "pose().scale(" in screen or "pose().scale(" in tablet:
+        errors.append("diagnostics text must not use fractional pose scaling")
+
     required_registration = (
         "ScreenEvent.Init.Post",
         "InventoryScreen",
         "CreativeModeInventoryScreen",
-        "Component.literal(\"✚\")",
+        'Component.literal("✚")',
         "RseLogCapture.install()",
         "new RseDiagnosticsScreen(screen)",
     )
@@ -75,7 +103,8 @@ if not errors:
         "EngineeringAcceptance.evaluate",
         "dev.redstoneengineering.physics",
     )
-    for path, text in ((DIAGNOSTICS, diagnostics), (CAPTURE, capture), (SCREEN, screen), (REGISTRATION, registration)):
+    for path, text in ((DIAGNOSTICS, diagnostics), (CAPTURE, capture),
+                       (SCREEN, screen), (TABLET, tablet), (REGISTRATION, registration)):
         for marker in forbidden:
             if marker in text:
                 errors.append(f"diagnostics observer boundary violation in {path.name}: {marker}")
@@ -89,6 +118,7 @@ if errors:
 print("RSE Diagnostics Console verification: PASS")
 print("  bounded session-local ring buffer: PASS")
 print("  automatic package/stack-trace log capture: PASS")
-print("  survival + creative inventory red-cross entry point: PASS")
-print("  filter/copy/clear workflow: PASS")
+print("  inventory diagnostics entry point: PASS")
+print("  responsive controls + C-key report/snapshot clipboard export: PASS")
+print("  opaque no-blur diagnostic console/tablet rendering: PASS")
 print("  observer-only authority boundary: PASS")

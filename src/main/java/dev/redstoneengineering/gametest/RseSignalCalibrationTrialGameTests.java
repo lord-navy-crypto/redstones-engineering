@@ -1,6 +1,7 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.SignalCalibrationTrialComparison;
 import dev.redstoneengineering.diagnostics.SignalCalibrationTrialRecord;
@@ -85,6 +86,57 @@ public final class RseSignalCalibrationTrialGameTests {
         SignalCalibrationTrialStore.captureBaseline(level, world, ready);
         if (SignalCalibrationTrialStore.candidate(level, world).isPresent()) {
             helper.fail("Starting a new baseline must discard the previous candidate", KEY);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * Direct-entry TextField bindings may submit the already visible value.
+     * Only a real server-side configuration transition counts as an experiment edit.
+     */
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void directEntryIsBoundedAndCountsActualChangesOnly(GameTestHelper helper) {
+        helper.setBlock(KEY, RedstoneEngineering.SIGNAL_ANALYZER.get().defaultBlockState());
+        var level = helper.getLevel();
+        BlockPos world = helper.absolutePos(KEY);
+        var initial = SignalAnalyzerBlock.uiSnapshot(level, world);
+
+        // Default offset=0 and x_ref=8: retransmission must not count as a switch.
+        boolean unchangedAccepted = SignalAnalyzerBlock.setCalibrationOffset(level, world, 0)
+                && SignalAnalyzerBlock.setReference(level, world, 8);
+        var unchanged = SignalAnalyzerBlock.uiSnapshot(level, world);
+        if (!unchangedAccepted
+                || unchanged.calibrationSwitches() != initial.calibrationSwitches()
+                || unchanged.referenceSwitches() != initial.referenceSwitches()) {
+            helper.fail("Re-entering current values must not fabricate calibration/reference changes", KEY);
+            return;
+        }
+
+        boolean newValuesAccepted = SignalAnalyzerBlock.setCalibrationOffset(level, world, 1)
+                && SignalAnalyzerBlock.setReference(level, world, 9);
+        var changed = SignalAnalyzerBlock.uiSnapshot(level, world);
+        if (!newValuesAccepted
+                || changed.calibrationOffset() != 1 || changed.reference() != 9
+                || changed.calibrationSwitches() != initial.calibrationSwitches() + 1
+                || changed.referenceSwitches() != initial.referenceSwitches() + 1) {
+            helper.fail("One real edit per field must update the displayed value and its switch evidence once", KEY);
+            return;
+        }
+
+        boolean repeatedAccepted = SignalAnalyzerBlock.setCalibrationOffset(level, world, 1)
+                && SignalAnalyzerBlock.setReference(level, world, 9);
+        boolean invalidRejected = !SignalAnalyzerBlock.setCalibrationOffset(level, world, -3)
+                && !SignalAnalyzerBlock.setCalibrationOffset(level, world, 3)
+                && !SignalAnalyzerBlock.setReference(level, world, -1)
+                && !SignalAnalyzerBlock.setReference(level, world, 16);
+        var finalSnapshot = SignalAnalyzerBlock.uiSnapshot(level, world);
+        if (!repeatedAccepted || !invalidRejected
+                || finalSnapshot.calibrationSwitches() != initial.calibrationSwitches() + 1
+                || finalSnapshot.referenceSwitches() != initial.referenceSwitches() + 1
+                || finalSnapshot.calibrationOffset() != 1 || finalSnapshot.reference() != 9) {
+            helper.fail("Repeated or out-of-range entry must not alter actual values or switch history", KEY);
             return;
         }
         helper.succeed();
