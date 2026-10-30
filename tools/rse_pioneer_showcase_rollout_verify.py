@@ -370,7 +370,8 @@ for name, (text, tokens) in wave7.items():
 for token in (
     "OBSERVER ONLY • retained block + AMR evidence",
     'lineValue(newest, "TRIAL COMPARE:")',
-    "MIN_WIDTH = 420",
+    "imageWidth = Math.max(1, Math.min(MAX_WIDTH, width - 20))",
+    "imageHeight = Math.max(1, Math.min(MAX_HEIGHT, height - 20))",
     "public boolean mouseScrolled",
 ):
     if token not in tablet:
