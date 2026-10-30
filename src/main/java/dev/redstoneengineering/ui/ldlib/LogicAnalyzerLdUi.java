@@ -136,6 +136,9 @@ public final class LogicAnalyzerLdUi {
         var p=new UIElement().addClass("panel_bg"); p.layout(l->l.paddingAll(5).gapAll(4));
         p.addChildren(
                 row("T 1..15",t), row("cursor A 0..15",a), row("cursor B 0..15",b),
+                RseLegalStepControls.choices("T", "digital HIGH/LOW cutoff for valid sampled channels",
+                        () -> m.operationalHealth() >= 0, m::threshold,
+                        RseLegalStepControls.wholeRange(1, 15), m::setThresholdFromUi),
                 new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Arm / Hold",m::armOrHold),
                         RseLdUiComponents.serverAction("Trigger CH ▶",m::cycleTriggerChannel),

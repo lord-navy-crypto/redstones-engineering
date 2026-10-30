@@ -114,6 +114,11 @@ public final class SignalConditionerLdUi {
                                 Component.literal(parameterSymbol(menu.mode()) + "  " + parameterRange(menu.mode()))
                         ).build()).layout(l -> l.width(120)),
                         parameter,
+                        RseLegalStepControls.choices(parameterSymbol(menu.mode()),
+                                "mode-dependent gain, offset, clamp, threshold or deadband",
+                                menu::snapshotReady,
+                                () -> visibleFormulaParameter(menu.mode(), menu.parameter()),
+                                legalParameterDomain(menu.mode()), menu::applyVisibleFormulaParameter),
                         new Button()
                                 .setText("Cycle mode ▶")
                                 .setOnServerClick(event -> menu.cycleModeForward())
@@ -134,6 +139,15 @@ public final class SignalConditionerLdUi {
                                 .setOnServerClick(event -> menu.cycleOutputForward())
                                 .layout(l -> l.flex(1))
                 );
+    }
+
+    private static int[] legalParameterDomain(int mode) {
+        return switch (mode) {
+            case 0, 4 -> RseLegalStepControls.wholeRange(1, 4);
+            case 1 -> RseLegalStepControls.wholeRange(-5, 5);
+            case 2, 3 -> RseLegalStepControls.wholeRange(1, 15);
+            default -> new int[]{1};
+        };
     }
 
     private static int visibleFormulaParameter(int mode, int raw) {

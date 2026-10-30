@@ -85,6 +85,11 @@ public final class SignalProcessorLdUi {
         return new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                 new Label().setText("DIRECT ENTRY"),
                 field,
+                RseLegalStepControls.choices(menu.kind() == SignalProcessorMenu.KIND_FILTER ? "r" : "W",
+                        menu.kind() == SignalProcessorMenu.KIND_FILTER
+                                ? "maximum signal response per sample" : "output pulse width in ticks",
+                        menu::snapshotReady, menu::parameter,
+                        RseLegalStepControls.wholeRange(1, max), menu::setParameterFromUi),
                 new Label().setText(menu.kind()==SignalProcessorMenu.KIND_FILTER?"r ∈ 1..4":"W ∈ 1..8 ticks")
         );
     }
