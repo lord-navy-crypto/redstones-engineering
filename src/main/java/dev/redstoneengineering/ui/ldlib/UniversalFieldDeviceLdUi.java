@@ -84,7 +84,7 @@ public final class UniversalFieldDeviceLdUi {
         workspace.addScrollViewChildren(overview, configure, pioneer, evidence);
 
         var tabs = RseLdUiComponents.standaloneTabs(workspace,
-                new String[]{"Overview", "Configure", "Pioneer", "Evidence"},
+                new String[]{"Overview", "Configure", "Pioneer", "Status"},
                 new UIElement[]{overview, configure, pioneer, evidence});
 
         root.addChildren(
@@ -132,7 +132,7 @@ public final class UniversalFieldDeviceLdUi {
             return "02 / CONFIGURE • Review the current server state before a toggle or explicit reset/action.";
         }
         if (kind == UniversalFieldDeviceMenu.CONFIG_NONE) {
-            return "02 / INSPECT • This model exposes no shared tuning parameter; review Overview, Pioneer and Evidence.";
+            return "02 / INSPECT • This model exposes no shared tuning parameter; review Overview, Pioneer and Status.";
         }
         return "02 / INSPECT • Review server-backed state and evidence; no editable control is available for this parameter.";
     }
@@ -338,7 +338,8 @@ public final class UniversalFieldDeviceLdUi {
                         menu.snapshotReady()
                                 ? "SERVER READBACK • validated configuration"
                                 : "NOT READY • input disabled until first synchronized snapshot"),
-                RseLdUiComponents.liveRow("EVIDENCE", "parameter quality", menu::evidenceStateLabel)
+                RseLdUiComponents.liveRow("EVIDENCE", "parameter quality", menu::evidenceStateLabel),
+                RseLdUiComponents.formulaCard(universalContract(kind))
         );
 
         if (kind == UniversalFieldDeviceMenu.CONFIG_NONE) {
@@ -401,6 +402,15 @@ public final class UniversalFieldDeviceLdUi {
                             RseLdUiComponents.statusTile("ALLOWED VALUES", () -> primaryRange(kind))
                     ),
                     primaryValueScale(menu, kind),
+                    RseLdUiComponents.liveRow("PARAMETER EFFECT", primarySymbol(kind),
+                            () -> primaryEffect(kind)),
+                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5))
+                            .addChildren(
+                                    RseLdUiComponents.serverAction("− Legal", () -> stepLegal(menu, true, -1, false)),
+                                    RseLdUiComponents.serverAction("+ Legal", () -> stepLegal(menu, true, 1, false)),
+                                    RseLdUiComponents.serverAction("Minimum", () -> stepLegal(menu, true, -1, true)),
+                                    RseLdUiComponents.serverAction("Maximum", () -> stepLegal(menu, true, 1, true))
+                            ),
                     new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("DIRECT").layout(l -> l.width(72)),
                             input,
@@ -445,6 +455,15 @@ public final class UniversalFieldDeviceLdUi {
                         RseLdUiComponents.statusTile("ALLOWED VALUES", () -> secondaryRange(kind))
                 ),
                 secondaryValueScale(menu, kind),
+                RseLdUiComponents.liveRow("PARAMETER EFFECT", secondarySymbol(kind),
+                        () -> secondaryEffect(kind)),
+                new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5))
+                        .addChildren(
+                                RseLdUiComponents.serverAction("− Legal", () -> stepLegal(menu, false, -1, false)),
+                                RseLdUiComponents.serverAction("+ Legal", () -> stepLegal(menu, false, 1, false)),
+                                RseLdUiComponents.serverAction("Minimum", () -> stepLegal(menu, false, -1, true)),
+                                RseLdUiComponents.serverAction("Maximum", () -> stepLegal(menu, false, 1, true))
+                        ),
                 new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("DIRECT").layout(l -> l.width(72)),
                         input,
@@ -467,16 +486,71 @@ public final class UniversalFieldDeviceLdUi {
     }
 
     private static UIElement secondaryValueScale(UniversalFieldDeviceMenu menu, int kind) {
-        double[] legal = switch (kind) {
+        double[] legal = secondaryLegalMarks(kind);
+        return new ParameterScaleElement(secondarySymbol(kind), menu::snapshotReady,
+                () -> numericReadback(secondaryDisplay(menu)), legal[0],
+                legal[legal.length - 1], legal);
+    }
+
+    private static double[] secondaryLegalMarks(int kind) {
+        return switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> new double[]{8, 16, 32, 64};
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE ->
                     java.util.stream.IntStream.rangeClosed(0, 10).mapToDouble(i -> i * 0.02).toArray();
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> integerMarks(0, 3);
             default -> throw new IllegalArgumentException("No numeric secondary control for " + kind);
         };
-        return new ParameterScaleElement(secondarySymbol(kind), menu::snapshotReady,
-                () -> numericReadback(secondaryDisplay(menu)), legal[0],
-                legal[legal.length - 1], legal);
+    }
+
+    /** Server-side buttons select a legal engineering value, never an unsynchronized local index. */
+    private static void stepLegal(UniversalFieldDeviceMenu menu, boolean primary, int step, boolean boundary) {
+        if (!menu.snapshotReady()) return;
+        int kind = menu.configKind();
+        if (primary ? !primaryDirectKind(kind) : !secondaryDirectKind(kind)) return;
+        double[] legal = primary ? primaryLegalMarks(kind) : secondaryLegalMarks(kind);
+        double current = numericReadback(primary ? primaryDisplay(menu) : secondaryDisplay(menu));
+        int index = -1;
+        for (int i = 0; i < legal.length; i++) {
+            if (Math.abs(legal[i] - current) < 0.0001) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) return; // Unknown readback is never treated as index zero.
+        int target = boundary ? (step < 0 ? 0 : legal.length - 1) : index + step;
+        if (target < 0 || target >= legal.length || target == index) return;
+        String requested = Double.toString(legal[target]);
+        if (primary) applyPrimary(menu, requested);
+        else applySecondary(menu, requested);
+    }
+
+    private static String primaryEffect(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Sensitivity gain g scales the received cloud tracer signal.";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "Severity threshold sets which condition produces an alarm.";
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "Period T changes PWM repetition timing (polarity is a separate control).";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "Time constant τ selects the discrete RC transient response.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> "V_set is the voltage-equivalent source level.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "Resistance R changes the server-computed current and power: I=V/R, P=V²/R.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "I_rating changes the overcurrent trip threshold.";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "Mean μ sets the configured central precision signal level.";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "Nominal period T selects source clock timing, separate from jitter.";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "D is the scheduled delay after a valid rising clock edge.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "C sets the thermal inertia / update response profile.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "R changes electrical heating power according to P=V²/R.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "k_cool controls passive thermal cooldown steps.";
+            default -> "Server-confirmed exact parameter; no client-side physics calculation.";
+        };
+    }
+
+    private static String secondaryEffect(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "R is the scanned distance range in blocks.";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "Noise envelope |η|max bounds random deviation from μ.";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "J bounds configured clock jitter (ticks) independently of nominal period.";
+            default -> "Secondary parameter is server-defined.";
+        };
     }
 
     private static double[] primaryLegalMarks(int kind) {
@@ -656,14 +730,33 @@ public final class UniversalFieldDeviceLdUi {
 
     private static UIElement historyPolicyPanel(UniversalFieldDeviceMenu menu) {
         var panel = new UIElement().addClass("panel_bg");
-        panel.layout(l -> l.paddingAll(5).gapAll(3));
+        panel.layout(l -> l.paddingAll(6).gapAll(5));
         panel.addChildren(
-                new Label().setText("LIVE ONLY • NO RETAINED HISTORY"),
-                RseLdUiComponents.liveRow("SYNC", "port snapshot", () ->
-                        menu.snapshotReady() ? "SERVER SYNCHRONIZED"
-                                : "NOT READY • awaiting first authoritative port snapshot"),
-                RseLdUiComponents.liveRow("Current evidence", "snapshot", menu::evidenceStateLabel),
-                new Label().setText("Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.")
+                new Label().setText("STATUS • LIVE DEVICE REPORT"),
+                RseLdUiComponents.statusRail(
+                        RseLdUiComponents.statusTile("SYNC", () ->
+                                menu.snapshotReady() ? "SERVER READY" : "NOT READY"),
+                        RseLdUiComponents.statusTile("HEALTH", () ->
+                                menu.snapshotReady() ? menu.operationalHealthLabel() : "NOT EVALUATED"),
+                        RseLdUiComponents.statusTile("QUALITY", () ->
+                                menu.snapshotReady() ? menu.evidenceStateLabel() : "NOT READY")
+                ),
+                RseLdUiComponents.liveRow("DEVICE", "configuration", () -> configName(menu.configKind())),
+                RseLdUiComponents.liveRow("STATUS", "operating state", () -> systemHeadline(menu)),
+                RseLdUiComponents.liveRow("STATUS", "detail", () -> systemDetail(menu)),
+                RseLdUiComponents.liveRow("ROUTE", "ports", () ->
+                        menu.snapshotReady() ? menu.portRouteLabel() : "NOT READY"),
+                RseLdUiComponents.liveRow("CONTROL", "primary", () ->
+                        !menu.snapshotReady() ? "NOT READY" :
+                                primaryDirectKind(menu.configKind()) || primaryCycleKind(menu.configKind())
+                                        ? primarySymbol(menu.configKind()) + "=" + primaryDisplay(menu)
+                                        : "READ ONLY / ACTION"),
+                RseLdUiComponents.liveRow("CONTROL", "secondary", () ->
+                        !menu.snapshotReady() ? "NOT READY" :
+                                secondaryDirectKind(menu.configKind())
+                                        ? secondarySymbol(menu.configKind()) + "=" + secondaryDisplay(menu)
+                                        : "NOT ADJUSTABLE"),
+                RseLdUiComponents.note("Configure changes actual server settings. This page reports their current state.")
         );
         return panel;
     }

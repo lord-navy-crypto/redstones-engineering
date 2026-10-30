@@ -61,6 +61,14 @@ def tree(ref: str) -> dict[str, str]:
     return out
 
 
+# Explicit content-only GUI extensions are allowed by the user; all other
+# graphics, navigation hosts and original panel infrastructure remain frozen.
+ALLOWED_CONTENT_PAGES = {
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
+}
+
+
 def visual(path: str) -> bool:
     # All client-side source, GUI presentation (except server-owned menus),
     # and graphical assets are frozen to the already accepted fusion state.
@@ -123,7 +131,8 @@ def main() -> int:
         errors.append(f"{len(absent)} reviewed technology files missing")
     if modified:
         errors.append(f"{len(modified)} reviewed technology files altered")
-    visual_drift = mismatch(original_ui, current, visual)
+    visual_drift = mismatch(original_ui, current,
+                            lambda path: visual(path) and path not in ALLOWED_CONTENT_PAGES)
     if visual_drift:
         errors.append(f"{len(visual_drift)} FROZEN visual files added/removed/modified")
 

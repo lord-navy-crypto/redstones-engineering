@@ -47,7 +47,7 @@ public final class EnhancedFieldDeviceLdUi {
                 ),
                 RseLdUiComponents.tabbedWorkspace(
                         720, 430, 900,
-                        new String[]{"Overview", "Configure", "Topology", "Evidence", "Integrity", "Transport"},
+                        new String[]{"Overview", "Configure", "Topology", "Status", "Integrity", "Transport"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.operatorGuide(
@@ -78,7 +78,7 @@ public final class EnhancedFieldDeviceLdUi {
             return "02 / TOPOLOGY • Open Topology, inspect ports and links; the server currently rejects the topology.";
         }
         if (!m.dataValid()) {
-            return "03 / EVIDENCE • Open Evidence and check source/data validity. Configured setpoints may still be visible.";
+            return "03 / EVIDENCE • Open Status and check source/data validity. Configured setpoints may still be visible.";
         }
         if (!m.evidenceQualityKnown()) {
             return "04 / EVIDENCE • Port quality is not reported. Review source and topology details before interpreting measurements.";
@@ -92,7 +92,7 @@ public final class EnhancedFieldDeviceLdUi {
         if (hasOperatorActions(m.kind())) {
             return "06 / CONFIGURE • Review the synchronized mode, use a supported action, then check the server readback.";
         }
-        return "06 / INSPECT • Use Overview, Topology and Evidence; this device has no shared editable setpoint.";
+        return "06 / INSPECT • Use Overview, Topology and Status; this device has no shared editable setpoint.";
     }
 
     private static UIElement identityPanel(FieldDeviceMenu m) {
@@ -339,6 +339,16 @@ public final class EnhancedFieldDeviceLdUi {
                     new ParameterScaleElement(formulaSymbol(m.kind()), m::snapshotReady,
                             () -> controlValue(m), directMinimum(m.kind()),
                             directMaximum(m.kind()), directVisualMarks(m.kind())),
+                    RseLdUiComponents.liveRow("PARAMETER EFFECT", formulaSymbol(m.kind()),
+                            () -> adjustableEffect(m.kind())),
+                    new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW)
+                            .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6))
+                            .addChildren(
+                                    RseLdUiComponents.serverAction("− Step", () -> nudgeDirect(m, -1)),
+                                    RseLdUiComponents.serverAction("+ Step", () -> nudgeDirect(m, 1)),
+                                    RseLdUiComponents.serverAction("Minimum", () -> setDirectBoundary(m, false)),
+                                    RseLdUiComponents.serverAction("Maximum", () -> setDirectBoundary(m, true))
+                            ),
                     new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("Exact engineering value").layout(l -> l.width(140)),
                             input,
@@ -381,6 +391,47 @@ public final class EnhancedFieldDeviceLdUi {
             ));
         }
         return panel;
+    }
+
+    /** Every quick-step follows the same integer domain and server mutation path as exact entry. */
+    private static int directStep(int kind) {
+        return kind == FieldDeviceMenu.KIND_LAPIS_SOURCE ? 5
+                : kind == FieldDeviceMenu.KIND_PRESSURE_REGULATOR
+                    || kind == FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE ? 25 : 1;
+    }
+
+    private static void nudgeDirect(FieldDeviceMenu menu, int direction) {
+        if (!menu.snapshotReady() || !directEntryKind(menu.kind())) return;
+        int current = controlValue(menu);
+        int target = current + direction * directStep(menu.kind());
+        if (validDirectValue(menu.kind(), target)) menu.applyPrimaryEngineeringValueFromUi(target);
+    }
+
+    private static void setDirectBoundary(FieldDeviceMenu menu, boolean upper) {
+        if (!menu.snapshotReady() || !directEntryKind(menu.kind())) return;
+        int target = upper ? directMaximum(menu.kind()) : directMinimum(menu.kind());
+        if (validDirectValue(menu.kind(), target)) menu.applyPrimaryEngineeringValueFromUi(target);
+    }
+
+    /** Explicitly describe the physical/model meaning of every real numeric control. */
+    private static String adjustableEffect(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_PROBE -> "Selects sampled probe channel; does not change the sampled signal.";
+            case FieldDeviceMenu.KIND_FILTER -> "Sets maximum output change per sample: y approaches x by at most Δmax.";
+            case FieldDeviceMenu.KIND_REFERENCE -> "Sets the generated Redstone output level y_R (0..15).";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "Sets generated precision level y_L (0..100, increments of 5).";
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "Chooses the minimum accepted link-quality profile.";
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> "Sets regulated pneumatic pressure target P_set.";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "Sets threshold P_relief at which relief engages.";
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> "Sets magnetic field-source strength index B_src.";
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "Sets effective turn count N_turns for induction.";
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "Sets emitted optical intensity I_emit.";
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "Selects accepted optical channel.";
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "Sets optical signal loss through attenuator.";
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> "Sets source frequency index f for propagated excitation.";
+            default -> "Read-only or device-specific server-owned mechanism.";
+        };
     }
 
     /** Operator-switch state comes only from the synchronized tertiary slot. */
@@ -440,15 +491,31 @@ public final class EnhancedFieldDeviceLdUi {
     }
 
     private static UIElement evidencePanel(FieldDeviceMenu m) {
-        return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(5).gapAll(3)).addChildren(
-                new Label().setText("ENGINEERING / DIAGNOSTIC HINTS"),
-                new Label().setText(engineeringHint(m.kind())),
-                new Label().setText(diagnosticHint(m.kind())),
-                new Label().setText(fixedTransportPolicy(m.kind())),
-                new Label().bind(DataBindingBuilder.componentS2C(() ->
-                        Component.literal(legacyEngineeringContract(m.kind()))
-                ).build()),
-                RseLdUiComponents.note("Client presentation only • mutation, topology and solver authority remain server-owned.")
+        return new UIElement().addClass("panel_bg").layout(l -> l.paddingAll(6).gapAll(5)).addChildren(
+                new Label().setText("STATUS • LIVE SERVER REPORT"),
+                RseLdUiComponents.statusRail(
+                        RseLdUiComponents.statusTile("HEALTH", () ->
+                                !m.snapshotReady() ? "NOT READY" : !m.topologyValid()
+                                        ? "TOPOLOGY FAULT" : !m.dataValid()
+                                        ? "DATA NOT VALID" : "MONITORED"),
+                        RseLdUiComponents.statusTile("QUALITY", () ->
+                                !m.snapshotReady() ? "NOT READY"
+                                        : m.evidenceQualityKnown() ? m.evidenceQuality().name() : "NOT REPORTED"),
+                        RseLdUiComponents.statusTile("PORTS / LINKS", () ->
+                                !m.snapshotReady() ? "NOT READY" : m.portCount() + " / " + m.connectionCount())
+                ),
+                RseLdUiComponents.liveRow("DEVICE", "role", () -> deviceRole(m.kind())),
+                RseLdUiComponents.liveRow("STATUS", "next check", () -> nextOperatorStep(m)),
+                RseLdUiComponents.liveRow("MODEL", "equation", () -> modelContract(m.kind())),
+                RseLdUiComponents.liveRow("CONTROL", "available", () ->
+                        directEntryKind(m.kind()) ? formulaSymbol(m.kind()) + " • " + directRangeLabel(m.kind())
+                                : hasOperatorActions(m.kind()) ? "Server action / mode switch on Configure"
+                                : "Read-only • no adjustable coefficient"),
+                RseLdUiComponents.liveRow("CONTROL", "server value", () ->
+                        !m.snapshotReady() ? "NOT READY"
+                                : directEntryKind(m.kind()) ? Integer.toString(controlValue(m))
+                                : hasOperatorActions(m.kind()) ? modeReadback(m) : "N/A"),
+                RseLdUiComponents.note("Use Configure for changes; values above are server readback, not local estimates.")
         );
     }
 
