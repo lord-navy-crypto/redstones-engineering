@@ -22,7 +22,7 @@ public final class RangeSensorLdUi {
                 RseLdUiComponents.deviceContext(menu),
                 RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
-                        new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
+                        new String[]{"Overview", "Configure", "Diagnostics", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(() -> menu.snapshotReady()
@@ -51,10 +51,10 @@ public final class RangeSensorLdUi {
                                                  ? menu.sensingDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()
                                                  : "NOT READY • route awaiting server")
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(menu, RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.note("A complete CLEAR scan with d=0 is valid evidence of an empty scan; it is not an object detected at distance zero."),
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

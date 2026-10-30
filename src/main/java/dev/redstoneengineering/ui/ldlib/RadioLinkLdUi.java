@@ -21,7 +21,7 @@ public final class RadioLinkLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
-                        new String[]{"Overview", "Configure", "Diagnostics", "Evidence"},
+                        new String[]{"Overview", "Configure", "Diagnostics", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         new Label().setText("PIONEER PATTERN • RADIO LINK BUDGET"),
@@ -42,9 +42,9 @@ public final class RadioLinkLdUi {
                                                  ? m.quality().name() : "NOT READY • awaiting radio quality"),
                                         receiverEvidence(m)
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

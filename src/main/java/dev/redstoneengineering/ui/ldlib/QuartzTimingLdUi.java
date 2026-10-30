@@ -22,14 +22,14 @@ public final class QuartzTimingLdUi {
                 RseLdUiComponents.deviceContext(menu),
                 RseLdUiComponents.tabbedWorkspace(
                         580, 350, 750,
-                        new String[]{"Timing", "Configure", "Evidence"},
+                        new String[]{"Timing", "Configure", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         new Label().setText("FORMULA-FIRST TIMING MODEL"),
                                         RseLdUiComponents.formulaCard(() -> equation(menu)),
                                         overview(menu)),
                                 RseLdUiComponents.workspacePage(controls(menu)),
-                                RseLdUiComponents.workspacePage(evidence(menu), RseLdUiComponents.authorityFooter())
+                                RseDeviceStatusPanel.statusPage(menu, RseLdUiComponents.workspacePage(evidence(menu), RseLdUiComponents.authorityFooter()))
                         }
                 )
         );

@@ -24,7 +24,7 @@ public final class ReliabilitySystemLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
-                        new String[]{"Overview", "Configure", "Diagnostics"},
+                        new String[]{"Overview", "Configure", "Diagnostics", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(() -> reliabilityEquation(m)),
@@ -39,7 +39,9 @@ public final class ReliabilitySystemLdUi {
                                         evidencePanel(m),
                                         RseLdUiComponents.authorityFooter()
                                 )
-                        }
+                        ,
+                                RseDeviceStatusPanel.statusPage(m)
+}
                 )
         );
         return RseLdUiComponents.responsiveUi(root, player, 650, 440);

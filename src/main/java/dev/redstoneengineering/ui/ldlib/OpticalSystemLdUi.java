@@ -22,7 +22,7 @@ public final class OpticalSystemLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         660, 400, 910,
-                        new String[]{"Overview", "Details", "Evidence"},
+                        new String[]{"Overview", "Details", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(() -> opticalEquation(m)),
@@ -32,10 +32,10 @@ public final class OpticalSystemLdUi {
                                         parameterPanel(m),
                                         routePanel(m)
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         commissioningPanel(m),
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

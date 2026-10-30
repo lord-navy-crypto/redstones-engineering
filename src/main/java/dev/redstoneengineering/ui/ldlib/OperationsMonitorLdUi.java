@@ -28,7 +28,7 @@ public final class OperationsMonitorLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         760, 440, 1010,
-                        new String[]{"Overview", "Details", "Controls", "Evidence"},
+                        new String[]{"Overview", "Details", "Controls", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         overviewPanel(m),
@@ -42,9 +42,9 @@ public final class OperationsMonitorLdUi {
                                         reliabilityPanel(m),
                                         authorityPanel()
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );
