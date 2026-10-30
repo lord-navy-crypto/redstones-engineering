@@ -262,8 +262,11 @@ public final class RseLdUiComponents {
                 .verticalScrollDisplay(ScrollDisplay.AUTO)
                 .horizontalScrollDisplay(ScrollDisplay.AUTO)
                 .minScrollPixel(8).maxScrollPixel(72));
-        scroller.layout(l -> l.flex(1));
-        scroller.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        // Give the scroll viewport an actual bounded flex height; without
+        // minHeight(0), long Pioneer/Evidence pages can expand the flex item
+        // instead of producing a scrollable overflow region.
+        scroller.layout(l -> l.widthPercent(100).flex(1).minHeight(0));
+        scroller.viewPort(view -> view.layout(l -> l.flex(1).minHeight(0).paddingAll(8)));
         // Prefer wrapping to the visible viewport instead of forcing every
         // 620px screen to pan sideways through an 850px wide page.
         // Only very narrow screens fall back to horizontal scrolling.
