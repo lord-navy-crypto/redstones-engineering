@@ -67,6 +67,9 @@ if not errors:
         "GLFW.GLFW_KEY_C",
         "public void renderBackground(",
         "0xFF080C10",
+        "imageWidth = Math.max(1, Math.min(MAX_WIDTH, width - 20))",
+        "imageHeight = Math.max(1, Math.min(MAX_HEIGHT, height - 20))",
+        "int buttonRowWidth = diagnosticsWidth + copyWidth + arrowWidth * 2 + gap * 3",
     )
     for marker in required_tablet:
         if marker not in tablet:
@@ -74,6 +77,8 @@ if not errors:
 
     if "renderBackground(graphics" in screen:
         errors.append("diagnostics console must not invoke vanilla background blur")
+    if "MIN_WIDTH" in tablet or "MIN_HEIGHT" in tablet:
+        errors.append("diagnostic tablet must not force a panel larger than the scaled viewport")
     if "pose().scale(" in screen or "pose().scale(" in tablet:
         errors.append("diagnostics text must not use fractional pose scaling")
 
