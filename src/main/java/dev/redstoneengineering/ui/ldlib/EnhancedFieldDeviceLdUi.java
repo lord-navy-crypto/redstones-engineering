@@ -515,7 +515,7 @@ public final class EnhancedFieldDeviceLdUi {
                         !m.snapshotReady() ? "NOT READY"
                                 : directEntryKind(m.kind()) ? Integer.toString(controlValue(m))
                                 : hasOperatorActions(m.kind()) ? modeReadback(m) : "N/A"),
-                RseLdUiComponents.note("Use Configure for changes; values above are server readback, not local estimates.")
+                RseLdUiComponents.note("Client presentation only • Configure changes require authoritative server readback.")
         );
     }
 
