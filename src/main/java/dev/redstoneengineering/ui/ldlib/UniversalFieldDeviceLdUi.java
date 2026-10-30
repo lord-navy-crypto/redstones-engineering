@@ -138,7 +138,7 @@ public final class UniversalFieldDeviceLdUi {
 
     private static UIElement page(UIElement... children) {
         var page = new UIElement();
-        page.layout(l -> l.widthPercent(100).paddingAll(6).gapAll(6));
+        page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
         page.addChildren(children);
         return page;
     }

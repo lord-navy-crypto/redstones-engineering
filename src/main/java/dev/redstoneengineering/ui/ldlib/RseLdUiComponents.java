@@ -300,7 +300,7 @@ public final class RseLdUiComponents {
         var tabButtons = new java.util.ArrayList<Button>(labels.length);
         for (int i = 0; i < pages.length; i++) {
             var page = pages[i];
-            page.layout(l -> l.widthPercent(100).paddingAll(6).gapAll(6));
+            page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
             page.setDisplay(i == 0);
             scroller.addScrollViewChild(page);
             final int selectedIndex = i;
