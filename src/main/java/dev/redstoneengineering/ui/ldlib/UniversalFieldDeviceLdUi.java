@@ -39,7 +39,10 @@ public final class UniversalFieldDeviceLdUi {
 
     public static ModularUI create(UniversalFieldDeviceMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
+        // The root is a bounded screen column. Permit the flexible workspace
+        // to shrink below its children's intrinsic height so ScrollerView,
+        // rather than the whole root, owns overflow and wheel input.
+        root.layout(l -> l.widthPercent(100).heightPercent(100).minHeight(0).paddingAll(10).gapAll(8));
 
         var overview = page(
                 RseLdUiComponents.operatorGuide(
@@ -76,8 +79,12 @@ public final class UniversalFieldDeviceLdUi {
                         .horizontalScrollDisplay(ScrollDisplay.AUTO)
                         .minScrollPixel(8)
                         .maxScrollPixel(64));
-        workspace.layout(l -> l.flex(1));
-        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        // LDLib2's ScrollerView needs a constrained viewport. flex(1) alone
+        // leaves the default min-height:auto content floor in a column layout;
+        // a long Pioneer/Evidence page can then expand the viewport itself,
+        // leaving no overflow range for the vertical scroller.
+        workspace.layout(l -> l.widthPercent(100).flex(1).minHeight(0));
+        workspace.viewPort(view -> view.layout(l -> l.flex(1).minHeight(0).paddingAll(8)));
         // Labels and value cards wrap at narrower window sizes; retain
         // horizontal scrolling for genuinely narrower Minecraft viewports.
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(320).paddingAll(8).gapAll(8)));
