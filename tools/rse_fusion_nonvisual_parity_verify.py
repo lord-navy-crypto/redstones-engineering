@@ -66,6 +66,28 @@ def tree(ref: str) -> dict[str, str]:
 ALLOWED_CONTENT_PAGES = {
     "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "src/main/java/dev/redstoneengineering/ui/ldlib/UniversalFieldDeviceLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/AmethystSystemLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/MagneticSystemLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/QuartzTimingLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/RangeSensorLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/ReliabilitySystemLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/SignalConditionerLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/RseDeviceStatusPanel.java",
 }
 
 
