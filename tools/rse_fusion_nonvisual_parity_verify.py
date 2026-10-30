@@ -88,6 +88,7 @@ ALLOWED_CONTENT_PAGES = {
     "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java",
     "src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java",
     "src/main/java/dev/redstoneengineering/ui/ldlib/RseDeviceStatusPanel.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/RseLegalStepControls.java",
 }
 
 
