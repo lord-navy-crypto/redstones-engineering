@@ -85,7 +85,7 @@ public final class RseDiagnosticsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        RseCrispBackground.render(graphics);
         graphics.fill(8, 8, width - 8, height - 34, BORDER);
         graphics.fill(10, 10, width - 10, height - 36, PANEL);
         graphics.fill(16, 49, width - 16, height - 43, PANEL_2);
