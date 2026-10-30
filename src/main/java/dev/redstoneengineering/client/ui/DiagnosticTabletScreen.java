@@ -46,9 +46,11 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         super.init();
         scrollY = 0;
         int gap = 3;
-        int diagnosticsWidth = 76;
-        int copyWidth = 46;
-        int arrowWidth = 26;
+        int availableButtonWidth = Math.max(1, imageWidth - 16 - gap * 3);
+        int diagnosticsWidth = Math.min(76, Math.max(48, availableButtonWidth * 42 / 100));
+        int copyWidth = Math.min(46, Math.max(34, availableButtonWidth * 26 / 100));
+        int arrowWidth = Math.min(32, Math.max(20,
+                (availableButtonWidth - diagnosticsWidth - copyWidth) / 2));
         int buttonRowWidth = diagnosticsWidth + copyWidth + arrowWidth * 2 + gap * 3;
         int buttonX = leftPos + (imageWidth - buttonRowWidth) / 2;
         int buttonY = topPos + imageHeight - 28;
