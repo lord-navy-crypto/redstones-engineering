@@ -290,6 +290,10 @@ public final class RseLdUiComponents {
         for (int i = 0; i < pages.length; i++) {
             var page = pages[i];
             page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
+            // Physical bottom-of-page witness on EVERY shared HMI tab.
+            // Long formulas, telemetry and evidence must remain scrollable
+            // until this final footer is visible; do not truncate content.
+            page.addChild(note("END OF " + labels[i] + " • all page content above"));
             page.setDisplay(i == 0);
             scroller.addScrollViewChild(page);
             final int selectedIndex = i;
@@ -329,6 +333,9 @@ public final class RseLdUiComponents {
         pageIndicator.layout(l -> l.widthPercent(100));
         var buttons = new java.util.ArrayList<Button>(labels.length);
         for (int i = 0; i < pages.length; i++) {
+            // Standalone instruments (scope/PID/logic/filter/universal)
+            // must also expose an observable last row for scroll-to-end QA.
+            pages[i].addChild(note("END OF " + labels[i] + " • all page content above"));
             final int selected = i;
             var button = new Button()
                     .setText(i == 0 ? "▶ " + labels[i] : labels[i])
