@@ -31,7 +31,6 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private Button newerButton;
     private Button olderButton;
     private String copyFeedback = "";
-    private int copyFeedbackTicks;
 
     public DiagnosticTabletScreen(DiagnosticTabletMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -78,13 +77,6 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     }
 
     @Override
-    public void tick() {
-        super.tick();
-        if (copyFeedbackTicks > 0) copyFeedbackTicks--;
-        if (copyFeedbackTicks == 0) copyFeedback = "";
-    }
-
-    @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_C) {
             copySnapshot();
@@ -102,7 +94,6 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
             Minecraft.getInstance().keyboardHandler.setClipboard(history.get(page));
             copyFeedback = "SNAPSHOT COPIED • C";
         }
-        copyFeedbackTicks = 60;
     }
 
     /** Avoid the vanilla background blur pass on the diagnostic tablet too. */
