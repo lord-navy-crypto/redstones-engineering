@@ -21,7 +21,7 @@ public final class MagneticSystemLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         600, 400, 850,
-                        new String[]{"Overview", "Details", "Evidence"},
+                        new String[]{"Overview", "Details", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.title("PIONEER PATTERN • MAGNETIC MODEL"),
@@ -32,10 +32,10 @@ public final class MagneticSystemLdUi {
                                         controls(m),
                                         mechanismPanel(m)
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         evidence(m),
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

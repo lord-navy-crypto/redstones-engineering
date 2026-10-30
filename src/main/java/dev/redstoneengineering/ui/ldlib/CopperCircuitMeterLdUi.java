@@ -19,7 +19,7 @@ public final class CopperCircuitMeterLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         600, 400, 850,
-                        new String[]{"Overview", "Details", "Controls", "Diagnostics", "Evidence"},
+                        new String[]{"Overview", "Details", "Controls", "Diagnostics", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.title("COPPER POWER / LOAD NETWORK"),
@@ -46,11 +46,11 @@ public final class CopperCircuitMeterLdUi {
                                         RseLdUiComponents.serverAction("Cycle measurement face ▶",m::cycleFaceForward),
                                         RseLdUiComponents.note("OBSERVER ONLY • measurements are server-synchronized; this meter never drives the circuit")
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.liveRow("EVIDENCE","measurement quality",()->qualityLabel(m)),
                                         new Label().setText("No fabricated history; missing input is NOT a measured zero."),
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

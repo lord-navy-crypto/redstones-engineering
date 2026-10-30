@@ -20,7 +20,7 @@ public final class MediaConversionLdUi {
                 RseLdUiComponents.deviceContext(menu),
                 RseLdUiComponents.tabbedWorkspace(
                         600, 400, 850,
-                        new String[]{"Overview", "Details", "Controls", "Evidence"},
+                        new String[]{"Overview", "Details", "Controls", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.note("FORMULA-FIRST MEDIA BOUNDARY • SERVER-SYNCHRONIZED OBSERVER"),
@@ -50,7 +50,7 @@ public final class MediaConversionLdUi {
                                                  ? menu.inputFace().getName().toUpperCase()+" → "+menu.outputFace().getName().toUpperCase()
                                                  : "NOT READY • route awaiting server")
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(menu, RseLdUiComponents.workspacePage(
                                         new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW)
                                                  .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle RX ▶",menu::cycleRxForward),
@@ -58,7 +58,7 @@ public final class MediaConversionLdUi {
                 ),
                                         RseLdUiComponents.note("NO NEW SOURCE PRECISION • conversion changes representation, not information content."),
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

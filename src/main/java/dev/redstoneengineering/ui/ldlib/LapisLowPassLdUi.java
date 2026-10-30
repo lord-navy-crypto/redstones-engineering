@@ -25,7 +25,7 @@ public final class LapisLowPassLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         600, 400, 850,
-                        new String[]{"Overview", "Details", "Evidence"},
+                        new String[]{"Overview", "Details", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         modelPanel(m),
@@ -35,10 +35,10 @@ public final class LapisLowPassLdUi {
                                         configurePanel(m),
                                         routePanel(m)
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         evidencePanel(m),
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

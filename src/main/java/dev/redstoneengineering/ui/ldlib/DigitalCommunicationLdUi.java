@@ -24,7 +24,7 @@ public final class DigitalCommunicationLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         660, 400, 910,
-                        new String[]{"Overview", "Details", "Controls", "Evidence"},
+                        new String[]{"Overview", "Details", "Controls", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(() -> communicationEquation(m)),
@@ -38,9 +38,9 @@ public final class DigitalCommunicationLdUi {
                                         routePanel(m),
                                         diagnosticsPanel(m)
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );

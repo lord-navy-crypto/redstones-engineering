@@ -20,7 +20,7 @@ public final class IndustrialBufferLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         600, 400, 850,
-                        new String[]{"Overview", "Details", "Evidence"},
+                        new String[]{"Overview", "Details", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         modelPanel(m),
@@ -30,9 +30,9 @@ public final class IndustrialBufferLdUi {
                                         lotsPanel(m),
                                         persistencePanel()
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(m, RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
-                                )
+                                ))
                         }
                 )
         );
