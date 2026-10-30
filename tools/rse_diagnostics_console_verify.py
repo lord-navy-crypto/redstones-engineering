@@ -62,7 +62,8 @@ if not errors:
             errors.append(f"diagnostics console UI is missing contract: {marker}")
 
     required_tablet = (
-        'Component.literal("Copy Snapshot")',
+        'Component.literal("Copy")',
+        "copySnapshot()",
         "keyboardHandler.setClipboard",
         "GLFW.GLFW_KEY_C",
         "public void renderBackground(",
