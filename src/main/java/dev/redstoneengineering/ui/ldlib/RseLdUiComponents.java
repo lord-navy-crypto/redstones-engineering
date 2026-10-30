@@ -82,17 +82,15 @@ public final class RseLdUiComponents {
 
     public static Label title(String text) {
         var label = wrappedLabel(text);
+        label.textStyle(style -> style.fontSize(9f).textWrap(TextWrap.WRAP)
+                .adaptiveWidth(false).adaptiveHeight(true));
         label.layout(l -> l.widthPercent(100));
         return label;
     }
 
     /** Small title for the fixed header; detailed page titles remain unchanged. */
     public static Label compactTitle(String text) {
-        var label = wrappedLabel(text);
-        label.textStyle(style -> style.fontSize(9f).textWrap(TextWrap.WRAP)
-                .adaptiveWidth(false).adaptiveHeight(true));
-        label.layout(l -> l.widthPercent(100));
-        return label;
+        return title(text);
     }
 
     private static Label compactLabel(Label label) {

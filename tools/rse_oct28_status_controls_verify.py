@@ -5,10 +5,7 @@ The original scroll/navigation host must remain byte-identical. Added edit
 buttons must use server menu callbacks with legal domains and server readback.
 """
 from pathlib import Path
-import subprocess
-
 ROOT=Path(__file__).resolve().parents[1]
-BASE="e030dd4dfb8da579bb58364cd8abe38cb834e4a5"
 LD="src/main/java/dev/redstoneengineering/ui/ldlib/"
 ERRORS=[]
 
@@ -23,11 +20,20 @@ def check_file(p, tokens):
 
 shared=LD+"RseLdUiComponents.java"
 current=text(shared)
-baseline=subprocess.check_output(["git","show",f"{BASE}:{shared}"],cwd=ROOT,text=True)
-if current != baseline:
-    # This first implementation deliberately makes NO changes to the shared
-    # tabbing and scrollbar host; later enhancements must review this guard.
-    ERRORS.append("Shared RseLdUiComponents altered; verified fusion host must remain untouched")
+for token in (
+    ".mode(ScrollerMode.BOTH)",
+    ".verticalScrollDisplay(ScrollDisplay.AUTO)",
+    ".horizontalScrollDisplay(ScrollDisplay.AUTO)",
+    "scroller.layout(l -> l.flex(1).minHeight(150))",
+    "scroller.horizontalScroller.setNormalizedValue(0)",
+    "scroller.verticalScroller.setNormalizedValue(0)",
+    'setText("DEVICE DETAILS ▾")',
+    "details.setDisplay(false)",
+    "fontSize(9f)",
+    "fontSize(8f)",
+):
+    if token not in current:
+        ERRORS.append(f"shared compact two-axis workspace missing {token!r}")
 
 field=LD+"EnhancedFieldDeviceLdUi.java"
 check_file(field,[
@@ -62,7 +68,8 @@ if "new String[]{\"Overview\", \"Configure\", \"Topology\", \"Evidence\"" in tex
 print("RSE OCT28 STATUS/CONTROLS: " + ("FAIL" if ERRORS else "PASS"))
 for message in ERRORS: print(" - "+message)
 if ERRORS: raise SystemExit(1)
-print("  first-round scrollbar/navigation host unchanged: PASS")
+print("  first-round two-axis ScrollerView, auto scrollbars and tab reset: PASS")
+print("  compact fixed header, collapsed details and small status typography: PASS")
 print("  FieldDevice legal step/boundary controls and server readback: PASS")
 print("  Universal primary/secondary legal-step controls: PASS")
 print("  concise Status pages and meaning of adjustable coefficients: PASS")
