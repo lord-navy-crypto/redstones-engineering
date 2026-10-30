@@ -197,12 +197,16 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         String footer = "Snapshot " + (page + 1) + " / " + history.size()
                 + " • " + chronologyCue(history)
                 + " • scroll " + scrollY + "/" + maxScrollY();
-        graphics.drawString(font, footer, 120, imageHeight - 43, MUTED, false);
+        int footerWidth = Math.max(0, imageWidth - 130);
+        graphics.drawString(font, font.plainSubstrByWidth(footer, footerWidth),
+                120, imageHeight - 43, MUTED, false);
         String compare = comparisonCue(history);
         if (copyFeedback.isEmpty()) {
-            graphics.drawString(font, compare, 120, imageHeight - 31, comparisonColor(history), false);
+            graphics.drawString(font, font.plainSubstrByWidth(compare, footerWidth),
+                    120, imageHeight - 31, comparisonColor(history), false);
         } else {
-            graphics.drawString(font, copyFeedback, 120, imageHeight - 31, GOOD, false);
+            graphics.drawCenteredString(font, copyFeedback, imageWidth / 2,
+                    imageHeight - 31, GOOD);
         }
     }
 
