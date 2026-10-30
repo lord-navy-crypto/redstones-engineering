@@ -89,6 +89,7 @@ public final class UniversalFieldDeviceLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
+                RseLdUiComponents.deviceContext(menu),
                 // Persistent context is displayed while the operator changes
                 // configuration/ports/evidence pages, without phantom pre-sync values.
                 RseLdUiComponents.statusRail(
@@ -399,6 +400,7 @@ public final class UniversalFieldDeviceLdUi {
                                     () -> menu.snapshotReady() ? primaryDisplay(menu) : "AWAITING SERVER READBACK"),
                             RseLdUiComponents.statusTile("ALLOWED VALUES", () -> primaryRange(kind))
                     ),
+                    primaryValueScale(menu, kind),
                     new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                             new Label().setText("DIRECT").layout(l -> l.width(72)),
                             input,
@@ -442,6 +444,7 @@ public final class UniversalFieldDeviceLdUi {
                                 () -> menu.snapshotReady() ? secondaryDisplay(menu) : "AWAITING SERVER READBACK"),
                         RseLdUiComponents.statusTile("ALLOWED VALUES", () -> secondaryRange(kind))
                 ),
+                secondaryValueScale(menu, kind),
                 new UIElement().layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(6)).addChildren(
                         new Label().setText("DIRECT").layout(l -> l.width(72)),
                         input,
@@ -449,6 +452,64 @@ public final class UniversalFieldDeviceLdUi {
                 ),
                 RseLdUiComponents.note("Only exact legal values update the server; use the confirmed value above to verify the applied setting.")
         );
+    }
+
+    /**
+     * Scale markers are legal operator choices, not calculated physics values.
+     * These come from the same accepted engineering domains as parsePrimary/
+     * parseSecondary. A current value is rendered only after menu sync.
+     */
+    private static UIElement primaryValueScale(UniversalFieldDeviceMenu menu, int kind) {
+        double[] legal = primaryLegalMarks(kind);
+        return new ParameterScaleElement(primarySymbol(kind), menu::snapshotReady,
+                () -> numericReadback(primaryDisplay(menu)), legal[0],
+                legal[legal.length - 1], legal);
+    }
+
+    private static UIElement secondaryValueScale(UniversalFieldDeviceMenu menu, int kind) {
+        double[] legal = switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> new double[]{8, 16, 32, 64};
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE ->
+                    java.util.stream.IntStream.rangeClosed(0, 10).mapToDouble(i -> i * 0.02).toArray();
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> integerMarks(0, 3);
+            default -> throw new IllegalArgumentException("No numeric secondary control for " + kind);
+        };
+        return new ParameterScaleElement(secondarySymbol(kind), menu::snapshotReady,
+                () -> numericReadback(secondaryDisplay(menu)), legal[0],
+                legal[legal.length - 1], legal);
+    }
+
+    private static double[] primaryLegalMarks(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> new double[]{6, 9, 12, 16};
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> integerMarks(1, 3);
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> new double[]{4, 8, 16, 32};
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> new double[]{2, 4, 8, 16};
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> integerMarks(0, 15);
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> integerMarks(1, 15);
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE ->
+                    java.util.stream.IntStream.rangeClosed(0, 20).mapToDouble(i -> i * 0.05).toArray();
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> new double[]{2, 4, 8, 16, 32};
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> integerMarks(1, 16);
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> integerMarks(1, 4);
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> new double[]{1, 2, 4, 8};
+            default -> throw new IllegalArgumentException("No numeric primary control for " + kind);
+        };
+    }
+
+    private static double[] integerMarks(int min, int max) {
+        return java.util.stream.IntStream.rangeClosed(min, max).asDoubleStream().toArray();
+    }
+
+    private static double numericReadback(String readback) {
+        try {
+            return Double.parseDouble(readback);
+        } catch (NumberFormatException exception) {
+            return Double.NaN; // Never plot an unknown index as a server-confirmed value.
+        }
     }
 
     private static boolean primaryCycleKind(int kind) {
@@ -1083,7 +1144,17 @@ public final class UniversalFieldDeviceLdUi {
     private static String secondaryDisplay(UniversalFieldDeviceMenu menu) {
         int kind = menu.configKind();
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return String.format(Locale.ROOT, "%.2f", menu.configSecondary() * 0.02);
-        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) return Integer.toString(menu.configSecondary());
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) {
+            // UI accepts {8,16,32,64} blocks; the DataSlot carries index 0..3.
+            // Never echo an internal index as if it were a physical range.
+            return switch (menu.configSecondary()) {
+                case 0 -> "8";
+                case 1 -> "16";
+                case 2 -> "32";
+                case 3 -> "64";
+                default -> "INVALID RANGE INDEX";
+            };
+        }
         return Integer.toString(menu.configSecondary());
     }
 

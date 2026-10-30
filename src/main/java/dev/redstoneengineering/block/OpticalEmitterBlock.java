@@ -51,8 +51,8 @@ public class OpticalEmitterBlock extends DomainBlock implements EngineeringPortP
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         // A configured zero-intensity source is still a valid source setting; downstream
         // passive fiber correctly reports DARK/NO_SIGNAL because no carrier is present.
-        return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
-                port, state.getValue(INTENSITY), 0.0, 15.0, PortQuality.VALID));
+        return engineeringPort(state, side).map(port ->
+                GuidedOpticalEvidenceSupport.source(port, state.getValue(INTENSITY)));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState old, boolean moved) {

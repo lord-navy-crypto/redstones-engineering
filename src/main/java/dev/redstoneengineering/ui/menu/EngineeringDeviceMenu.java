@@ -109,6 +109,11 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         return blockPos;
     }
 
+    /** Registry identity supplied when the menu opens; not a runtime measurement. */
+    public String deviceDisplayName() {
+        return expectedBlock.getName().getString();
+    }
+
     /**
      * Operational/safety state is intentionally independent from evidence validity.
      * A watchdog timeout, relief event, latched fault, degraded vote, or commanded brake
@@ -167,6 +172,121 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             case EVIDENCE_TOPOLOGY_ERROR -> "TOPOLOGY ERROR";
             case EVIDENCE_NOT_READY -> "NOT READY";
             default -> "UNOBSERVED";
+        };
+    }
+
+    /**
+     * Shared read-only operator guidance across every registered block menu.
+     * It projects already synchronized health + aggregate port evidence;
+     * neither this method nor the UI performs a new world read or action.
+     *
+     * An empty/unknown observation is NOT equivalent to a device fault.
+     * A protective status may be intended safety behavior, not a failure.
+     */
+    public String operatorCheckLabel() {
+        return operatorCheckLabel(operationalHealth(), evidenceState());
+    }
+
+    /** Pure projection for deterministic regression tests and source audits. */
+    public static String operatorCheckLabel(int health, int evidence) {
+        if (health == HEALTH_UNVERIFIED) {
+            return "WAIT FOR SERVER • initial health and evidence not synchronized";
+        }
+        if (health == HEALTH_FAULT) {
+            return "REVIEW FAULT • inspect device-specific readouts and safety state";
+        }
+        if (evidence == EVIDENCE_TOPOLOGY_ERROR) {
+            return "CHECK TOPOLOGY • examine formal RX/TX faces and wiring";
+        }
+        if (evidence == EVIDENCE_DOMAIN_MISMATCH) {
+            return "CHECK DOMAINS • verify compatible media and connected ports";
+        }
+        if (evidence == EVIDENCE_FAULT) {
+            return "CHECK EVIDENCE FAULT • inspect the source and measured path";
+        }
+        if (health == HEALTH_PROTECTIVE) {
+            return "PROTECTIVE STATE • inspect safety conditions before changing controls";
+        }
+        if (health == HEALTH_DEGRADED) {
+            return "DEGRADED STATE • compare device-specific diagnostics and evidence";
+        }
+        if (evidence == EVIDENCE_STALE) {
+            return "STALE DATA • refresh observations or inspect the input path";
+        }
+        if (evidence == EVIDENCE_SATURATED) {
+            return "SATURATED SIGNAL • inspect range and configured thresholds";
+        }
+        if (evidence == EVIDENCE_NOT_READY) {
+            return "NOT READY • check device-specific sampling and readiness";
+        }
+        if (evidence == EVIDENCE_NO_SIGNAL) {
+            return "NO SIGNAL • verify expected source before treating this as a fault";
+        }
+        if (evidence == EVIDENCE_UNOBSERVED) {
+            return "NO PORT EVIDENCE • no fault verdict; inspect device-specific readouts";
+        }
+        if (evidence != EVIDENCE_VALID) {
+            return "UNCLASSIFIED EVIDENCE • inspect device-specific readouts";
+        }
+        if (health != HEALTH_NOMINAL && health != HEALTH_ACTIVE) {
+            return "UNCLASSIFIED HEALTH • verify device-specific status";
+        }
+        return "VALID PORT EVIDENCE • inspect detailed device readouts for full assessment";
+    }
+
+    /**
+     * Human-readable port semantics for the complete block HMI registry.
+     * These are formal port declarations, NOT a connectivity test. In
+     * particular, an observer or passive device does not need both RX/TX.
+     */
+    public String portRoleHintLabel() {
+        if (operationalHealth() == HEALTH_UNVERIFIED)
+            return "WAIT FOR SERVER • port role and route not synchronized";
+        return portRoleHintLabel(topologyRole(), receivePortMask(), transmitPortMask());
+    }
+
+    /** Pure projection of the formal registered port shape (no level reads). */
+    public static String portRoleHintLabel(int role, int rxMask, int txMask) {
+        return switch (role) {
+            case TOPOLOGY_OBSERVER -> "OBSERVE ONLY • an absent TX face can be intentional";
+            case TOPOLOGY_SOURCE -> "SOURCE • an absent RX face can be intentional";
+            case TOPOLOGY_SINK -> "SINK • an absent TX face can be intentional";
+            case TOPOLOGY_PASSIVE, TOPOLOGY_PASSIVE_SERIES ->
+                    "PASSIVE • inspect its formal faces; no configurable actuator assumed";
+            case TOPOLOGY_EXPLICIT_JUNCTION ->
+                    "EXPLICIT JUNCTION • ports describe allowed paths, not automatic bridging";
+            case TOPOLOGY_CONTROLLED_SOURCE, TOPOLOGY_CONTROLLED_SERIES ->
+                    "CONTROLLED • distinguish control inputs from process paths";
+            case TOPOLOGY_UNKNOWN ->
+                    "UNCLASSIFIED • no formal port role; use device-specific readouts";
+            default -> (rxMask | txMask) == 0
+                    ? "NO DECLARED FACES • check the device's supported interface"
+                    : "DECLARED FACES • a formal route is not proof of live connectivity";
+        };
+    }
+
+    /**
+     * Interpret aggregate EngineeringPort evidence without inventing measured
+     * values or conflating safety/health with sample validity. All branches
+     * are informational and server-synchronized at the menu boundary.
+     */
+    public String evidenceMeaningLabel() {
+        if (operationalHealth() == HEALTH_UNVERIFIED)
+            return "WAIT FOR SERVER • quality not synchronized";
+        return evidenceMeaningLabel(evidenceState());
+    }
+
+    public static String evidenceMeaningLabel(int evidence) {
+        return switch (evidence) {
+            case EVIDENCE_VALID -> "VALID • reported port observation only, not full acceptance";
+            case EVIDENCE_NO_SIGNAL -> "NO SIGNAL • could be an expected idle input";
+            case EVIDENCE_SATURATED -> "SATURATED • inspect range; not a verified value beyond it";
+            case EVIDENCE_STALE -> "STALE • do not treat retained evidence as a current sample";
+            case EVIDENCE_FAULT -> "FAULT • reported by the port; inspect device-specific diagnosis";
+            case EVIDENCE_DOMAIN_MISMATCH -> "DOMAIN MISMATCH • check medium compatibility";
+            case EVIDENCE_TOPOLOGY_ERROR -> "TOPOLOGY ERROR • inspect declared physical routing";
+            case EVIDENCE_NOT_READY -> "NOT READY • there is no qualified reading yet";
+            default -> "UNOBSERVED • no qualified port snapshot; not a fault verdict";
         };
     }
 

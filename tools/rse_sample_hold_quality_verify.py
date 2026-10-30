@@ -50,7 +50,10 @@ else:
 
 require(sample_hold, "private static final int RUNTIME_SIZE = 6;", "SampleHoldBlock.java")
 require(sample_hold, "private static final int OUTPUT_READY_SLOT = 5;", "SampleHoldBlock.java")
-require(sample_hold, "quality = outputQuality(level, pos);", "SampleHoldBlock.java")
+if ("quality = outputQuality(level, pos);" not in sample_hold
+        and "state.getValue(OUTPUT), outputQuality(level, pos)" not in sample_hold):
+    errors.append("SampleHoldBlock.java: outgoing engineering port must expose outputQuality")
+require(sample_hold, "RedstoneObservationSupport.observe(level, pos, side)", "SampleHoldBlock.java")
 require(sample_hold, "return PortQuality.STALE;", "SampleHoldBlock.java")
 require(sample_hold, "PortQuality.VALID : PortQuality.NOT_READY", "SampleHoldBlock.java")
 

@@ -8,7 +8,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.VibrationNetwork;
@@ -76,7 +75,7 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
     }
 
     public static RedstoneObservationSupport.Observation driveObservation(Level level, BlockPos pos) {
-        return RedstoneObservationSupport.observe(level, pos, Direction.DOWN);
+        return ExciterDriveSupport.observation(level, pos);
     }
 
     @Override
@@ -85,16 +84,7 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
-        int amplitude = drive.valid() ? drive.value() : 0;
-        if (side == Direction.DOWN) {
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), drive.value(), drive.quality()));
-        }
-        PortQuality outputQuality = drive.valid()
-                ? (amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL)
-                : drive.quality();
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), amplitude, 0.0, 15.0, outputQuality));
+        return Optional.of(ExciterDriveSupport.snapshot(port.get(), side, driveObservation(level, pos)));
     }
 
     @Override
@@ -105,8 +95,7 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
     }
 
     private static int inputAmplitude(Level level, BlockPos pos) {
-        RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
-        return drive.valid() ? drive.value() : 0;
+        return ExciterDriveSupport.amplitude(level, pos);
     }
 
     private void updateExcitation(BlockState state, Level level, BlockPos pos) {

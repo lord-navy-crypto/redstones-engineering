@@ -81,6 +81,9 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
 
     public static CopperObservationSupport.Observation targetObservation(Level level, BlockPos pos, BlockState state) {
         BlockPos target = pos.relative(state.getValue(FACING));
+        // Do not load a missing neighboring chunk to answer a probe.
+        if (!level.hasChunkAt(target))
+            return new CopperObservationSupport.Observation(0, PortQuality.STALE);
         CopperObservationSupport.Observation qualityEvidence = CopperObservationSupport.measure(level, target, pos);
         int voltage = DomainNetwork.sampleCopperVoltage(level, target, pos);
         return new CopperObservationSupport.Observation(voltage, qualityEvidence.quality());
@@ -88,7 +91,8 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
 
     public static int sampledVoltage(Level level, BlockPos pos, BlockState state) {
         BlockPos target = pos.relative(state.getValue(FACING));
-        return DomainNetwork.sampleCopperVoltage(level, target, pos);
+        return level.hasChunkAt(target)
+                ? DomainNetwork.sampleCopperVoltage(level, target, pos) : 0;
     }
 
     /**
@@ -97,6 +101,8 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
      */
     public static ElectricalDiagnostics electricalDiagnostics(Level level, BlockPos pos, BlockState state) {
         BlockPos targetPos = pos.relative(state.getValue(FACING));
+        if (!level.hasChunkAt(targetPos))
+            return new ElectricalDiagnostics(0, 0.0, 0.0, 0.0, PortQuality.STALE);
         BlockState targetState = level.getBlockState(targetPos);
         CopperObservationSupport.Observation target = targetObservation(level, pos, state);
         double resistance = targetState.getBlock() instanceof CopperResistiveLoadBlock
@@ -217,7 +223,10 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
         if (descriptor.isEmpty()) return Optional.empty();
         MeasurementSnapshot measurement = measurement(level, pos);
         CopperObservationSupport.Observation target = targetObservation(level, pos, state);
-        double value = measurement.sampleCount() > 0 ? measurement.reading() : target.voltage();
+        // A retained sample belongs to a covered observation. Do not expose
+        // its old voltage as a present reading across an unloaded boundary.
+        double value = target.quality() == PortQuality.STALE ? 0.0
+                : measurement.sampleCount() > 0 ? measurement.reading() : target.voltage();
         return Optional.of(new EngineeringPortSnapshot(
                 descriptor.get(), value, 0.0, 15.0, measurementQuality(level, pos, state)
         ));

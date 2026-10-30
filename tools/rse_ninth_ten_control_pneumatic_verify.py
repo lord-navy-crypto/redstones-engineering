@@ -29,7 +29,15 @@ require("src/main/java/dev/redstoneengineering/physics/PneumaticObservationSuppo
 require("src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java","RedstoneObservationSupport.observe","PneumaticObservationSupport.observe","commandObservation")
 require("src/main/java/dev/redstoneengineering/block/PneumaticPipeBlock.java","PneumaticObservationSupport.observe","observation.quality()")
 require("src/main/java/dev/redstoneengineering/block/AirReservoirBlock.java",'InformationRuntime.snapshot(level, "air_reservoir", pos)',"PneumaticObservationSupport.observe","Observer-only stored pressure readback","stored + 5","stored - 1")
-require("src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java","PneumaticObservationSupport.observe","setpointPressure","observation.quality()")
+regulator = read("src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java")
+shared_valve = read("src/main/java/dev/redstoneengineering/block/PneumaticValveSupport.java")
+if "setpointPressure" not in regulator:
+    errors.append("Pressure Regulator must retain its own setpoint pressure law")
+if not (("PneumaticObservationSupport.observe" in regulator and "observation.quality()" in regulator)
+        or ("PneumaticValveSupport.snapshot(level, pos, side, port.get())" in regulator
+            and "PneumaticObservationSupport.observe" in shared_valve
+            and "observation.quality()" in shared_valve)):
+    errors.append("Pressure Regulator must retain observed pressure quality, inline or shared")
 
 # Actuator deepening: authoritative solve retains the winning supply path and decomposes
 # pressure loss into one-unit-per-edge line loss versus additional regulation/restriction loss.

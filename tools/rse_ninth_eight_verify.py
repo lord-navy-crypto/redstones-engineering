@@ -94,10 +94,13 @@ require(
     "inputSide(state)",
     "outputSide(state)",
     "setpointPressure",
-    'InformationRuntime.clear(level, "pneumatic", pos)',
-    "PneumaticNetwork.recomputeAround",
+    "PneumaticValveSupport.removed",
+    "PneumaticValveSupport.placed",
     "FieldDeviceUi.open",
 )
+require("src/main/java/dev/redstoneengineering/block/PneumaticValveSupport.java",
+        'InformationRuntime.clear(level, "pneumatic", pos)',
+        "PneumaticNetwork.recomputeAround", "PneumaticObservationSupport.observe")
 regulator = read("src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java")
 for forbidden in ('"REGULATED AIR"', "PortDirection.BIDIRECTIONAL", "extends DomainBlock implements EngineeringPortProvider"):
     if forbidden in regulator:
@@ -128,7 +131,8 @@ require(
     '"PNEUMATIC OUT"',
     "PortDirection.INPUT",
     "PortDirection.OUTPUT",
-    "PneumaticNetwork.recomputeAround",
+    "PneumaticValveSupport.placed",
+    "PneumaticValveSupport.removed",
     "FieldDeviceUi.open",
 )
 require(

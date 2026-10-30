@@ -38,6 +38,11 @@ public final class EngineeringCompassBlock extends Block {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer
+                && player.isShiftKeyDown()) {
+            NicheDeviceCommissioning.send(serverPlayer, pos, state);
+            return InteractionResult.sidedSuccess(false);
+        }
         if (!level.isClientSide) {
             player.displayClientMessage(Component.literal(
                     "World datum • N=-Z • E=+X • S=+Z • W=-X • Pos="

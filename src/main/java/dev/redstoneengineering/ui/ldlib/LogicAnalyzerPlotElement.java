@@ -25,19 +25,34 @@ public final class LogicAnalyzerPlotElement extends UIElement {
         int y = Math.round(getPositionY()) + inset;
         int w = allocatedWidth - 2 * inset;
         int h = allocatedHeight - 2 * inset;
+        if (w < 65 || h < 70) return;
+        // Reserve bottom space for display-slot indices and keep the digital
+        // channel labels outside the four waveform lanes.
+        x += 9;
+        y += 3;
+        w -= 13;
+        h -= 22;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
-        // A fresh GUI has zero-filled slots until the server capture arrives.
-        if (menu.sampleCount() <= 0) return;
-        int laneH=Math.max(12,(h-16)/4);
-        for(int ch=0;ch<4;ch++){
-            final int c=ch;
-            int laneY=y+6+ch*laneH;
-            EngineeringPlot.digitalTrace(g.graphics,16,slot->menu.displayState(c,slot),x+8,laneY,w-16,laneH-2,COLORS[ch]);
+        int traceX = x + 17;
+        int traceWidth = w - 21;
+        EngineeringPlot.slotAxisLabels(g.graphics,traceX,y,traceWidth,h,16);
+        // An empty capture is explicitly empty, not a LOW signal.
+        if (menu.sampleCount() <= 0) {
+            EngineeringPlot.emptyPlotLabel(g.graphics,x,y,w,h,"NO CAPTURED SAMPLES");
+            return;
         }
-        // Do not draw a cursor interval across unloaded or invalid slots.
+        int laneH = Math.max(12, (h - 12) / 4);
+        for(int ch=0;ch<4;ch++) {
+            final int c = ch;
+            int laneY = y + 4 + ch * laneH;
+            EngineeringPlot.digitalLaneLabel(g.graphics,"" + (char)('A' + ch),traceX,laneY,laneH-2);
+            EngineeringPlot.digitalTrace(g.graphics,16,slot->menu.displayState(c,slot),
+                    traceX,laneY,traceWidth,laneH-2,COLORS[ch]);
+        }
+        // Cursors require a real valid same-channel pair in captured data.
         if (validCursorPair()) {
-            EngineeringPlot.verticalMarker(g.graphics,menu.cursorA(),16,x+8,y,w-16,h,0xFF68D391);
-            EngineeringPlot.verticalMarker(g.graphics,menu.cursorB(),16,x+8,y,w-16,h,0xFFC084FC);
+            EngineeringPlot.verticalMarker(g.graphics,menu.cursorA(),16,traceX,y,traceWidth,h,0xFF68D391);
+            EngineeringPlot.verticalMarker(g.graphics,menu.cursorB(),16,traceX,y,traceWidth,h,0xFFC084FC);
         }
     }
     private boolean validCursorPair() {

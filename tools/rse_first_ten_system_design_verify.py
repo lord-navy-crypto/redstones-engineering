@@ -70,8 +70,13 @@ require(
     "src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
     "engineeringSnapshot",
     "InstrumentNetwork.scan(level, pos)",
+    "InstrumentCableEvidenceSupport.snapshot(",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/InstrumentCableEvidenceSupport.java",
     "validChannelsInMask(0xF)",
     "qualityForMask(0xF)",
+    "PortQuality.STALE",
 )
 
 require(

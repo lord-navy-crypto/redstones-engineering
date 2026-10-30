@@ -28,10 +28,21 @@ public final class PidTrendPlotElement extends UIElement {
         int y = Math.round(getPositionY()) + inset;
         int w = allocatedWidth - 2 * inset;
         int h = allocatedHeight - 2 * inset;
+        if (w < 65 || h < 65) return;
+        // SP, PV and OUT share the bounded 0..15 Redstone level axis.
+        // The horizontal numbers are retained ring-buffer slots (0..31),
+        // not wall-clock time or extra inferred process measurements.
+        x += 26;
+        y += 3;
+        w -= 30;
+        h -= 22;
         EngineeringPlot.analogFrame(g.graphics,x,y,w,h);
-        // The retained trend must exist before packed default slots become
-        // meaningful; do not present the initial zeros as an observed trace.
-        if (menu.trendCount() <= 0) return;
+        EngineeringPlot.analogAxisLabels(g.graphics,x,y,w,h,0,15,PidControllerMenu.TREND_SAMPLES);
+        // A chart without retained data is empty, never a fictional zero.
+        if (menu.trendCount() <= 0) {
+            EngineeringPlot.emptyPlotLabel(g.graphics,x,y,w,h,"NO RETAINED PID SAMPLES");
+            return;
+        }
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendSetpoint,0,15,x,y,w,h,SP);
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendProcessValue,0,15,x,y,w,h,PV);
         EngineeringPlot.analogTrace(g.graphics,PidControllerMenu.TREND_SAMPLES,menu::trendControlOutput,0,15,x,y,w,h,OUT);

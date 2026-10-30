@@ -57,11 +57,21 @@ for name, source in (("Power Meter", power_meter), ("Splitter", splitter), ("Cha
 for token in ("OpticalFiberBlock.quality", "OpticalReceiverBlock.quality", "PortQuality.TOPOLOGY_ERROR"):
     require(token in optical_support, f"Optical observation helper missing {token}")
 require("quantizationLoss" in splitter, "Optical Splitter must expose odd-level integer split loss")
+optical_series = text("block/OpticalSeriesSupport.java")
 for name, source, prop in (("Channel Filter", channel_filter, "TARGET"), ("Attenuator", attenuator, "LOSS")):
     require("configurationChanged" in source and "invalidateOutput" in source,
             f"Optical {name} lacks stale-output invalidation")
-    require(f"oldState.hasProperty({prop})" in source,
+    # A shared helper is permitted, provided route changes and each distinct
+    # parameter still invalidate the previous optical carrier.
+    inline = f"oldState.hasProperty({prop})" in source
+    shared = (f"OpticalSeriesSupport.configurationAffected(state, oldState, {prop})" in source
+              and "previous.hasProperty(parameter)" in optical_series
+              and "oldState.hasProperty(FACING) ? oldState : state" in source)
+    require(inline or shared,
             f"Optical {name} must catch every same-block configuration path")
+require("DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false)" in optical_series
+        and "DomainNetwork.recomputeOpticalAround(serverLevel, pos)" in optical_series,
+        "Optical series shared lifecycle lost stale-carrier invalidation or removal recompute")
 
 for name, source in (("Series Resistor", resistor), ("Capacitor", capacitor), ("Fuse", fuse)):
     body = method_body(source, "public static int outputVoltage")

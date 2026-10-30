@@ -72,6 +72,7 @@ public final class SignalConditionerLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
+                RseLdUiComponents.deviceContext(menu),
                 tabs,
                 RseLdUiComponents.note("SCROLL • wheel Y • Shift+wheel X"),
                 workspace

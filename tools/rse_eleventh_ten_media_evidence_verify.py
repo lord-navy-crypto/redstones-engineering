@@ -35,10 +35,14 @@ require(
     "InformationRuntime.clear(level, \"hydro\", pos)",
 )
 require(
+    "src/main/java/dev/redstoneengineering/block/ExciterDriveSupport.java",
+    "RedstoneObservationSupport.observe", "drive.quality()",
+    "PortQuality.NO_SIGNAL",
+)
+require(
     "src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
-    "RedstoneObservationSupport.observe",
-    "driveObservation",
-    "drive.quality()",
+    "ExciterDriveSupport.observation", "ExciterDriveSupport.snapshot",
+    "driveObservation", "HydroacousticNetwork.propagate",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/HydroacousticReceiverBlock.java",
@@ -91,9 +95,17 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalReceiverBlock.java",
     "opticalQuality",
+    "FreeSpaceOpticalChannelSupport.receiveQuality",
+    "InformationRuntime.snapshot",
+    "InformationRuntime.clear",
+    "updateOutput",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalChannelSupport.java",
     "PortQuality.DOMAIN_MISMATCH",
     "packet.selector()",
-    "packet.qualityPercent() <= 20",
+    "packet.ageTicks() > FRESH_TICKS",
+    "packet.valid() ? PortQuality.VALID : PortQuality.STALE",
 )
 
 # Guided optical fiber now follows the same player-facing routing law as the other cable media:

@@ -80,7 +80,7 @@ contracts = {
         "implements EngineeringPortProvider",
         "EngineeringDomain.HYDROACOUSTIC",
         '"DRIVE IN", Direction.DOWN',
-        "RedstoneObservationSupport.observe",
+        "ExciterDriveSupport.observation",
         "neighborPos.equals(pos.below())",
         "HydroacousticNetwork.propagate",
         "FieldDeviceUi.open",
@@ -126,6 +126,10 @@ contracts = {
 }
 for rel, tokens in contracts.items():
     require(rel, *tokens)
+# The emitter shares only the drive observation / quality projection, not
+# hydroacoustic propagation or channel-specific runtime updates.
+require("src/main/java/dev/redstoneengineering/block/ExciterDriveSupport.java",
+        "RedstoneObservationSupport.observe", "drive.quality()", "PortQuality.NO_SIGNAL")
 
 menu = "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java"
 for token in (

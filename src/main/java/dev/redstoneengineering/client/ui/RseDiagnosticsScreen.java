@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import com.mojang.blaze3d.platform.Window;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.diagnostics.RseDiagnosticEntry;
 import dev.redstoneengineering.diagnostics.RseDiagnosticSeverity;
@@ -11,9 +12,11 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.fml.ModList;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /** Read-only, session-local diagnostics console opened from the player inventory. */
 public final class RseDiagnosticsScreen extends Screen {
@@ -84,6 +87,23 @@ public final class RseDiagnosticsScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_C) {
+            copyReport();
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            page++;
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            page = Math.max(0, page - 1);
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fill(8, 8, width - 8, height - 34, BORDER);
@@ -151,8 +171,16 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private void copyReport() {
         Minecraft minecraft = Minecraft.getInstance();
-        minecraft.keyboardHandler.setClipboard(RseDiagnostics.exportReport(runtimeSummary()));
-        showFeedback("REPORT COPIED");
+        minecraft.keyboardHandler.setClipboard(
+                RseDiagnostics.exportReport(runtimeSummary() + "\n" + displaySummary()));
+        showFeedback("REPORT COPIED • C");
+    }
+
+    private String displaySummary() {
+        Window window = Minecraft.getInstance().getWindow();
+        return "Display framebuffer: " + window.getWidth() + "x" + window.getHeight()
+                + " | GUI scale: " + String.format(Locale.ROOT, "%.3f", window.getGuiScale())
+                + " | GUI scaled: " + window.getGuiScaledWidth() + "x" + window.getGuiScaledHeight();
     }
 
     private void showFeedback(String message) {

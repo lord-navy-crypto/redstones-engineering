@@ -213,6 +213,9 @@ public final class DomainNetwork {
     }
 
     public static AmethystSample sampleAmethyst(Level level, BlockPos pos) {
+        // An unobserved neighbor cannot be queried as though its chunk were loaded.
+        // Quality-aware consumers report STALE instead of mistaking this zero for a measurement.
+        if (!level.hasChunkAt(pos)) return new AmethystSample(false, 0, 0);
         var s = level.getBlockState(pos);
         if (s.getBlock() instanceof AmethystResonanceDustBlock) return new AmethystSample(AmethystResonanceDustBlock.active(level,pos), AmethystResonanceDustBlock.frequency(level,pos), AmethystResonanceDustBlock.amplitude(level,pos));
         if (s.getBlock() instanceof AmethystResonatorBlock) return new AmethystSample(AmethystResonatorBlock.isActive(level, pos), s.getValue(AmethystResonatorBlock.FREQUENCY), s.getValue(AmethystResonatorBlock.AMPLITUDE));

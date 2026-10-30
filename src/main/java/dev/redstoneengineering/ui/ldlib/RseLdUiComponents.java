@@ -8,6 +8,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.math.Size;
 import dev.vfyjxf.taffy.style.FlexWrap;
 import net.minecraft.world.entity.player.Player;
+import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
@@ -150,6 +151,72 @@ public final class RseLdUiComponents {
                 wrappedLabel("READING KEY • " + readingKey).layout(l -> l.widthPercent(100))
         );
         return panel;
+    }
+
+    /**
+     * Uniform, read-only device identity and evidence for every block-facing
+     * LDLib2 HMI, including dedicated instruments and transport systems.
+     *
+     * This consumes the common server-synchronized EngineeringDeviceMenu
+     * snapshot. It never guesses a measurement, implies editable controls,
+     * or treats the client's initial health slot as NOMINAL.
+     */
+    public static UIElement deviceContext(EngineeringDeviceMenu menu) {
+        var header = new UIElement().addClass("panel_bg");
+        header.layout(l -> l.widthPercent(100).paddingAll(5).gapAll(3));
+
+        // The initial two readouts remain visible on every page. The rest is
+        // opt-in so a small 500x340 Minecraft GUI retains room for controls.
+        var details = new UIElement().addClass("panel_bg");
+        details.layout(l -> l.widthPercent(100).paddingAll(5).gapAll(3));
+        details.addChildren(
+                liveText(() -> "HEALTH • " + menu.operationalHealthLabel()
+                        + "   |   ROLE • "
+                        + (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
+                                ? "NOT READY" : menu.topologyRoleLabel()))
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> "EVIDENCE • " +
+                        (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
+                                ? "NOT READY" : menu.evidenceStateLabel()))
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> menu.portRouteLabel()).layout(l -> l.widthPercent(100)),
+                liveText(() -> "PORT CONTRACT • " + menu.portRoleHintLabel())
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> "QUALITY MEANING • " + menu.evidenceMeaningLabel())
+                        .layout(l -> l.widthPercent(100)),
+                wrappedLabel("READING KEY • declared faces are capabilities, not detected "
+                        + "wires; health is independent of port evidence. Detailed device "
+                        + "measurements and controls remain on their original pages.")
+                        .layout(l -> l.widthPercent(100))
+        );
+        details.setDisplay(false);
+
+        // Purely local view state: opening details does not emit a menu click,
+        // change a block setting, or re-run any server-side physics.
+        var detailToggle = new Button().setText("Show evidence ▼");
+        final boolean[] expanded = {false};
+        detailToggle.setOnClick(event -> {
+            expanded[0] = !expanded[0];
+            details.setDisplay(expanded[0]);
+            detailToggle.setText(expanded[0] ? "Hide evidence ▲" : "Show evidence ▼");
+        });
+        detailToggle.layout(l -> l.height(20).minWidth(120).paddingAll(4));
+
+        header.addChildren(
+                liveText(() -> "DEVICE • " + menu.deviceDisplayName()
+                        + "   |   POS • " + menu.blockPos().toShortString())
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> "HEALTH • " + menu.operationalHealthLabel()
+                        + "   |   EVIDENCE • "
+                        + (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
+                                ? "NOT READY" : menu.evidenceStateLabel()))
+                        .layout(l -> l.widthPercent(100)),
+                liveText(() -> "NEXT CHECK • " + menu.operatorCheckLabel())
+                        .layout(l -> l.widthPercent(100)),
+                detailToggle,
+                details
+        );
+        return header;
     }
 
     public static UIElement fixedRow(String symbol, Supplier<String> value, String reason) {

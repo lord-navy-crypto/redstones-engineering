@@ -20,7 +20,13 @@ public final class PidControllerLdUi {
     public static ModularUI create(PidControllerMenu m, Player player) {
         var root = new UIElement().addClass("panel_bg");
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
-        var page0 = page(RseLdUiComponents.title("PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL"),modelPanel(m),liveMechanismPanel(m),trendPanel(m));
+        var page0 = page(
+                RseLdUiComponents.operatorGuide(
+                        "PID CONTROL • NEXT INSPECTION",
+                        () -> nextPidStep(m),
+                        "SP=setpoint; PV=process value; OUT=commanded output. Retained trend and terms do not prove a current AUTO solve."),
+                RseLdUiComponents.title("PIONEER PATTERN • CONTROL / ACCEPTANCE MODEL"),
+                modelPanel(m), liveMechanismPanel(m), trendPanel(m));
         var page1 = page(controls(m),runtimePanel(m));
         page1.setDisplay(false);
         var page2 = page(plantPanel(m));
@@ -46,11 +52,38 @@ public final class PidControllerLdUi {
 
         root.addChildren(
                 RseLdUiComponents.title("PID CLOSED-LOOP ENGINEERING WORKBENCH"),
+                RseLdUiComponents.deviceContext(m),
                 tabs,
                 new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
         return RseLdUiComponents.responsiveUi(root, player, 690, 450);
+    }
+
+    /**
+     * Inspection-only guidance. No automatic tuning, controller state
+     * mutation, or client-side reconstruction of a plant is performed.
+     */
+    private static String nextPidStep(PidControllerMenu m) {
+        if (m.inhibited()) {
+            return "01 / PLANT • Controller is INHIBITED. Inspect status and missing/invalid feedback before attempting acceptance.";
+        }
+        if (!m.available()) {
+            return "02 / PLANT • Commissioning SP/PV evidence is unavailable. A retained trend is not a live measurement.";
+        }
+        if (m.manualMode()) {
+            return "03 / CONFIGURE • Controller is MANUAL. Review route and preset; retained AUTO terms are not current actuation evidence.";
+        }
+        if (!m.runtimeTermsAvailable()) {
+            return "04 / CONFIGURE • No retained AUTO calculation is available. Review controller status and runtime evidence.";
+        }
+        if (m.trendCount() <= 0) {
+            return "05 / MODEL • No retained trend samples. Check live SP/PV/OUT before interpreting a drawn trace.";
+        }
+        if (m.plantDetected() && !m.plantReady()) {
+            return "06 / PLANT • Pneumatic plant is detected but not ready. Inspect plant diagnosis before capture.";
+        }
+        return "07 / ACCEPTANCE • Compare server-recorded history and trial results; a plot alone is not an acceptance verdict.";
     }
 
     private static UIElement page(UIElement... children) {
@@ -121,6 +154,10 @@ public final class PidControllerLdUi {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(3)).addChildren(
                 RseLdUiComponents.note("AUTHORITATIVE TREND • SP / PV / OUT • 2t/sample • 32-sample bounded ring"),
                 new PidTrendPlotElement(m),
+                RseLdUiComponents.note("AXES • Y = Redstone level 0..15; X = retained history slots 0..31. The sample interval is 2 ticks; gaps are not measured values."),
+                new RsePlotLegendElement(
+                        new String[]{"SP", "PV", "OUT"},
+                        new int[]{0xFFF6C453, 0xFF68D391, 0xFF62B0FF}),
                 RseLdUiComponents.note("Trend lines visually join retained server samples; they do not imply measurements between ticks or reconstruct missing data."),
                 RseLdUiComponents.liveRow("LIVE","SP/PV/OUT",()->m.available()
                         ? m.setpoint()+" / "+m.processValue()+" / "+m.controlOutput()

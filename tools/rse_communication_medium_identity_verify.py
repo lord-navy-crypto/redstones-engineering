@@ -45,11 +45,14 @@ for forbidden in ("Random", "Math.random", "ThreadLocalRandom", "DomainNetwork.s
 
 require("src/main/java/dev/redstoneengineering/instrument/InstrumentShieldingAudit.java",
         "riskClass()", "recommendation()", 'return "PROTECTED"', 'return "EXPOSED"', 'return "PARTIAL"')
+require("src/main/java/dev/redstoneengineering/block/InstrumentCableEvidenceSupport.java",
+        "shieldingIntegrity()", "shieldingCoveragePercent()", "interferenceIntegrity()",
+        "interferenceExposurePercent()", "interferenceConfidencePercent()")
 require("src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
-        "interferenceIntegrity()", "interferenceExposurePercent()", "interferenceConfidencePercent()")
+        "InstrumentCableEvidenceSupport.interference(bus)", "InstrumentCableEvidenceSupport.snapshot(")
 require("src/main/java/dev/redstoneengineering/block/ShieldedInstrumentCableBlock.java",
-        "shieldingIntegrity()", "shieldingCoveragePercent()", "shieldedExposedNodes()", "unshieldedExposedNodes()",
-        "interferenceConfidencePercent()", "does not inject fabricated random noise")
+        "InstrumentCableEvidenceSupport.interference(bus)", "shieldedExposedNodes()", "unshieldedExposedNodes()",
+        "does not inject fabricated random noise")
 require("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
         "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
 require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",

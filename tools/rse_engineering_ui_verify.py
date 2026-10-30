@@ -543,12 +543,16 @@ require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
 require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
         "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "routeEndpoint", "routeFaultLatch")
 
-# Range sensor rotation owns stale-output invalidation at the block layer, not ad-hoc menu mutation.
+# Range sensor configuration must revoke old scan/energization centrally.
+# Rotation and HMI both use one fail-safe transaction (not duplicate updates).
 require("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java",
         "rotateSensingAxis(Level level, BlockPos pos, boolean clockwise)",
-        "Direction oldOutput = outputSide(state)", "Direction newOutput = outputSide(next)",
-        "level.updateNeighborsAt(pos.relative(oldOutput), sensor)",
-        "level.updateNeighborsAt(pos.relative(newOutput), sensor)")
+        "return applyConfiguration(level, pos, state.setValue(FACING, updated));",
+        "Direction oldOutput = outputSide(former)",
+        "BlockState safe = requested.setValue(OUTPUT, 0)",
+        "RuntimeIntStore.remove(serverLevel, RUNTIME_KEY, pos)",
+        "oldSense, oldOutput, sensingSide(safe), outputSide(safe)",
+        "serverLevel.updateNeighborsAt(pos.relative(direction), sensor)")
 require("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java",
         "RangeSensorBlock.rotateSensingAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)")
 

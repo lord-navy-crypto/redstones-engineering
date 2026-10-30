@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -86,7 +87,13 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
-        if (base.isEmpty() || side != outputSide(state) || !limitingActive(level, pos, state)) return base;
+        if (base.isEmpty()) return base;
+        if (side == inputSide(state)) {
+            var observed = RedstoneObservationSupport.observe(level, pos, side);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    base.get().port(), observed.value(), observed.quality()));
+        }
+        if (side != outputSide(state) || !limitingActive(level, pos, state)) return base;
         EngineeringPortSnapshot snapshot = base.get();
         return Optional.of(new EngineeringPortSnapshot(
                 snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), PortQuality.SATURATED));
@@ -181,6 +188,22 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hitResult.getDirection() == Direction.UP) {
+                var observed = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+                int actual = state.getValue(OUTPUT);
+                int mode = state.getValue(MODE);
+                int param = state.getValue(PARAM);
+                int predicted = calculate(observed.value(), actual, mode, param);
+                player.displayClientMessage(Component.literal(
+                        "CONDITIONER FIELD TEST | mode=" + modeName(mode)
+                                + " | parameter=" + parameterText(mode, param)
+                                + " | IN=" + observed.value() + "/15:" + observed.quality()
+                                + " | OUT=" + actual + "/15 | predicted="
+                                + (observed.valid() ? Integer.toString(predicted) : "UNKNOWN")
+                                + " | output-limited=" + limitingActive(level, pos, state)
+                                + " | UP=inspect, other Shift=adjust"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 applyConfigurationAction(level, pos, SignalConditionerMenu.BUTTON_PARAM_INCREASE);
                 BlockState next = level.getBlockState(pos);

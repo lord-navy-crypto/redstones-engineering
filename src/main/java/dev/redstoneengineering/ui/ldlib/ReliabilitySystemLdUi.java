@@ -21,6 +21,7 @@ public final class ReliabilitySystemLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title("RELIABILITY / SAFE-STATE ENGINEERING HMI"),
+                RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
                         new String[]{"Overview", "Configure", "Diagnostics"},

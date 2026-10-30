@@ -45,7 +45,7 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
         int inputs = physicalFiberInputs(level, pos);
         int drivers = Math.max(0, stats.activeDrivers());
         if (!stale && valid && drivers == 0) drivers = 1;
-        boolean accepted = !stale && valid && intensity > 0 && inputs <= 1;
+        boolean accepted = !stale && valid && intensity > 0 && inputs <= 1 && drivers <= 1;
         runtime[INTENSITY] = accepted ? Math.max(0, Math.min(15, intensity)) : 0;
         runtime[CHANNEL] = accepted ? Math.max(0, Math.min(15, channel)) : 0;
         runtime[VALID] = accepted ? 1 : 0;
@@ -71,7 +71,9 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
     private static int physicalFiberInputs(Level level, BlockPos pos) {
         int count = 0;
         for (Direction side : Direction.values()) {
-            BlockState neighbor = level.getBlockState(pos.relative(side));
+            BlockPos neighborPos = pos.relative(side);
+            if (!level.hasChunkAt(neighborPos)) continue;
+            BlockState neighbor = level.getBlockState(neighborPos);
             if (!(neighbor.getBlock() instanceof OpticalFiberBlock)
                     && !(neighbor.getBlock() instanceof OpticalFiberJunctionBlock)) continue;
             if (!(neighbor.getBlock() instanceof ConnectedCableBlock cable) || !cable.topologyValid(neighbor)) continue;
@@ -81,10 +83,9 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
     }
 
     public static PortQuality quality(Level level, BlockPos pos) {
-        if (inputCount(level,pos) > 1 || driverCount(level,pos) > 1) return PortQuality.TOPOLOGY_ERROR;
-        PortQuality stored = storedQuality(level, pos);
-        if (stored == PortQuality.STALE) return PortQuality.STALE;
-        return valid(level,pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        return GuidedOpticalEvidenceSupport.sinkQuality(
+                inputCount(level, pos), driverCount(level, pos),
+                storedQuality(level, pos), valid(level, pos));
     }
 
     @Override
@@ -99,8 +100,8 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level,BlockPos pos,BlockState state,Direction side) {
-        return engineeringPort(state,side).map(port -> new EngineeringPortSnapshot(
-                port,intensity(level,pos),0.0,15.0,quality(level,pos)));
+        return engineeringPort(state,side).map(port ->
+                GuidedOpticalEvidenceSupport.sink(port, intensity(level,pos), quality(level,pos)));
     }
 
     @Override

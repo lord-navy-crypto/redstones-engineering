@@ -315,3 +315,261 @@ session before merging:
 Ordinary PR CI and the latest installation-kit build are **not**
 Minecraft GameTest acceptance. The previously documented 44 failed-test
 reports still require a fresh, deliberately dispatched diagnostic.
+
+## 2026-10-28 instrument visualization: legends and first-action guidance
+
+This update changes the **actual LDLib2 screens** for the Oscilloscope,
+Logic Analyzer and PID workbench rather than adding screenshots or a parallel
+physics model.
+
+- **Color-and-text plot legends:** a shared responsive
+  `RsePlotLegendElement` draws labeled swatches for the same colors
+  used by live capture traces. Oscilloscope identifies CH-A/CH-B, trigger
+  threshold, and both cursors. Logic Analyzer identifies four probe
+  channels and both cursors. PID identifies setpoint (SP), process value
+  (PV), and output (OUT). Labels remain readable without color perception.
+  The legend calculates row wraps from its allocated LDLib2 bounds and
+  never reads the world or changes server behavior.
+- **Oscilloscope first action:** no samples → choose/arm trigger;
+  incomplete/duplicated network → inspect Network; absent channel
+  coverage or cursor slots → inspect probe/cursor evidence; alias
+  status not GOOD for both channels → inspect Sampling before frequency
+  interpretation. GOOD is the actual server ordinal 3, not the default 0.
+- **Logic Analyzer first action:** wait for samples, resolve incomplete
+  network scans and duplicate assignments, inspect valid channel
+  coverage, and require cursor points to exist on the *same channel*.
+  Empty digital sample slots are neither HIGH nor LOW.
+- **PID first action:** distinguish inhibited, missing commissioning inputs,
+  manual mode, no retained AUTO solve, missing trend, and a detected
+  but unready pneumatic plant. Retained trends and terms do not
+  certify present AUTO feedback or plant acceptance.
+- **Regression:** ordinary Build Verification now executes
+  `tools/rse_pr229_instrument_ui_verify.py`, checking actual chart
+  palette-to-legend agreement and the existence of the supported
+  server-evidence navigation branches. Previously established
+  compile/unit/static/clean-build/ZIP gates remain in place.
+
+### Real-client acceptance still outstanding
+
+1. Use `runClient` with 320px/640px/690px scaled workspaces:
+   check text/swatches wrap, chart/legend alignment, scroll and
+   long descriptions on GUI Scale 2, 3 and 4.
+2. Test scope two channels, cursor slots without captured data, sampled
+   valid zero, alias GOOD/MARGINAL/RISK/NOT_READY, and duplicate probes.
+3. Test logic all four digital lanes, empty/invalid slots, short
+   captures, trigger edge and valid-cursor channel matching.
+4. Test PID AUTO/MANUAL/INHIBITED, missing PV, retained history with no
+   current signal, and a detected but unready pneumatic plant.
+5. Repeat with a multiplayer server: data, visibility and readbacks
+   must continue to originate on the server. No automatic change of
+   settings should occur when the help/legend is rendered.
+
+**No in-world GameTest pass or screenshot acceptance is claimed here.**
+
+## 2026-10-28 instrument axes and empty-capture clarity
+
+This changes the real server-backed LDLib2 plot widgets. Existing control
+routes, formulas, physics, sampling and test-kit packaging are unchanged.
+
+- The shared render-only `EngineeringPlot` layer now offers labeled
+  **0..15 signal-level / sample-slot axes**, **digital lane labels** and an
+  explicit **NO CAPTURED SAMPLES / NO RETAINED PID SAMPLES** indication.
+  It does not invent values, fill missing samples, read the world, or send
+  parameter updates.
+- Oscilloscope: the original A/B traces and trigger/cursor markers now sit
+  inside a reserved plot rectangle with **Y = Redstone level 0..15** and
+  **X = display slots 0..15**. The configured sample period in ticks belongs
+  to the server and remains visible on the Sampling page. X values are
+  display positions, **not absolute timestamps**.
+- Logic Analyzer: all four digital lanes are visually identified A/B/C/D
+  and have a synchronized **0..15 slot index** below the chart. HIGH and LOW
+  remain distinct from missing data, and the existing same-channel cursor
+  validity requirement is unchanged.
+- PID: retained SP/PV/OUT traces now use **Y = 0..15** and **X = retained
+  0..31 display slots**, with the existing 2-tick sampling contract explained
+  next to the chart. A retained trace must not be presented as evidence
+  that current commissioning PV is available.
+- Rendering safeguards: plots reserve actual pixel gutters for labels and
+  skip trace drawing on no-capture/no-history state. The plot layer operates
+  only on the allocated UIElement rectangle.
+- The ordinary PR static verifier now asserts these source contracts, real
+  labels/units, missing-capture states, and plot boundaries. Existing
+  Java/Gradle tests and clean build still gate artifact generation.
+
+**Runtime acceptance remains open:** test in Minecraft `runClient` at
+multiple GUI scales, with no sample, a valid zero sample, sparse/gapped
+capture, PID history with invalid current PV, and both cursor markers.
+Graph axes are manually verified only after screenshots and interactions,
+not merely because CI compiles.
+
+## 2026-10-28 hard requirement: all registered blocks
+
+**Scope is the complete current registry, not merely the recently improved
+oscilloscope, PID, and logic analyzer screens.** The registry consists of
+**122 core blocks + 8 EngineeringSystemsModule blocks = 130 blocks.**
+
+### Source-level rollout accomplished
+
+- The shared LDLib2 \`deviceContext(EngineeringDeviceMenu)\` widget now appears
+  in **all 23 registered block-facing UI families**. The actual title remains
+  the block-specific title; the new panel reports the **block location,
+  operational health, formal port role, quality of reported evidence, and
+  RX/TX faces**. These values come from the existing authoritative menu
+  snapshot and do not change the block physics or controls.
+- Before synchronization, HEALTH/ROLE/EVIDENCE/ROUTE remain **NOT READY**;
+  client-side initial slots must never become proof of a valid signal.
+  The strip does not assume that an unreported port implies a broken device.
+- This covers the shared FieldDevice (78-kind taxonomy), shared Universal
+  (23 config-kind families), dedicated scope/PID/logic/signal instruments,
+  Copper, Lapis, Quartz, radio, digital, optical, pneumatic, magnetic,
+  Amethyst, reliability, workcell, operations and industrial buffer menus.
+- All **130** registry records are retained in
+  \`.rse-audit/rse-130-block-hmi-coverage.{json,csv,md}\`. A second CI
+  gate \`tools/rse_130_block_visual_rollout_verify.py\` now binds this
+  130-block inventory to **every registered LDLib2 menu/screen/source
+  component**, instead of counting a few example blocks. It emits
+  \`.rse-audit/rse-130-block-visual-rollout.{json,md}\`.
+- **Intentional exception, not an omission:** \`engineering_compass\`
+  has a server-side non-mutating right-click world-direction/coordinate
+  readout, not a fabricated LDLib2 settings screen. The audit permits
+  this exception only and fails if additional non-GUI blocks appear.
+- The new CI gate fails if a newly registered block lacks an interaction
+  declaration, if a registered UI family loses its common context header,
+  or if a menu/screen stops referencing its expected LDLib2 component.
+  Additional device-specific controls still depend on their real server
+  block type and cannot be mass-invented.
+
+### Acceptance limitations and mandatory in-game checklist
+
+A registered HMI entry plus a verified menu family is **source-level
+coverage only**, not proof that each of the 129 HMI blocks opens correctly
+in Minecraft. Do not call this a fully game-tested 130/130 release.
+
+1. Execute a creative-world walkthrough across all registered block IDs.
+   Record actual GUI entry, device identity, evidence/quality semantics,
+   available controls, and read-only behavior.
+2. Include 320px/620px/740px window layouts; confirm the new common
+   context never occludes tabs, parameter fields, or critical controls.
+3. Repeat shared FieldDevice and Universal families with at least one
+   sample of each concrete kind; test direct-entry bounds, zero,
+   unsigned/signed values, presets and toggles where supported.
+4. Confirm specialized instruments and the eight systems blocks,
+   especially observer-only operations and industrial buffer screens.
+5. Run the nonblocking/manual GameTest suite explicitly and address
+   reported failures. Java/Gradle/CI source verification does not
+   constitute multiplayer or runClient screenshot acceptance.
+
+**Carry this all-registry requirement forward on every UI change.**
+
+## 2026-10-28 full-registry actionable status & compact inspector
+## 2026-10-28 full-registry actionable status & compact inspector
+
+This change is **applied centrally to every one of the 23 block-facing LDLib2 HMI
+families**, rather than just the oscilloscope, logic analyzer and PID examples.
+Together with the 130-block interaction gate this is the current **all-registry
+source coverage**, not an in-game walkthrough pass.
+
+- The compact header now reports the **actual expected block's localized name**,
+  block coordinates, operating health, aggregate port evidence and a live
+  **NEXT CHECK** suggestion derived from synchronized menu status only. Unlike
+  a generic success badge, it does not claim every internal reading is valid.
+- The server-state advice handles unsynchronized health, explicit FAULT,
+  topology failure, domain mismatch, evidence fault, protective operation,
+  degraded state, stale data, saturation, not-ready sampling, no signal,
+  and unobserved port evidence with different explanations. Missing evidence
+  and NO SIGNAL **do not automatically mean the block is broken**.
+- A **Show evidence ▼ / Hide evidence ▲** toggle reveals the detailed role,
+  evidence and formal RX/TX faces plus a reading key. It is **client-local UI
+  state**; expanding/collapsing sends no server action, modifies no parameters,
+  and leaves original device-specific controls intact.
+- This is mounted inside the shared `deviceContext(EngineeringDeviceMenu)`
+  used by every block-facing UI family (and therefore all registered
+  menu-backed blocks). The compass keeps its independent, read-only
+  world-datum coordinate behavior.
+- The strengthened `tools/rse_130_block_visual_rollout_verify.py`
+  hard gate requires the actual context-to-menu linkage across the 23 families,
+  the status prioritization, safe wording, collapsed initial state and
+  client-only toggle. It emits per-block source coverage and per-family
+  capabilities in JSON and Markdown.
+
+### Runtime acceptance remains separate
+
+The audit does **not** prove that all 129 GUI blocks were opened in Minecraft,
+that every screen scale is readable or that multiplayer sync/GameTests passed.
+The next in-game checklist should verify no new header occludes menus at high
+GUI scale, opening/closing detailed evidence does not send packets, and the
+health/quality strings follow real server sync after a state change.
+
+## 2026-10-28 all-block role and quality interpretation
+
+**Mandatory scope:** the full current RSE registry, **130 blocks**
+(122 core, 8 EngineeringSystemsModule). These changes reach all 23
+registered block-facing LDLib2 families by using the existing
+\`RseLdUiComponents.deviceContext(EngineeringDeviceMenu)\` call.
+The passive \`engineering_compass\` intentionally retains its
+non-mutating server-side world-direction/position readout.
+
+The collapsed header still shows authoritative name/location, health,
+aggregate evidence and prioritized next action without covering small
+workbenches. **Show evidence** is still a client-only display toggle.
+Expanding it now adds two deeper, read-only explanations:
+
+- **PORT CONTRACT:** different meanings for SOURCE, SINK, OBSERVER,
+  PASSIVE, explicit JUNCTION and CONTROLLED devices. An observer can
+  correctly omit TX, a source can omit RX and a sink can omit TX.
+  Formally declared receive/transmit faces are **not** tested electrical
+  or physical connectivity; junctions must not invent auto-bridging.
+- **QUALITY MEANING:** eight supported port quality codes have explicit
+  meaning and non-overclaiming warnings. In particular,
+  VALID is not a full device acceptance, NO SIGNAL can be expected,
+  STALE is not a current sample, SATURATED does not extrapolate
+  measurements, and UNOBSERVED does not establish a fault.
+
+Both projections depend only on already synchronized integer DataSlots,
+never new world reads, physics solves or hidden control actions.
+Health is kept distinct from port evidence; an intended protective
+safety state can coexist with valid measurements.
+
+The all-registry CI hard gate now verifies the complete role/quality
+branch coverage and that each of the 23 HMI families mounts the
+server-backed shared panel. It also generates
+\`.rse-audit/rse-130-block-manual-ui-checklist.csv\`: 130 distinct
+per-block rows covering actual opening, identity, health/evidence,
+port contract, expanded panel, original controls, GUI scales,
+multiplayer and GameTests. All execution columns start **NOT_TESTED**
+(or NOT_APPLICABLE where the passive compass has no HMI).
+The checklist is a *test plan*, not a fabricated successful test report.
+
+**Remaining mandatory real-client work:** test all 129 HMI entries
+inside Minecraft (plus the compass actionbar), record screenshot
+and scale observations, verify actual server readback/multiplayer
+behavior and run the manual NeoForge GameTests. Green static, Java,
+unit and packaged build results are not those runtime observations.
+
+
+
+## 2026-10-30 fusion branch — first-round visual baseline retained
+
+The integration branch `fusion/rse-oct28-first-round-full-forwardport-20261030`
+uses commit `d6ee5db74b92750f2c71cce50231d88c4177934d` as its visual baseline. Later engineering changes are
+forward-ported into that tree rather than replacing its visual host/navigation
+architecture.
+
+- All subsequent block, block-entity, domain-network, sampling, optical,
+  pneumatic, quartz, safety, reliability and evidence-model changes are carried
+  forward with their GameTests, source audits, documentation and CI gates.
+- Later read-only HMI content is retained additively: the shared device/evidence
+  context, server-confirmed parameter scales, operator guidance, plot legends,
+  sample-slot axes and explicit empty-capture labels. The shared
+  `tabbedWorkspace` method remains identical to the first-round baseline.
+- The original screen sizing, tab navigation, and scroll implementation remain
+  unchanged. The workspace keeps automatic two-axis scrolling.
+- Diagnostic report/snapshot copy shortcuts are added as keyboard actions only;
+  the first-round tablet and console layout methods are unchanged.
+- The later crisp-backdrop screen replacement and responsive button-row redesign
+  are intentionally not imported. The later `minHeight(0)`/flex viewport rewrite
+  and injected page-end markers are also excluded.
+
+Build and source-level verification do not certify actual Minecraft client
+screenshots, multiplayer synchronization or GameTest runtime acceptance. Those
+remain explicit manual acceptance gates.

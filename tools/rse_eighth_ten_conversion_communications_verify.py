@@ -110,9 +110,14 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/block/DifferentialDataPairBlock.java",
-    "InformationRuntime.snapshot",
+    "CommunicationLineEvidenceSupport.snapshot",
     "DifferentialNetwork.quality",
     "DifferentialNetwork.driverCount",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/CommunicationLineEvidenceSupport.java",
+    "InformationRuntime.snapshot(level, carrier, pos)",
+    "quality == PortQuality.VALID",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/RedstoneCableJunctionBlock.java",

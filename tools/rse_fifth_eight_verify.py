@@ -95,8 +95,7 @@ contracts = {
     "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalReceiverBlock.java": (
         "EngineeringDomain.OPTICAL",
         "EngineeringDomain.REDSTONE",
-        "PortQuality.DOMAIN_MISMATCH",
-        "packet.selector()",
+        "FreeSpaceOpticalChannelSupport.receiveQuality",
         "canConnectRedstone",
         'InformationRuntime.clear(level, "free_optical"',
         "FieldDeviceUi.open",
@@ -120,6 +119,13 @@ contracts = {
 }
 for rel, tokens in contracts.items():
     require(rel, *tokens)
+require(
+    "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalChannelSupport.java",
+    "PortQuality.DOMAIN_MISMATCH",
+    "packet.selector()",
+    "packet.ageTicks() > FRESH_TICKS",
+    "packet.valid() ? PortQuality.VALID : PortQuality.STALE",
+)
 
 radio_tx = read("src/main/java/dev/redstoneengineering/block/RadioTransmitterBlock.java")
 for forbidden in ("PAYLOAD_SIDES", "strongest valid input", "Math.max(best"):

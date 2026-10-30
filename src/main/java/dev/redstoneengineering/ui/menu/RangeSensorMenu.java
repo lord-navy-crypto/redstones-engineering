@@ -104,9 +104,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
             int mode = range == 4 ? 0 : range == 8 ? 1 : range == 15 ? 2 : -1;
             if (mode < 0) return false;
             BlockState next = state.setValue(RangeSensorBlock.RANGE_MODE, mode);
-            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
-            level.updateNeighborsAt(blockPos, sensor);
-            level.scheduleTick(blockPos, sensor, 1);
+            if (!RangeSensorBlock.applyConfiguration(level, blockPos, next)) return false;
             refreshAuthoritativeSnapshot();
             broadcastChanges();
             return true;
@@ -141,9 +139,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         }
 
         if (next == state) return false;
-        level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
-        level.updateNeighborsAt(blockPos, sensor);
-        level.scheduleTick(blockPos, sensor, 1);
+        if (!RangeSensorBlock.applyConfiguration(level, blockPos, next)) return false;
         refreshAuthoritativeSnapshot();
         broadcastChanges();
         return true;

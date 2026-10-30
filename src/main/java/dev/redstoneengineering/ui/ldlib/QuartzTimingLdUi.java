@@ -19,6 +19,7 @@ public final class QuartzTimingLdUi {
         root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(8).gapAll(6));
         root.addChildren(
                 RseLdUiComponents.title(deviceName(menu)),
+                RseLdUiComponents.deviceContext(menu),
                 RseLdUiComponents.tabbedWorkspace(
                         580, 350, 750,
                         new String[]{"Timing", "Configure", "Evidence"},
