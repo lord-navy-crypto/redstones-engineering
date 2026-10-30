@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui.ldlib;
 
 import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
+import dev.redstoneengineering.client.ui.RseCrispGuiBackdrop;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -36,7 +37,7 @@ public abstract class LdlibEngineeringHostScreen<M extends EngineeringDeviceMenu
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        RseCrispGuiBackdrop.render(graphics, width, height);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 }
