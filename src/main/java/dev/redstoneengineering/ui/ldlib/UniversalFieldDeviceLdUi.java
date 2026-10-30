@@ -39,7 +39,10 @@ public final class UniversalFieldDeviceLdUi {
 
     public static ModularUI create(UniversalFieldDeviceMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
+        // The root is a bounded screen column. Permit the flexible workspace
+        // to shrink below its children's intrinsic height so ScrollerView,
+        // rather than the whole root, owns overflow and wheel input.
+        root.layout(l -> l.widthPercent(100).heightPercent(100).minHeight(0).paddingAll(10).gapAll(8));
 
         var overview = page(
                 RseLdUiComponents.operatorGuide(
