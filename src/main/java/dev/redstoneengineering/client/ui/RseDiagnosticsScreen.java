@@ -140,7 +140,7 @@ public final class RseDiagnosticsScreen extends Screen {
         }
 
         renderEntries(graphics);
-        super.render(graphics,mouseX,mouseY,partialTick);
+        super.render(graphics, mouseX, mouseY, partialTick);
     }
 
     private void renderEntries(GuiGraphics graphics) {
