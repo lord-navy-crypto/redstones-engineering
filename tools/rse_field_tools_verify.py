@@ -76,7 +76,7 @@ require(
     "ENGINEERING DIAGNOSTIC TABLET", "OBSERVER ONLY", "RseDiagnosticsScreen",
     "Snapshot ", "chronologyCue(history)", 'return "NEWEST";', 'return "CROSS-DIMENSION";',
     '"Δt=" + delta + " ticks"', "history.get(0)", "SnapshotContext", "Long.parseLong(tickText)",
-    'Component.literal("<")', 'Component.literal(">")', "Copy Snapshot", "refreshHistoryButtons", "page = Math.max(0, page - 1)",
+    'Component.literal("<")', 'Component.literal(">")', 'Component.literal("Copy")', "copySnapshot()", "refreshHistoryButtons", "page = Math.max(0, page - 1)",
     "page = Math.min(Math.max(0, menu.history().size() - 1), page + 1)",
     "newerButton.active = !menu.history().isEmpty() && page > 0",
     "olderButton.active = !menu.history().isEmpty() && page < lastPage",
