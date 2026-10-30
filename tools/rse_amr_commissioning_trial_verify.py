@@ -149,9 +149,9 @@ for token in (
         errors.append(f"DiagnosticTabletItem missing AMR trial token {token!r}")
 
 for token in (
-    "imageWidth = Math.max(1, Math.min(MAX_WIDTH, width - 20))",
+    "imageWidth = 620;", "MIN_WIDTH = 420",
     "MAX_WIDTH = 720",
-    "imageHeight = Math.max(1, Math.min(MAX_HEIGHT, height - 20))",
+    "imageHeight = 390;", "MIN_HEIGHT = 300",
     "MAX_HEIGHT = 460",
     "public boolean mouseScrolled",
     "graphics.enableScissor",
@@ -160,7 +160,7 @@ for token in (
     "OBSERVER ONLY • retained block + AMR evidence",
 ):
     if token not in screen:
-        errors.append(f"DiagnosticTabletScreen missing responsive AMR evidence token {token!r}")
+        errors.append(f"DiagnosticTabletScreen missing first-round AMR evidence/layout token {token!r}")
 
 if "dev.redstoneengineering.robotics" in screen:
     errors.append("DiagnosticTabletScreen must not import/run robotics simulation classes")
@@ -214,5 +214,5 @@ print(" COMPLETE/FAULT finished-run evidence: PASS")
 print(" same-robot + same-start/target comparison scope: PASS")
 print(" safety/localization evidence outranks speed: PASS")
 print(" Diagnostic Tablet entity interaction contract: PASS")
-print(" responsive retained AMR evidence workspace: PASS")
+print(" first-round retained AMR evidence workspace: PASS")
 print(" client/no-second-robotics-solver boundary: PASS")
