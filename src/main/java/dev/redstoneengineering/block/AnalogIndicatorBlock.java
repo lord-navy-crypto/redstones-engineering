@@ -176,6 +176,7 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
                 InputObservation observation = inputObservation(level, pos, state);
                 player.displayClientMessage(Component.literal(
                         "Analog Process Indicator = " + state.getValue(LEVEL) + "/15"

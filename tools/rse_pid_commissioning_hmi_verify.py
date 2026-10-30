@@ -6,7 +6,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 BLOCK = ROOT / "src/main/java/dev/redstoneengineering/block/PidControllerBlock.java"
 MENU = ROOT / "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java"
-SCREEN = ROOT / "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java"
+SCREEN = ROOT / "src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java"
 
 errors = []
 
@@ -47,14 +47,14 @@ for needle in (
     req(menu, needle, "PidControllerMenu.java")
 
 for needle in (
-    'Component.literal("Capture acceptance")',
-    'Component.literal("Reset runtime + trend")',
-    "PidControllerMenu.BUTTON_CAPTURE_ACCEPTANCE",
-    "PidControllerMenu.BUTTON_RESET_RUNTIME_TREND",
-    '"Compared with previous: " + trend.name()',
+    '"Capture acceptance"',
+    '"Reset runtime + trend"',
+    "m::captureAcceptance",
+    "m::resetRuntimeTrend",
+    '"Compared with previous: "+m.comparisonTrend().name()',
     '"Baseline capture established; capture again after a change to compare."',
 ):
-    req(screen, needle, "PidControllerScreen.java")
+    req(screen, needle, "PidControllerLdUi.java")
 
 # HMI must not duplicate the low-level commissioning mutations.
 for forbidden in (

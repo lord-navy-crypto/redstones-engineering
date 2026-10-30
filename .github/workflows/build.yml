@@ -41,6 +41,30 @@ jobs:
             tools/rse_redstone_verify.py \
             tools/rse_full_audit.py \
             tools/rse_122_block_total_audit.py \
+            tools/rse_130_block_hmi_coverage.py \
+            tools/rse_130_block_visual_rollout_verify.py \
+            tools/rse_130_block_slimming_audit.py \
+            tools/rse_46_shared_code_rollout_verify.py \
+            tools/rse_range_config_safety_verify.py \
+            tools/rse_meter_observer_neutrality_verify.py \
+            tools/rse_free_space_optics_freshness_verify.py \
+            tools/rse_digital_endpoint_fail_closed_verify.py \
+            tools/rse_amethyst_frequency_integrity_verify.py \
+            tools/rse_final_ten_integrity_verify.py \
+            tools/rse_differential_receiver_safety_verify.py \
+            tools/rse_quartz_sampling_upgrade_verify.py \
+            tools/rse_filter_range_sampling_upgrade_verify.py \
+            tools/rse_safety_communication_upgrade_verify.py \
+            tools/rse_130_block_full_source_review_bundle.py \
+            tools/rse_14_block_commissioning_verify.py \
+            tools/rse_pr229_snapshot_truth_verify.py \
+            tools/rse_pr229_visual_workflow_verify.py \
+            tools/rse_observable_parameter_scale_verify.py \
+            tools/rse_crisp_gui_diagnostics_verify.py \
+            tools/rse_pr229_instrument_ui_verify.py \
+            tools/test_rse_install_preflight.py \
+            tools/test_rse_install_kit.py \
+            tools/rse_bounded_gametest_log_verify.py \
             tools/rse_122_block_closure_verify.py \
             tools/rse_neighbor_update_audit.py \
             tools/rse_interconnect_refactor_verify.py \
@@ -118,6 +142,7 @@ jobs:
             tools/rse_copper_hmi_verify.py \
             tools/rse_media_conversion_hmi_verify.py \
             tools/rse_field_tools_verify.py \
+            tools/rse_signal_processor_hmi_verify.py \
             tools/rse_system_level_closure_phase1_verify.py \
             tools/rse_system_level_closure_phase2_verify.py \
             tools/rse_physics_parameter_profile_verify.py \
@@ -155,39 +180,57 @@ jobs:
       - name: Gradle tests
         run: ./gradlew test --no-daemon --stacktrace
 
+      # GameTest diagnostic output is bounded on disk and in CI: retain startup,
+      # significant evidence lines and the recent tail, not unbounded Gradle spam.
+      # The capture command streams stdout fully, while preserving timeout's PIPESTATUS.
       # GameTests are retained as explicit runtime evidence, but are no longer a normal PR/push gate.
       # They have historically been expensive and can fail independently of the static/compile/unit chain.
       # Run them deliberately from workflow_dispatch when runtime-topology evidence is wanted.
       - name: Minecraft topology GameTests (manual diagnostic)
         if: github.event_name == 'workflow_dispatch'
-        continue-on-error: true
         shell: bash
         run: |
           set -uo pipefail
           mkdir -p .rse-audit
-          timeout --signal=TERM 8m ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | tee .rse-audit/gametest-server.log
-          gametest_status=${PIPESTATUS[0]}
+          timeout --signal=TERM 8m ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | python3 tools/rse_bounded_gametest_log.py .rse-audit/gametest-server.log
+          statuses=("${PIPESTATUS[@]}")
+          gametest_status=${statuses[0]}
+          capture_status=${statuses[1]}
+          # Extraction runs even when the server timed out or produced failures.
+          python3 tools/rse_gametest_failure_triage.py .rse-audit/gametest-server.log .rse-audit/gametest-triage.md || true
+          if (( capture_status != 0 )); then
+            echo "::error::GameTest bounded log collector failed: $capture_status"
+            exit 1
+          fi
           if (( gametest_status == 124 )); then
-            echo "::warning::GameTest server exceeded the 8-minute diagnostic window"
+            echo "::error::GameTest server exceeded the 8-minute diagnostic window"
+            exit 1
           elif (( gametest_status != 0 )); then
-            echo "::warning::GameTest server exited non-zero: $gametest_status"
+            echo "::error::GameTest server exited non-zero: $gametest_status"
+            exit 1
           elif grep -Fq "Too many chained neighbor updates" .rse-audit/gametest-server.log; then
-            echo "::warning::GameTest server triggered the chained-neighbor-update safety cutoff"
+            echo "::error::GameTest server triggered the chained-neighbor-update safety cutoff"
+            exit 1
+          elif grep -Eq 'LogTestReporter.* failed ' .rse-audit/gametest-server.log; then
+            echo "::error::GameTest reports test failures; see gametest-triage.md artifact"
+            exit 1
           else
             summary_line="$(grep -E 'All [0-9]+ required tests passed :\)' .rse-audit/gametest-server.log | tail -n 1 || true)"
             if [[ -n "$summary_line" ]]; then
-              echo "GameTest diagnostic evidence: $summary_line"
+              echo "GameTest runtime acceptance evidence: $summary_line"
             else
-              echo "::warning::GameTest diagnostic completed without an all-tests-passed summary"
+              echo "::error::GameTest diagnostic has no all-required-tests-passed summary"
+              exit 1
             fi
           fi
-          exit 0
       - name: Upload GameTest runtime log
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: rse-gametest-runtime-${{ github.sha }}
-          path: .rse-audit/gametest-server.log
+          path: |
+            .rse-audit/gametest-server.log
+            .rse-audit/gametest-triage.md
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
@@ -207,5 +250,38 @@ jobs:
           path: |
             build/libs/*.jar
             build/libs/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      # Assemble the actual JAR produced by THIS clean build, never a cached
+      # or manually copied file. PR 'github.sha' is usually a test-merge commit;
+      # preserve both that checkout SHA and the PR branch HEAD in BUILD_INFO.
+      - name: Build provenance-verified offline installation kit
+        shell: bash
+        env:
+          RSE_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RSE_BUILD_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'redstoneengineering-*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | sort)
+          if (( ${#jars[@]} != 1 )); then
+            echo "::error::Expected exactly one built RSE runtime JAR, found ${#jars[@]}"
+            exit 1
+          fi
+          python3 tools/rse_install_kit.py \
+            --jar "${jars[0]}" \
+            --out build/install-kit \
+            --source-head "$RSE_SOURCE_HEAD_SHA" \
+            --checkout-sha "$RSE_BUILD_CHECKOUT_SHA"
+          (cd build/install-kit && sha256sum *.zip > SHA256SUMS-kit.txt && sha256sum -c SHA256SUMS-kit.txt)
+          unzip -t build/install-kit/*.zip
+
+      - name: Upload verified RSE installation kit
+        uses: actions/upload-artifact@v6
+        with:
+          name: rse-install-kit-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            build/install-kit/*.zip
+            build/install-kit/SHA256SUMS-kit.txt
           if-no-files-found: error
           retention-days: 14

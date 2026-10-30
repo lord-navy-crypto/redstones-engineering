@@ -61,12 +61,12 @@ check_file(
     ],
 )
 check_file(
-    "src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java",
     [
         "NON-INVASIVE",
         "TAP",
         "INLINE",
-        "Calibration",
+        "CALIBRATION",
         "stableAgeTicks",
     ],
 )

@@ -324,7 +324,7 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        RseCrispGuiBackdrop.render(graphics, width, height);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
     }

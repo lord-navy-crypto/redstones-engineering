@@ -153,6 +153,7 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
         if (!level.isClientSide) {
             if (player.isShiftKeyDown() && hit.getDirection() == Direction.UP
                     && player instanceof ServerPlayer serverPlayer) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
                 return InteractionResult.sidedSuccess(false);
             }

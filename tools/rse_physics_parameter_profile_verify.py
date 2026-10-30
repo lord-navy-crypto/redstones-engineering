@@ -15,7 +15,7 @@ def read(rel):
 profile = read("src/main/java/dev/redstoneengineering/physics/EngineeringParameterProfile.java")
 lapis = read("src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java")
 lapis_menu = read("src/main/java/dev/redstoneengineering/ui/menu/LapisLowPassMenu.java")
-lapis_screen = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
+lapis_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/LapisLowPassLdUi.java")
 quartz = read("src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java")
 
 for token in (

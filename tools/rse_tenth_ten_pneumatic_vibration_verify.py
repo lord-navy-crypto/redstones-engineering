@@ -36,15 +36,14 @@ require(
     "pressure.quality()",
 )
 require(
-    "src/main/java/dev/redstoneengineering/block/PneumaticValveBlock.java",
-    "PneumaticObservationSupport.observe",
-    "observation.quality()",
+    "src/main/java/dev/redstoneengineering/block/PneumaticValveSupport.java",
+    "PneumaticObservationSupport.observe", "observation.quality()",
+    "new EngineeringPortSnapshot", "PneumaticNetwork.recomputeAround",
 )
-require(
-    "src/main/java/dev/redstoneengineering/block/PneumaticCheckValveBlock.java",
-    "PneumaticObservationSupport.observe",
-    "observation.quality()",
-)
+require("src/main/java/dev/redstoneengineering/block/PneumaticValveBlock.java",
+        "PneumaticValveSupport.snapshot", "PortDirection.BIDIRECTIONAL")
+require("src/main/java/dev/redstoneengineering/block/PneumaticCheckValveBlock.java",
+        "PneumaticValveSupport.snapshot", "PortDirection.INPUT", "PortDirection.OUTPUT")
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticFlowMeterBlock.java",
     "RuntimeIntStore.peek",
@@ -54,16 +53,13 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
-    "RedstoneObservationSupport.observe",
-    "PneumaticObservationSupport.observe",
+    "RedstoneObservationSupport.observe", "PneumaticValveSupport.snapshot",
     "commandObservation",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java",
-    "diagnosticsSnapshot",
-    "mutableDiagnostics",
-    "RuntimeIntStore.peek",
-    "PneumaticObservationSupport.observe",
+    "diagnosticsSnapshot", "mutableDiagnostics", "RuntimeIntStore.peek",
+    "PneumaticValveSupport.snapshot", "recordVent",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java",
@@ -77,10 +73,13 @@ require(
     "snapshot.selector()",
 )
 require(
+    "src/main/java/dev/redstoneengineering/block/ExciterDriveSupport.java",
+    "RedstoneObservationSupport.observe", "drive.quality()", "PortQuality.NO_SIGNAL",
+)
+require(
     "src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
-    "RedstoneObservationSupport.observe",
-    "driveObservation",
-    "drive.quality()",
+    "ExciterDriveSupport.observation", "ExciterDriveSupport.snapshot",
+    "driveObservation", "VibrationNetwork.propagate",
 )
 
 runtime_tests = "src/main/java/dev/redstoneengineering/gametest/RseTenthTenDesignBugGameTests.java"
@@ -113,13 +112,13 @@ if workflow and "tools/rse_tenth_ten_pneumatic_vibration_verify.py" not in workf
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
     if workflow and token not in workflow:
-        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+        errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE tenth-ten pneumatic/vibration verification: FAIL")
@@ -133,4 +132,4 @@ print("  pneumatic solved-zero evidence propagation: PASS")
 print("  flow/relief/cylinder diagnostics neutrality: PASS")
 print("  proportional-valve and exciter redstone source evidence: PASS")
 print("  vibration sampling observer neutrality: PASS")
-print("  registered tenth-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered tenth-ten GameTests: 10 (manual acceptance / failures reported)")

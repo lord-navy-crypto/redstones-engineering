@@ -17,6 +17,7 @@ def ban(body, token, label):
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/MediaConversionMenu.java")
 screen = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
+ld_ui = read("src/main/java/dev/redstoneengineering/ui/ldlib/MediaConversionLdUi.java")
 reg = read("src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java")
 client = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 openers = read("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java")
@@ -25,10 +26,11 @@ quantizer = read("src/main/java/dev/redstoneengineering/block/LapisToRedstoneQua
 
 for token in ["EngineeringPortProvider", "engineeringSnapshot", "CoreMediaDiagnostics.sourceCodeSpacing", "CoreMediaDiagnostics.lapisReconstructedFromRedstone", "CoreMediaDiagnostics.quantizationError", "commissioningStatus.set"]:
     need(menu, token, "menu")
-for token in ["REDSTONE → LAPIS SCALER", "LAPIS → REDSTONE QUANTIZER", "UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION", "Quantization loss", "SERVER-SYNCHRONIZED OBSERVER", "commissioningStatus()"]:
-    need(screen, token, "screen")
+need(screen, "extends LdlibEngineeringHostScreen<MediaConversionMenu>", "screen host")
+for token in ["REDSTONE → LAPIS SCALER", "LAPIS → REDSTONE QUANTIZER", "UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION", "Quantization loss", "SERVER-SYNCHRONIZED OBSERVER", "commissioningStatus()", "Cycle RX ▶", "Cycle TX ▶", "RseLdUiComponents.authorityFooter()"]:
+    need(ld_ui, token, "LDLib2 HMI")
 for token in ["RedstoneObservationSupport", "PrecisionObservationSupport", "DomainNetwork.", "CoreMediaDiagnostics."]:
-    ban(screen, token, "client isolation")
+    ban(ld_ui, token, "client isolation")
 need(reg, "MEDIA_CONVERSION", "registration")
 need(client, "MediaConversionScreen::new", "client registration")
 need(openers, "new MediaConversionMenu", "opener")

@@ -57,9 +57,8 @@ public class AmethystResonatorBlock extends DomainBlock implements EngineeringPo
     @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int amplitude = isActive(level, pos) ? state.getValue(AMPLITUDE) : 0;
-        return Optional.of(new EngineeringPortSnapshot(port.get(), amplitude, 0.0, 15.0,
-                amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        return Optional.of(AmethystFrequencySupport.sourcePort(
+                port.get(), state.getValue(AMPLITUDE), isActive(level, pos)));
     }
 
     public static boolean isActive(Level level, BlockPos pos) {

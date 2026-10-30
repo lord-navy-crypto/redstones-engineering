@@ -34,11 +34,15 @@ magnetic_system_tests = text("gametest/RseMagneticMeasurementSystemGameTests.jav
 # 21-23: optical medium/source/sink identities and terminal opacity.
 for token in ("DRIVER_COUNT", "PortQuality.TOPOLOGY_ERROR", "RuntimeIntStore.peek"):
     require(token in fiber, f"Optical Fiber source-conflict evidence missing {token}")
-require("PortQuality.VALID" in emitter and "configured zero-intensity source" in emitter,
+require("GuidedOpticalEvidenceSupport.source(" in emitter
+        and "configured zero-intensity source" in emitter
+        and "PortQuality.VALID" in text("block/GuidedOpticalEvidenceSupport.java"),
         "Optical Emitter must distinguish valid source configuration from downstream dark carrier")
 require("recomputeOpticalAround" in receiver and "recomputeOptical(serverLevel,pos)" not in receiver,
         "Optical Receiver must recompute adjacent components, never seed transparent traversal")
-require("PHYSICAL_INPUTS" in receiver and "inputCount" in receiver and "PortQuality.TOPOLOGY_ERROR" in receiver,
+require("PHYSICAL_INPUTS" in receiver and "inputCount" in receiver
+        and "GuidedOpticalEvidenceSupport.sinkQuality(" in receiver
+        and "PortQuality.TOPOLOGY_ERROR" in text("block/GuidedOpticalEvidenceSupport.java"),
         "Optical Receiver must expose multi-feed terminal conflict")
 
 # Shared graph bug: sinks are opaque even when they happen to be the traversal start.

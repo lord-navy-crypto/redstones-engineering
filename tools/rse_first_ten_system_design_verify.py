@@ -70,8 +70,13 @@ require(
     "src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
     "engineeringSnapshot",
     "InstrumentNetwork.scan(level, pos)",
+    "InstrumentCableEvidenceSupport.snapshot(",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/InstrumentCableEvidenceSupport.java",
     "validChannelsInMask(0xF)",
     "qualityForMask(0xF)",
+    "PortQuality.STALE",
 )
 
 require(
@@ -161,13 +166,13 @@ if workflow and "tools/rse_first_ten_system_design_verify.py" not in workflow:
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
     if workflow and token not in workflow:
-        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+        errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseFirstEightAcceptanceGameTests.java",
@@ -198,5 +203,5 @@ print(" zero measurement vs NO_SIGNAL distinction: PASS")
 print(" conditioning/calibration/filter responsibility split: PASS")
 print(" sample/edge transient chronology evidence: PASS")
 print(" observer-neutral runtime diagnostics: PASS")
-print(" registered design-contract GameTests: 5 (manual diagnostic / non-blocking)")
+print(" registered design-contract GameTests: 5 (manual acceptance / failures reported)")
 print(" fixed-content 127-block direction retained: PASS")

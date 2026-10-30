@@ -57,9 +57,10 @@ checks = {
         "tools/rse_event_intelligence_verify.py",
         "Minecraft topology GameTests (manual diagnostic)",
         "github.event_name == 'workflow_dispatch'",
-        "continue-on-error: true",
         "runGameTestServer",
-        "GameTest diagnostic evidence",
+        "GameTest runtime acceptance evidence",
+        "::error::GameTest",
+        "tools/rse_gametest_failure_triage.py",
     ],
 }
 
@@ -87,4 +88,4 @@ if errors:
     sys.exit(1)
 
 print("RSE system event intelligence verification: PASS")
-print(" GameTest runtime evidence policy: manual diagnostic / non-blocking")
+print(" GameTest runtime evidence policy: manual-only, failures must remain visible as failures")

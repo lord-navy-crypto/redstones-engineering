@@ -29,7 +29,15 @@ require("src/main/java/dev/redstoneengineering/physics/PneumaticObservationSuppo
 require("src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java","RedstoneObservationSupport.observe","PneumaticObservationSupport.observe","commandObservation")
 require("src/main/java/dev/redstoneengineering/block/PneumaticPipeBlock.java","PneumaticObservationSupport.observe","observation.quality()")
 require("src/main/java/dev/redstoneengineering/block/AirReservoirBlock.java",'InformationRuntime.snapshot(level, "air_reservoir", pos)',"PneumaticObservationSupport.observe","Observer-only stored pressure readback","stored + 5","stored - 1")
-require("src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java","PneumaticObservationSupport.observe","setpointPressure","observation.quality()")
+regulator = read("src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java")
+shared_valve = read("src/main/java/dev/redstoneengineering/block/PneumaticValveSupport.java")
+if "setpointPressure" not in regulator:
+    errors.append("Pressure Regulator must retain its own setpoint pressure law")
+if not (("PneumaticObservationSupport.observe" in regulator and "observation.quality()" in regulator)
+        or ("PneumaticValveSupport.snapshot(level, pos, side, port.get())" in regulator
+            and "PneumaticObservationSupport.observe" in shared_valve
+            and "observation.quality()" in shared_valve)):
+    errors.append("Pressure Regulator must retain observed pressure quality, inline or shared")
 
 # Actuator deepening: authoritative solve retains the winning supply path and decomposes
 # pressure loss into one-unit-per-edge line loss versus additional regulation/restriction loss.
@@ -45,7 +53,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
         "PneumaticNetwork.actuatorPathEvidence", "cylinderSupply", "cylinderPathEdges",
         "cylinderObservedLoss", "cylinderLineLoss", "cylinderRestrictionLoss",
         "cylinderResponsePeriod", "cylinderRemainingTicks")
-require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
         "Supply / cylinder P", "Path loss", "Response / remaining",
         "RESTRICTION / REGULATION LOSS DOMINANT", "DISTRIBUTION PATH LOSS DOMINANT",
         "LOW SUPPLY PRESSURE", "DOWNSTREAM PRESSURE STARVATION",
@@ -55,7 +63,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.j
         "PARTIAL COMMANDED RESTRICTION", "Local ΔP")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java")
 for forbidden in ("PneumaticNetwork.collect(", "PneumaticNetwork.localLimit(", "PneumaticNetwork.permits("):
     if forbidden in menu or forbidden in screen:
         errors.append(f"pneumatic HMI must not run a second pressure-path solve; found {forbidden!r}")
@@ -75,8 +83,8 @@ require("src/main/java/dev/redstoneengineering/gametest/RseEighthEightAcceptance
 
 workflow=read(".github/workflows/build.yml")
 if workflow and "tools/rse_ninth_ten_control_pneumatic_verify.py" not in workflow:errors.append("workflow does not gate the ninth-ten verifier")
-for token in ("Minecraft topology GameTests (manual diagnostic)","github.event_name == 'workflow_dispatch'","continue-on-error: true","./gradlew runGameTestServer","./gradlew compileJava","./gradlew test"):
-    if workflow and token not in workflow:errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+for token in ("Minecraft topology GameTests (manual diagnostic)","github.event_name == 'workflow_dispatch'","GameTest runtime acceptance evidence","./gradlew runGameTestServer","./gradlew compileJava","./gradlew test"):
+    if workflow and token not in workflow:errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE ninth-ten control/pneumatic verification: FAIL")
@@ -96,4 +104,4 @@ print("  solver-retained supply/path/restriction diagnostics: PASS")
 print("  reservoir finite-rate recovery diagnosis: PASS")
 print("  proportional-valve local restriction diagnosis: PASS")
 print("  pneumatic HMI observer/no-second-solver boundary: PASS")
-print("  registered ninth-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered ninth-ten GameTests: 10 (manual acceptance / failures reported)")

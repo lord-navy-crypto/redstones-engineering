@@ -14,11 +14,12 @@ def read(rel):
 
 block = read("src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/SignalAnalyzerLdUi.java")
 record = read("src/main/java/dev/redstoneengineering/diagnostics/SignalCalibrationTrialRecord.java")
 comparison = read("src/main/java/dev/redstoneengineering/diagnostics/SignalCalibrationTrialComparison.java")
 store = read("src/main/java/dev/redstoneengineering/diagnostics/SignalCalibrationTrialStore.java")
 gametest = read("src/main/java/dev/redstoneengineering/gametest/RseSignalCalibrationTrialGameTests.java")
+registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 runtime = read("src/main/java/dev/redstoneengineering/physics/RuntimeIntStore.java")
 
 for token in (
@@ -124,20 +125,46 @@ for token in (
 
 for token in (
     "PIONEER WORKFLOW • INTERNAL REFERENCE CALIBRATION TRIAL",
-    "e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref",
-    "Reference −",
-    "Reference +",
+    "e_ref needs per-sample calibrated history",
+    '"x_ref","0..15 • direct entry"',
     "Trial baseline",
     "Trial candidate",
     "Clear trial",
     "measurement coverage=",
     "Internal RSE reference comparison only; this does not establish external metrological traceability.",
+    "RseLdUiComponents.authorityFooter()",
 ):
     if token not in screen:
-        errors.append(f"SignalAnalyzerScreen missing Wave-12 HMI token {token!r}")
+        errors.append(f"SignalAnalyzerLdUi missing Wave-12 HMI token {token!r}")
+
+for token in (
+    "BUTTON_REFERENCE_DIRECT_BASE",
+    "setReferenceFromUi",
+    "captureTrialBaseline",
+    "captureTrialCandidate",
+    "clearTrial",
+):
+    if token not in menu:
+        errors.append(f"SignalAnalyzerMenu missing Wave-12 LDLib2 intent token {token!r}")
+
+# Evidence must stay visible and reject invalid or stale measurement substitution.
+for token in (
+    "historyEvidencePanel(m)",
+    "SERVER RETAINED HISTORY",
+    "m.totalSamples()",
+    "m.modeSwitches()",
+    "m.calibrationSwitches()",
+    "m.referenceSwitches()",
+    "m.sampleAgeTicks()>=0 && m.sampleAgeTicks()<=4",
+    "NO SIGNAL • measurement unverified",
+    "NOT READY • valid raw input required",
+    "per-sample calibrated history",
+):
+    if token not in screen:
+        errors.append(f"SignalAnalyzerLdUi missing synchronized history/freshness token {token!r}")
 
 if "dev.redstoneengineering.physics" in screen:
-    errors.append("SignalAnalyzerScreen must remain presentation-only")
+    errors.append("SignalAnalyzerLdUi must remain presentation-only")
 
 for token in (
     "lowerReferenceErrorIsImproved",
@@ -147,6 +174,31 @@ for token in (
 ):
     if token not in gametest:
         errors.append(f"Signal calibration GameTest missing {token!r}")
+
+# Re-entering a value must not invent a calibration event.
+def method_body(source, signature):
+    begin = source.find(signature)
+    if begin < 0:
+        errors.append(f"SignalAnalyzerBlock missing {signature}")
+        return ""
+    end = source.find("\n    }", begin)
+    if end < 0:
+        errors.append(f"Unterminated SignalAnalyzerBlock method: {signature}")
+        return ""
+    return source[begin:end]
+
+for signature, guard, counter in (
+    ("public static boolean setCalibrationOffset(", "if (state.getValue(CALIBRATION) == offset + 2) return true;", "RUNTIME_SIZE)[15]++"),
+    ("public static boolean setReference(", "if (state.getValue(REFERENCE) == reference) return true;", "RUNTIME_SIZE)[16]++"),
+):
+    method = method_body(block, signature)
+    if guard not in method or counter not in method or method.find(guard) > method.find(counter):
+        errors.append(f"Analyzer {signature} must guard repeat submissions before counting evidence")
+
+if "event.register(RseSignalCalibrationTrialGameTests.class);" not in registration:
+    errors.append("Calibration trial GameTests exist but are not registered with NeoForge")
+if "directEntryIsBoundedAndCountsActualChangesOnly" not in gametest:
+    errors.append("Missing runtime calibration/reference idempotency GameTest")
 
 # Independent policy sanity: error-to-reference outranks clipping/noise; changed conditions are incomparable.
 def classify(comparable, error_delta, clip_delta, span_delta, step_delta):
