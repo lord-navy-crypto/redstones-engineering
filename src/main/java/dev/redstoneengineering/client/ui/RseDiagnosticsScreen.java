@@ -132,7 +132,7 @@ public final class RseDiagnosticsScreen extends Screen {
                 +"  •  WARN "+warnCount+"  •  ERROR "+errorCount;
         graphics.drawString(font,truncateToWidth(counts,width-36),18,43,MUTED,false);
 
-        graphics.drawString(font,"OBSERVER ONLY • SESSION LOCAL",23,64,GOOD,false);
+        graphics.drawString(font,"OBSERVER ONLY",23,64,GOOD,false);
         String view="VIEW "+filter.label;
         graphics.drawString(font,view,width-font.width(view)-23,64,INFO,false);
         if(!feedback.isEmpty()) {
