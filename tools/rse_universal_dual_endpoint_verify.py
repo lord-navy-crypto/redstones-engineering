@@ -49,8 +49,10 @@ require(
     "UniversalFieldDeviceMenu.BUTTON_INPUT_LEFT", "UniversalFieldDeviceMenu.BUTTON_INPUT_RIGHT",
     "UniversalFieldDeviceMenu.BUTTON_OUTPUT_LEFT", "UniversalFieldDeviceMenu.BUTTON_OUTPUT_RIGHT",
     "universal.hasInputEndpoint()", "universal.hasOutputEndpoint()",
-    'Component.literal("RX ▲")', 'Component.literal("RX ▼")',
-    'Component.literal("TX ▲")', 'Component.literal("TX ▼")',
+    'Component.literal("Cycle RX ▶")',
+    'Component.literal("Cycle TX ▶")',
+    "One-button RX control",
+    "One-button TX control",
 )
 
 # Remaining generic directional processors should still prefer Universal before the legacy field HMI.
@@ -99,7 +101,7 @@ if errors:
 
 print("RSE UNIVERSAL DUAL-ENDPOINT VERIFY: PASS")
 print(" port-driven Universal RX/TX authority: PASS")
-print(" shared Route RX/TX endpoint wiring: PASS")
+print(" shared Route one-button RX/TX endpoint wiring: PASS")
 print(" multi-port rigid-layout collision guard: PASS")
 print(" legacy FieldDevice endpoint-aware fallback: PASS")
 print(" explicit INPUT_FACING/FACING physical contract preserved: PASS")

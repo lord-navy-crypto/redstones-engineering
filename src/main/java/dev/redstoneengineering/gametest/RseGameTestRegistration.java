@@ -22,6 +22,7 @@ public final class RseGameTestRegistration {
         event.register(RseAcceptanceGameTests.class);
         event.register(RseFunctionalCorrectnessGameTests.class);
         event.register(RseEngineeringUiGameTests.class);
+        event.register(RseSignalCalibrationTrialGameTests.class);
         event.register(RseOperationsTimelineGameTests.class);
         event.register(RseOperationsIncidentGameTests.class);
         event.register(RseElectricalReliabilityGameTests.class);
@@ -80,6 +81,8 @@ public final class RseGameTestRegistration {
         event.register(RseRedstoneCableNetworkBudgetSystemGameTests.class);
         event.register(RseAmethystNetworkBudgetSystemGameTests.class);
         event.register(RseAmethystProcessorBudgetSystemGameTests.class);
+        event.register(RseAmethystFrequencyIntegrityGameTests.class);
+        event.register(RseFinalTenIntegrityGameTests.class);
         event.register(RseCopperNetworkBudgetSystemGameTests.class);
         event.register(RseDataBusNetworkBudgetSystemGameTests.class);
         event.register(RseSerialNetworkBudgetSystemGameTests.class);
@@ -87,12 +90,20 @@ public final class RseGameTestRegistration {
         event.register(RsePneumaticNetworkBudgetSystemGameTests.class);
         event.register(RseCopperFuseBudgetSystemGameTests.class);
         event.register(RseFreeSpaceOpticsCoverageSystemGameTests.class);
+        event.register(RseFreeSpaceOpticalFreshnessGameTests.class);
+        event.register(RseDigitalEndpointWatchdogGameTests.class);
+        event.register(RseDifferentialReceiverSafetyGameTests.class);
         event.register(RseMagneticCoverageSystemGameTests.class);
         event.register(RseDomainNetworkCoverageSystemGameTests.class);
         event.register(RseDomainDriverLifecycleSystemGameTests.class);
         event.register(RseQuartzLabConfigurationLifecycleSystemGameTests.class);
+        event.register(RseQuartzSamplingUpgradeGameTests.class);
+        event.register(RseFilterRangeSamplingUpgradeGameTests.class);
+        event.register(RseSafetyCommunicationUpgradeGameTests.class);
         event.register(RseCopperConfigurationLifecycleSystemGameTests.class);
         event.register(RseRangeSensorEvidenceGameTests.class);
+        event.register(RseRangeReconfigurationGameTests.class);
+        event.register(RseMeterObserverNeutralityGameTests.class);
         event.register(RseLogicAnalyzerEvidenceGameTests.class);
         event.register(RseDiscreteTransportEvidenceGameTests.class);
         event.register(RsePioneerWave14GameTests.class);

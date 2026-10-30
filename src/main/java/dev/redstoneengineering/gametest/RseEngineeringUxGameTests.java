@@ -18,7 +18,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -74,33 +73,33 @@ public final class RseEngineeringUxGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
     public static void topologyRoleProjectionUsesFormalPortContract(GameTestHelper helper) {
-        Block source = new TestPortBlock(List.of(
+        List<EngineeringPort> source = List.of(
                 port("OUT", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.OUTPUT)
-        ));
-        Block sink = new TestPortBlock(List.of(
+        );
+        List<EngineeringPort> sink = List.of(
                 port("IN", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.INPUT)
-        ));
-        Block series = new TestPortBlock(List.of(
+        );
+        List<EngineeringPort> series = List.of(
                 port("IN", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.INPUT),
                 port("OUT", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.OUTPUT)
-        ));
-        Block observer = new TestPortBlock(List.of(
+        );
+        List<EngineeringPort> observer = List.of(
                 measurementPort("TAP", Direction.NORTH)
-        ));
-        Block passiveSeries = new TestPortBlock(List.of(
+        );
+        List<EngineeringPort> passiveSeries = List.of(
                 port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
                 port("B", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
-        ));
-        Block passiveBus = new TestPortBlock(List.of(
+        );
+        List<EngineeringPort> passiveBus = List.of(
                 port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
                 port("B", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
                 port("C", Direction.NORTH, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
-        ));
-        Block junction = new TestJunctionBlock(List.of(
+        );
+        List<EngineeringPort> junction = List.of(
                 port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
                 port("B", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
                 port("C", Direction.NORTH, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
-        ));
+        );
 
         BlockState analyzerTap = RedstoneEngineering.SIGNAL_ANALYZER.get().defaultBlockState()
                 .setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.TAP);
@@ -111,13 +110,13 @@ public final class RseEngineeringUxGameTests {
         BlockState controlledSeries = RedstoneEngineering.PNEUMATIC_PROPORTIONAL_VALVE.get().defaultBlockState();
         BlockState controlledSource = RedstoneEngineering.SOUL_FLUX_INJECTOR.get().defaultBlockState();
 
-        if (EngineeringDeviceMenu.classifyTopologyRole(source.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SOURCE
-                || EngineeringDeviceMenu.classifyTopologyRole(sink.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SINK
-                || EngineeringDeviceMenu.classifyTopologyRole(series.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SERIES
-                || EngineeringDeviceMenu.classifyTopologyRole(observer.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
-                || EngineeringDeviceMenu.classifyTopologyRole(passiveSeries.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE_SERIES
-                || EngineeringDeviceMenu.classifyTopologyRole(passiveBus.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE
-                || EngineeringDeviceMenu.classifyTopologyRole(junction.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_EXPLICIT_JUNCTION
+        if (EngineeringDeviceMenu.classifyTopologyRole(source, false, false) != EngineeringDeviceMenu.TOPOLOGY_SOURCE
+                || EngineeringDeviceMenu.classifyTopologyRole(sink, false, false) != EngineeringDeviceMenu.TOPOLOGY_SINK
+                || EngineeringDeviceMenu.classifyTopologyRole(series, false, false) != EngineeringDeviceMenu.TOPOLOGY_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(observer, false, false) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
+                || EngineeringDeviceMenu.classifyTopologyRole(passiveSeries, false, false) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(passiveBus, false, false) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE
+                || EngineeringDeviceMenu.classifyTopologyRole(junction, true, false) != EngineeringDeviceMenu.TOPOLOGY_EXPLICIT_JUNCTION
                 || EngineeringDeviceMenu.classifyTopologyRole(analyzerTap) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
                 || EngineeringDeviceMenu.classifyTopologyRole(analyzerInline) != EngineeringDeviceMenu.TOPOLOGY_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(pressureRegulator) != EngineeringDeviceMenu.TOPOLOGY_SERIES
@@ -185,23 +184,4 @@ public final class RseEngineeringUxGameTests {
         );
     }
 
-    private static class TestPortBlock extends Block implements EngineeringPortProvider {
-        private final List<EngineeringPort> ports;
-
-        TestPortBlock(List<EngineeringPort> ports) {
-            super(BlockBehaviour.Properties.of());
-            this.ports = List.copyOf(ports);
-        }
-
-        @Override
-        public List<EngineeringPort> engineeringPorts(BlockState state) {
-            return ports;
-        }
-    }
-
-    private static final class TestJunctionBlock extends TestPortBlock {
-        TestJunctionBlock(List<EngineeringPort> ports) {
-            super(ports);
-        }
-    }
 }

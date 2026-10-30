@@ -113,7 +113,7 @@ for needle in (
 
 need(workflow, "tools/rse_vanilla_redstone_behavior_verify.py", "build.yml")
 need(workflow, "github.event_name == 'workflow_dispatch'", "build.yml")
-need(workflow, "continue-on-error: true", "build.yml")
+need(workflow, "GameTest runtime acceptance evidence", "build.yml")
 need(workflow, "Minecraft topology GameTests (manual diagnostic)", "build.yml")
 
 for needle in (
@@ -144,4 +144,4 @@ print("  QC evidence: structural/runtime correlation, not causation")
 print("  order sensitivity: confidence-scored candidate from observed evidence")
 print("  causal/sub-tick claims: NONE")
 print("  vanilla behavior modification: NONE")
-print("  registered behavior GameTests: 4 (manual diagnostic / non-blocking)")
+print("  registered behavior GameTests: 4 (manual runtime gate / failures reported)")

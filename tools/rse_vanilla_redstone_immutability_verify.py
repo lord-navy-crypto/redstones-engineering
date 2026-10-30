@@ -52,7 +52,7 @@ if preservation.count("VanillaRedstoneRuntimeTelemetry.clear(level);") != 2:
 need(registration, "event.register(RseVanillaRedstonePreservationGameTests.class);", "VanillaRedstoneRuntimeRegistration.java")
 need(workflow, "tools/rse_vanilla_redstone_immutability_verify.py", "build.yml")
 need(workflow, "github.event_name == 'workflow_dispatch'", "build.yml")
-need(workflow, "continue-on-error: true", "build.yml")
+need(workflow, "GameTest runtime acceptance evidence", "build.yml")
 need(workflow, "Minecraft topology GameTests (manual diagnostic)", "build.yml")
 
 for phrase in (
@@ -149,4 +149,4 @@ print("  redstone mixin/coremod/access-transformer hooks: NONE")
 print("  NeighborNotify hot path: bounded observer bookkeeping only")
 print("  preservation fixtures: dust / repeater / comparator / observer / piston")
 print("  preservation batch: isolated + VRE telemetry cleared before/after")
-print("  registered preservation GameTests: 5 (manual diagnostic / non-blocking)")
+print("  registered preservation GameTests: 5 (manual runtime gate / failures reported)")

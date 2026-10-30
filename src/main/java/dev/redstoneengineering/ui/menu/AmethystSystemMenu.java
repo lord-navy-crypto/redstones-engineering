@@ -5,6 +5,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.AmethystSystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -33,6 +35,10 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 8;
     public static final int BUTTON_OUTPUT_LEFT = 9;
     public static final int BUTTON_OUTPUT_RIGHT = 10;
+    public static final int BUTTON_PRIMARY_DIRECT_BASE = 15000;
+    public static final int BUTTON_PRIMARY_DIRECT_MAX = 15015;
+    public static final int BUTTON_SECONDARY_DIRECT_BASE = 15100;
+    public static final int BUTTON_SECONDARY_DIRECT_MAX = 15115;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -53,7 +59,24 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public AmethystSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.AMETHYST_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        quality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(AmethystSystemLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof AmethystResonatorBlock) kind.set(KIND_SOURCE);
+        else if (block instanceof AmethystFrequencyFilterBlock) kind.set(KIND_FILTER);
+        else if (block instanceof AmethystTunedResonatorBlock) kind.set(KIND_TUNED);
+        else if (block instanceof AmethystSpectrumAnalyzerBlock) kind.set(KIND_SPECTRUM);
+        else kind.set(-1);
     }
 
     @Override
@@ -103,7 +126,36 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof AmethystResonatorBlock resonator) {
+        if (id >= BUTTON_PRIMARY_DIRECT_BASE && id <= BUTTON_PRIMARY_DIRECT_MAX) {
+            int value = id - BUTTON_PRIMARY_DIRECT_BASE;
+            if (value < 1 || value > 15) return false;
+            if (block instanceof AmethystResonatorBlock) {
+                level.setBlock(blockPos, state.setValue(AmethystResonatorBlock.FREQUENCY, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeAmethyst(server, blockPos);
+                changed = true;
+            } else if (block instanceof AmethystFrequencyFilterBlock filter) {
+                level.setBlock(blockPos, state.setValue(AmethystFrequencyFilterBlock.TARGET, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, filter, 1);
+                changed = true;
+            } else if (block instanceof AmethystTunedResonatorBlock tuned) {
+                level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.NATURAL, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, tuned, 1);
+                changed = true;
+            } else return false;
+        } else if (id >= BUTTON_SECONDARY_DIRECT_BASE && id <= BUTTON_SECONDARY_DIRECT_MAX) {
+            int value = id - BUTTON_SECONDARY_DIRECT_BASE;
+            if (block instanceof AmethystResonatorBlock) {
+                if (value < 1 || value > 15) return false;
+                level.setBlock(blockPos, state.setValue(AmethystResonatorBlock.AMPLITUDE, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeAmethyst(server, blockPos);
+                changed = true;
+            } else if (block instanceof AmethystTunedResonatorBlock tuned) {
+                if (value < 1 || value > 4) return false;
+                level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.Q_INDEX, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, tuned, 1);
+                changed = true;
+            } else return false;
+        } else if (block instanceof AmethystResonatorBlock resonator) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int f = state.getValue(AmethystResonatorBlock.FREQUENCY);
                 f = id == BUTTON_PRIMARY_NEXT ? (f >= 15 ? 1 : f + 1) : (f <= 1 ? 15 : f - 1);
@@ -158,6 +210,20 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
             default -> false;
         };
     }
+
+    /** LDLib2 intent facade; resonance mutations remain server-authoritative. */
+    public boolean setPrimaryFromUi(int value) {
+        if (value < 1 || value > 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DIRECT_BASE + value);
+    }
+    public boolean setSecondaryFromUi(int value) {
+        if (value < 1 || value > 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_SECONDARY_DIRECT_BASE + value);
+    }
+    public boolean pulse() { return clickMenuButton(playerInventory.player, BUTTON_PULSE); }
+    public boolean cycleWholeRouteForward() { return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT); }
+    public boolean cycleInputForward() { return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT); }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
 
     public int kind() { return kind.get(); } public int primary() { return primary.get(); }
     public int secondary() { return secondary.get(); } public int tertiary() { return tertiary.get(); }

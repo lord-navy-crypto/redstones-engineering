@@ -125,6 +125,30 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** Exact server-authoritative trigger threshold. Re-arms capture because trigger semantics changed. */
+    public boolean setTriggerLevel(int level) {
+        if (level < 1 || level > 15) return false;
+        triggerLevel = level;
+        arm();
+        setChanged();
+        return true;
+    }
+
+    /** Exact server-authoritative cursor positions over the 16-sample display window. */
+    public boolean setCursorA(int slot) {
+        if (slot < 0 || slot >= DISPLAY_SAMPLES) return false;
+        cursorA = slot;
+        setChanged();
+        return true;
+    }
+
+    public boolean setCursorB(int slot) {
+        if (slot < 0 || slot >= DISPLAY_SAMPLES) return false;
+        cursorB = slot;
+        setChanged();
+        return true;
+    }
+
     /**
      * Cycle the server-owned sampling interval. Changing dt invalidates the old timebase,
      * so the retained capture is cleared instead of mixing samples from different rates.
@@ -135,6 +159,25 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         armed = true;
         triggered = false;
         setChanged();
+    }
+
+    /** Exact server-authoritative sampling interval selection in visible engineering ticks/sample. */
+    public boolean setSamplePeriodTicks(int ticks) {
+        int nextIndex = -1;
+        for (int i = 0; i < SAMPLE_PERIOD_OPTIONS.length; i++) {
+            if (SAMPLE_PERIOD_OPTIONS[i] == ticks) {
+                nextIndex = i;
+                break;
+            }
+        }
+        if (nextIndex < 0) return false;
+        if (samplePeriodIndex == nextIndex) return true;
+        samplePeriodIndex = nextIndex;
+        clearHistoryOnly();
+        armed = true;
+        triggered = false;
+        setChanged();
+        return true;
     }
 
     public int samplePeriodIndex() {

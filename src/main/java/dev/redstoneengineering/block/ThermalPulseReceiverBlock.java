@@ -118,6 +118,7 @@ public class ThermalPulseReceiverBlock extends PassiveDirectionalSignalBlock {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
                 InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "thermal_pulse", pos);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal(
                         "Thermal pulse receiver=" + packet.value()

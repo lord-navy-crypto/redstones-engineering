@@ -57,9 +57,14 @@ menu = require(
     "outputProducerWorkcells",
     "workcellBufferBindings",
 )
-screen = require(
+host = require(
     "src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java",
     "class IndustrialBufferScreen",
+    "extends LdlibEngineeringHostScreen<IndustrialBufferMenu>",
+)
+screen = require(
+    "src/main/java/dev/redstoneengineering/ui/ldlib/IndustrialBufferLdUi.java",
+    "ModularUI",
     "OUTPUT",
     "JOB",
     "UNITS",
@@ -70,9 +75,10 @@ screen = require(
     "AVAILABLE",
     "INPUT TO",
     "OUTPUT FROM",
+    "RseLdUiComponents.authorityFooter()",
 )
 
-combined = block + ui + menu + screen
+combined = block + ui + menu + host + screen
 for forbidden in (
     "new OperationBufferLot(",
     "OperationBufferRuntime.receive",

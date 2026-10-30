@@ -59,8 +59,10 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     public static ResponseEvidence response(Level level, BlockPos pos, BlockState state) {
         Direction facing = state.getValue(DirectionalDomainBlock.FACING);
         BlockPos samplePos = pos.relative(facing.getOpposite());
-        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, samplePos);
-        PortQuality inputQuality = qualityAt(level, samplePos, input);
+        DomainNetwork.AmethystSample input = level.hasChunkAt(samplePos)
+                ? DomainNetwork.sampleAmethyst(level, samplePos)
+                : new DomainNetwork.AmethystSample(false, 0, 0);
+        PortQuality inputQuality = AmethystFrequencySupport.qualityAt(level, samplePos, input);
         int natural = state.getValue(NATURAL);
         int q = state.getValue(Q_INDEX);
         int bandwidth = 5 - q;
@@ -76,33 +78,23 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
                 inputQuality, output, raw > 15, usableInput && output > 0);
     }
 
-    private static PortQuality qualityAt(Level level, BlockPos samplePos, DomainNetwork.AmethystSample sample) {
-        if (level.getBlockState(samplePos).getBlock() instanceof AmethystResonanceDustBlock) {
-            return switch (AmethystResonanceDustBlock.status(level, samplePos)) {
-                case ACTIVE -> PortQuality.VALID;
-                case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
-                case STALE -> PortQuality.STALE;
-                case IDLE -> PortQuality.NO_SIGNAL;
-            };
-        }
-        return sample.active() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
-    }
-
     @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
-        DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(level, samplePos);
-        PortQuality quality = qualityAt(level, samplePos, signal);
+        DomainNetwork.AmethystSample signal = level.hasChunkAt(samplePos)
+                ? DomainNetwork.sampleAmethyst(level, samplePos)
+                : new DomainNetwork.AmethystSample(false, 0, 0);
+        PortQuality quality = AmethystFrequencySupport.qualityAt(level, samplePos, signal);
         if (side == outputSide(state)) {
             ResponseEvidence response = response(level, pos, state);
-            if (quality == PortQuality.NO_SIGNAL && (response.inputQuality() == PortQuality.TOPOLOGY_ERROR || response.inputQuality() == PortQuality.STALE)) {
-                quality = response.inputQuality();
-            } else if (quality == PortQuality.VALID && response.saturated()) {
+            quality = AmethystFrequencySupport.outputQuality(response.inputQuality(), quality);
+            if (quality == PortQuality.VALID && response.saturated())
                 quality = PortQuality.SATURATED;
-            }
         }
-        return Optional.of(new EngineeringPortSnapshot(port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
+        return Optional.of(new EngineeringPortSnapshot(port.get(),
+                AmethystFrequencySupport.readableAmplitude(quality, signal.amplitude()),
+                0.0, 15.0, quality));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
