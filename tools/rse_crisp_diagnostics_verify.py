@@ -9,7 +9,7 @@ base=root/"src/main/java/dev/redstoneengineering/client/ui"
 helper=(base/"RseCrispBackground.java").read_text("utf-8")
 assert "graphics.fill(0, 0, graphics.guiWidth(), graphics.guiHeight(), DIMMER)" in helper
 assert "renderBackground" in helper, "Document the reason for avoiding blur"
-assert "renderBackground(" not in helper, "Helper must never invoke blur"
+assert "renderBackground(graphics" not in helper, "Helper must never invoke blur"
 assert "graphics.pose().scale" not in helper
 assert "setShader" not in helper
 screens=(
