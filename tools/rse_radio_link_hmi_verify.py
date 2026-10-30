@@ -110,6 +110,26 @@ for forbidden in (
     if forbidden in screen:
         errors.append(f"{screen_rel}: client-side radio authority leak via {forbidden!r}")
 
+# A missing receiver observation must not look like a valid measured zero.
+for token in (
+    "m.samples()>0",
+    "NOT READY • no receiver observations",
+    "NOT READY • NO RECEIVER OBSERVATIONS",
+    "UNVERIFIED • source path not established",
+):
+    require(screen_rel, token)
+
+# A positive receiver sample count is not equivalent to a currently
+# valid decoded payload. Keep history and live reception separate.
+for token in (
+    'm.quality()==dev.redstoneengineering.core.port.PortQuality.VALID',
+    '"MEASURED","payload"',
+    '"UNVERIFIED • "+m.quality().name()+" • margin evidence="',
+    'm.validSamples()+"/"+m.samples()',
+    'm.samples()>0 && m.coverageComplete()',
+):
+    require(screen_rel, token)
+
 # Zero remains a valid payload when evidence quality is VALID.
 require(screen_rel, '"Payload 0 is a valid frame when source evidence is VALID."')
 

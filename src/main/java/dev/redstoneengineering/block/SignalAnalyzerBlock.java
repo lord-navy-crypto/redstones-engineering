@@ -107,16 +107,19 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         boolean inlineOutput = side == inlineOutputSide(state) && state.getValue(MODE) == INLINE;
+        boolean covered = level.hasChunkAt(pos.relative(testSide(state)));
         int value = inlineOutput ? state.getValue(OUTPUT) : sampleTarget(level, pos, state);
-        PortQuality quality = inlineOutput || measurementPresent(level, pos, state, value)
-                ? PortQuality.VALID
-                : PortQuality.NO_SIGNAL;
+        PortQuality quality = !covered ? PortQuality.STALE
+                : inlineOutput || measurementPresent(level, pos, state, value)
+                ? PortQuality.VALID : PortQuality.NO_SIGNAL;
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
     }
 
     /** A real target at zero is VALID; an empty measurement aperture at zero is NO_SIGNAL. */
     private static boolean measurementPresent(Level level, BlockPos pos, BlockState state, int measured) {
-        BlockState target = level.getBlockState(pos.relative(testSide(state)));
+        BlockPos targetPos = pos.relative(testSide(state));
+        if (!level.hasChunkAt(targetPos)) return false;
+        BlockState target = level.getBlockState(targetPos);
         return measured > 0 || !target.isAir();
     }
 
@@ -148,9 +151,12 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int measured = sampleTarget(level, pos, state);
-        boolean present = measurementPresent(level, pos, state, measured);
-        recordSample(level, pos, measured, present);
+        boolean covered = level.hasChunkAt(pos.relative(testSide(state)));
+        int measured = covered ? sampleTarget(level, pos, state) : 0;
+        boolean present = covered && measurementPresent(level, pos, state, measured);
+        // Missing chunk coverage is not an observed zero; do not append a
+        // synthetic measurement to the history. INLINE still fails closed.
+        if (covered) recordSample(level, pos, measured, present);
         int requestedOutput = state.getValue(MODE) == INLINE ? measured : 0;
         if (state.getValue(OUTPUT) != requestedOutput) {
             BlockState next = state.setValue(OUTPUT, requestedOutput);
@@ -177,6 +183,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     private static int sampleTarget(Level level, BlockPos pos, BlockState state) {
         Direction side = testSide(state);
         BlockPos targetPos = pos.relative(side);
+        if (!level.hasChunkAt(targetPos)) return 0;
         return measureNode(level, targetPos, level.getBlockState(targetPos), side);
     }
 
@@ -252,7 +259,11 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         }
 
         int raw = sampleTarget(level, pos, state);
-        int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        // Rendering/inspection is read-only. Only the authoritative tick and
+        // explicit operator actions may allocate or change history.
+        int[] stored = RuntimeIntStore.peek(level, KEY, pos);
+        int[] r = stored != null && stored.length == RUNTIME_SIZE
+                ? stored : new int[RUNTIME_SIZE];
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
         int count = Math.max(0, Math.min(WINDOW, r[13]));
         int[] samples = new int[DISPLAY_SAMPLES];
@@ -260,7 +271,9 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         int padding = DISPLAY_SAMPLES - count;
         for (int i = 0; i < count; i++) samples[padding + i] = rollingSample(r, count, i);
 
-        PortQuality measurementQuality = measurementPresent(level, pos, state, raw)
+        PortQuality measurementQuality = !level.hasChunkAt(pos.relative(testSide(state)))
+                ? PortQuality.STALE
+                : measurementPresent(level, pos, state, raw)
                 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
         return new UiSnapshot(
                 state.getValue(MODE),
@@ -313,6 +326,28 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
             level.updateNeighborsAt(pos.relative(newOutput), analyzer);
         }
         level.scheduleTick(pos, analyzer, 1);
+        return true;
+    }
+
+    public static boolean setCalibrationOffset(Level level, BlockPos pos, int offset) {
+        if (level.isClientSide || offset < -2 || offset > 2) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalAnalyzerBlock)) return false;
+        // Re-entering the displayed value is not a new calibration experiment.
+        // Do not allocate runtime or increment switch evidence on a no-op.
+        if (state.getValue(CALIBRATION) == offset + 2) return true;
+        level.setBlock(pos, state.setValue(CALIBRATION, offset + 2), Block.UPDATE_CLIENTS);
+        RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[15]++;
+        return true;
+    }
+
+    public static boolean setReference(Level level, BlockPos pos, int reference) {
+        if (level.isClientSide || reference < 0 || reference > 15) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalAnalyzerBlock)) return false;
+        if (state.getValue(REFERENCE) == reference) return true;
+        level.setBlock(pos, state.setValue(REFERENCE, reference), Block.UPDATE_CLIENTS);
+        RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[16]++;
         return true;
     }
 

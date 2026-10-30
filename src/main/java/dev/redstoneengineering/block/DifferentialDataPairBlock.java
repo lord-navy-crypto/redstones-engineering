@@ -82,14 +82,9 @@ public class DifferentialDataPairBlock extends ConnectedCableBlock implements En
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
-                snapshot.value() & 1,
-                0.0,
-                1.0,
-                DifferentialNetwork.quality(level, pos)
-        ));
+        return Optional.of(CommunicationLineEvidenceSupport.snapshot(
+                level, pos, port.get(), "diff", 1, 1,
+                DifferentialNetwork.quality(level, pos)));
     }
 
     @Override
@@ -143,15 +138,13 @@ public class DifferentialDataPairBlock extends ConnectedCableBlock implements En
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", pos);
                 player.displayClientMessage(Component.literal(
-                        "Differential pair: bit=" + (snapshot.value() & 1)
-                                + " quality=" + snapshot.qualityPercent() + "%"
-                                + " state=" + DifferentialNetwork.quality(level, pos)
-                                + " drivers=" + DifferentialNetwork.driverCount(level, pos)
-                                + " | ports=" + connectionCount(state)
-                                + " | routing=PLANAR; vertical via Signal Junction Point"
-                ), true);
+                        CommunicationLineEvidenceSupport.report(
+                                level, pos, "diff", 1, "DIFFERENTIAL PAIR",
+                                DifferentialNetwork.quality(level, pos),
+                                DifferentialNetwork.driverCount(level, pos),
+                                connectionCount(state))
+                                + " | truncated=" + DifferentialNetwork.truncated(level, pos)), false);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

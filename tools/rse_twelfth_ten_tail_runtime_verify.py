@@ -181,12 +181,12 @@ require("tools/rse_twelfth_ten_tail_runtime_verify.py" in workflow,
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
-    require(token in workflow, f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
+    require(token in workflow, f"build.yml missing manual/failure-transparent GameTest policy token {token!r}")
 
 print("RSE twelfth-ten tail runtime verification: PASS")
 print("  Soul command/node/retained-zero evidence: PASS")
@@ -195,4 +195,4 @@ print("  phonon/thermal transient packet lifecycle: PASS")
 print("  shielding observer-only coverage integrity: PASS")
 print("  servo source-aware fail-safe + mechanical alignment: PASS")
 print("  2oo3 real-source quorum and degraded quality: PASS")
-print("  registered twelfth-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered twelfth-ten GameTests: 10 (manual acceptance / failures reported)")

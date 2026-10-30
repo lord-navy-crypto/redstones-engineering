@@ -53,8 +53,7 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), bus.validChannelsInMask(0xF), 0.0, 4.0, bus.qualityForMask(0xF)));
+        return Optional.of(InstrumentCableEvidenceSupport.snapshot(level, pos, state, port.get(), bus));
     }
 
     @Override
@@ -70,10 +69,7 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
                                 + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | channels=" + bus.validChannels() + "/" + bus.activeChannels()
                                 + " valid/active | integrity=" + bus.integrity()
-                                + " | shielding=" + bus.shieldingIntegrity() + " " + bus.shieldingCoveragePercent() + "%"
-                                + " | interference=" + bus.interferenceIntegrity()
-                                + " exposure=" + bus.interferenceExposurePercent() + "%"
-                                + " confidence=" + bus.interferenceConfidencePercent() + "%"
+                                + " | " + InstrumentCableEvidenceSupport.interference(bus)
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);

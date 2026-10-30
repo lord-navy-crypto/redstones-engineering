@@ -107,8 +107,11 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
-        return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
-                port, intensity(level,pos), 0.0, 15.0, quality(level,pos,state)));
+        return engineeringPort(state, side).map(port -> {
+            PortQuality observed = JunctionEvidenceSupport.loadedPortQuality(
+                    level, pos, state, side, quality(level, pos, state));
+            return JunctionEvidenceSupport.snapshot(port, intensity(level, pos), 15, observed);
+        });
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved){

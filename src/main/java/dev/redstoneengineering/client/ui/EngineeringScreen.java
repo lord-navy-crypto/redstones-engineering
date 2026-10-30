@@ -84,11 +84,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final List<Button> sectionButtons = new ArrayList<>();
     private Button routeTab;
-    private Button routePrevious;
     private Button routeNext;
-    private Button routeInputPrevious;
     private Button routeInputNext;
-    private Button routeOutputPrevious;
     private Button routeOutputNext;
     private int scrollX;
     private int scrollY;
@@ -120,11 +117,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         configureWidgets.clear();
         sectionButtons.clear();
         routeTab = null;
-        routePrevious = null;
         routeNext = null;
-        routeInputPrevious = null;
         routeInputNext = null;
-        routeOutputPrevious = null;
         routeOutputNext = null;
 
         int navWidth = Math.max(110,
@@ -278,29 +272,22 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void addRouteControls() {
-        int width = Math.min(180, Math.max(112, (imageWidth - 48) / 2));
-        routePrevious = addRenderableWidget(Button.builder(
-                Component.literal("Direction ▲"), button -> sendMenuButton(routeActionId(false)))
-                .bounds(leftPos + CONTENT_LEFT, topPos + routeControlY(), width, 20).build());
+        int width = Math.min(260, Math.max(150, imageWidth - (CONTENT_LEFT * 2)));
+        int x = leftPos + (imageWidth - width) / 2;
         routeNext = addRenderableWidget(Button.builder(
-                Component.literal("Direction ▼"), button -> sendMenuButton(routeActionId(true)))
-                .bounds(leftPos + contentRight() - width, topPos + routeControlY(), width, 20).build());
+                Component.literal("Cycle direction ▶"), button -> sendMenuButton(routeActionId(true)))
+                .bounds(x, topPos + routeControlY(), width, 20).build());
 
-        int endpointGap = 8;
-        int endpointWidth = Math.min(100, Math.max(66, (imageWidth - 56) / 4));
-        int x0 = leftPos + CONTENT_LEFT;
-        routeInputPrevious = addRenderableWidget(Button.builder(
-                Component.literal("RX ▲"), button -> sendMenuButton(routeInputActionId(false)))
-                .bounds(x0, topPos + routeEndpointY(), endpointWidth, 20).build());
+        int endpointGap = 10;
+        int endpointWidth = Math.min(220, Math.max(120, (imageWidth - (CONTENT_LEFT * 2) - endpointGap) / 2));
+        int total = endpointWidth * 2 + endpointGap;
+        int x0 = leftPos + (imageWidth - total) / 2;
         routeInputNext = addRenderableWidget(Button.builder(
-                Component.literal("RX ▼"), button -> sendMenuButton(routeInputActionId(true)))
-                .bounds(x0 + endpointWidth + endpointGap, topPos + routeEndpointY(), endpointWidth, 20).build());
-        routeOutputPrevious = addRenderableWidget(Button.builder(
-                Component.literal("TX ▲"), button -> sendMenuButton(routeOutputActionId(false)))
-                .bounds(x0 + (endpointWidth + endpointGap) * 2, topPos + routeEndpointY(), endpointWidth, 20).build());
+                Component.literal("Cycle RX ▶"), button -> sendMenuButton(routeInputActionId(true)))
+                .bounds(x0, topPos + routeEndpointY(), endpointWidth, 20).build());
         routeOutputNext = addRenderableWidget(Button.builder(
-                Component.literal("TX ▼"), button -> sendMenuButton(routeOutputActionId(true)))
-                .bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + routeEndpointY(), endpointWidth, 20).build());
+                Component.literal("Cycle TX ▶"), button -> sendMenuButton(routeOutputActionId(true)))
+                .bounds(x0 + endpointWidth + endpointGap, topPos + routeEndpointY(), endpointWidth, 20).build());
     }
 
     private int routeActionId(boolean clockwise) {
@@ -399,34 +386,26 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void syncRouteControls() {
-        if (routePrevious == null || routeNext == null) return;
+        if (routeNext == null) return;
         boolean enabled = routeSupported();
         boolean rx = enabled && hasRouteInputEndpoint();
         boolean tx = enabled && hasRouteOutputEndpoint();
         boolean endpoints = rx || tx;
 
-        routePrevious.active = enabled && !endpoints;
         routeNext.active = enabled && !endpoints;
-        routePrevious.visible = routePage && enabled && !endpoints;
         routeNext.visible = routePage && enabled && !endpoints;
-        routePrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Cycle the device orientation to the previous valid direction.")));
         routeNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Cycle the device orientation to the next valid direction.")));
+                "One-button route control: each click advances to the next valid orientation.")));
 
-        if (routeInputPrevious != null && routeInputNext != null && routeOutputPrevious != null && routeOutputNext != null) {
-            routeInputPrevious.active = rx;
+        if (routeInputNext != null && routeOutputNext != null) {
             routeInputNext.active = rx;
-            routeOutputPrevious.active = tx;
             routeOutputNext.active = tx;
-            routeInputPrevious.visible = routePage && rx;
             routeInputNext.visible = routePage && rx;
-            routeOutputPrevious.visible = routePage && tx;
             routeOutputNext.visible = routePage && tx;
-            routeInputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle RX / INPUT to the previous valid direction.")));
-            routeInputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle RX / INPUT to the next valid direction.")));
-            routeOutputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle TX / OUTPUT to the previous valid direction.")));
-            routeOutputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle TX / OUTPUT to the next valid direction.")));
+            routeInputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "One-button RX control: each click advances to the next valid input direction.")));
+            routeOutputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "One-button TX control: each click advances to the next valid output direction.")));
         }
     }
 

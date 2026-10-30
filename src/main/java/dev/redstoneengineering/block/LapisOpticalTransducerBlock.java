@@ -19,7 +19,8 @@ public class LapisOpticalTransducerBlock extends AbstractLapisTransducerBlock {
     @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.OPTICAL; }
     @Override protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
         OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, inputPos(pos, state));
-        int normalized = Math.round(EngineeringMath.clamp(observation.intensity(), 0, 15) * 100.0f / 15.0f);
+        int trusted = MeterEvidenceSupport.readable(observation.intensity(), 15, observation.quality());
+        int normalized = Math.round(EngineeringMath.clamp(trusted, 0, 15) * 100.0f / 15.0f);
         return new Measurement(
                 normalized,
                 observation.quality(),

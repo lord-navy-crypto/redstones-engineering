@@ -129,6 +129,7 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         if (!(level instanceof ServerLevel server)) return;
         for (Direction direction : Direction.values()) {
             BlockPos neighborPos = pos.relative(direction);
+            if (!level.hasChunkAt(neighborPos)) continue;
             BlockState neighbor = level.getBlockState(neighborPos);
             if (neighbor.getBlock() instanceof RedstoneSignalCableBlock) {
                 RedstoneCableNetwork.recompute(server, neighborPos);
@@ -217,7 +218,7 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
             double maximum,
             PortQuality quality
     ) {
-        return new EngineeringPortSnapshot(port, sample.value(), 0.0, maximum, quality);
+        return JunctionEvidenceSupport.snapshot(port, sample.value(), (int) maximum, quality);
     }
 
     @Override
@@ -225,13 +226,19 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
 
+        PortQuality boundary = JunctionEvidenceSupport.loadedPortQuality(
+                level, pos, state, side, PortQuality.VALID);
+        if (boundary == PortQuality.STALE)
+            return Optional.of(JunctionEvidenceSupport.snapshot(
+                    port.get(), 0, 255, PortQuality.STALE));
         return switch (state.getValue(MEDIUM)) {
-            case REDSTONE -> Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), power(level, pos), RedstoneCableNetwork.sourceEvidence(level, pos).quality()));
+            case REDSTONE -> Optional.of(JunctionEvidenceSupport.snapshot(
+                    port.get(), power(level, pos), 15,
+                    RedstoneCableNetwork.sourceEvidence(level, pos).quality()));
             case INSTRUMENT -> {
                 InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
-                yield Optional.of(new EngineeringPortSnapshot(
-                        port.get(), bus.validChannelsInMask(0xF), 0.0, 4.0, bus.qualityForMask(0xF)));
+                yield Optional.of(JunctionEvidenceSupport.snapshot(
+                        port.get(), bus.validChannelsInMask(0xF), 4, bus.qualityForMask(0xF)));
             }
             case DATA_BUS_8 -> Optional.of(informationSnapshot(
                     port.get(), InformationRuntime.snapshot(level, "bus8", pos), 255.0,
@@ -242,10 +249,10 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
             case DIFFERENTIAL -> Optional.of(informationSnapshot(
                     port.get(), InformationRuntime.snapshot(level, "diff", pos), 1.0,
                     DifferentialNetwork.quality(level, pos)));
-            case OPTICAL -> Optional.of(new EngineeringPortSnapshot(
-                    port.get(), power(level, pos), 0.0, 15.0, carrierQuality(level, pos)));
-            case COPPER -> Optional.of(new EngineeringPortSnapshot(
-                    port.get(), power(level, pos), 0.0, 15.0, carrierQuality(level, pos)));
+            case OPTICAL -> Optional.of(JunctionEvidenceSupport.snapshot(
+                    port.get(), power(level, pos), 15, carrierQuality(level, pos)));
+            case COPPER -> Optional.of(JunctionEvidenceSupport.snapshot(
+                    port.get(), power(level, pos), 15, carrierQuality(level, pos)));
             case NONE, MISMATCH -> Optional.empty();
         };
     }
@@ -285,7 +292,8 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
             DomainNetwork.recomputeOpticalAround(server, pos);
             for (Direction direction : Direction.values()) {
                 BlockPos neighborPos = pos.relative(direction);
-                BlockState neighbor = level.getBlockState(neighborPos);
+                if (!level.hasChunkAt(neighborPos)) continue;
+            BlockState neighbor = level.getBlockState(neighborPos);
                 if (neighbor.getBlock() instanceof EightBitDataBusBlock bus) server.scheduleTick(neighborPos, bus, 1);
                 else if (neighbor.getBlock() instanceof SerialDataLineBlock line) server.scheduleTick(neighborPos, line, 1);
                 else if (neighbor.getBlock() instanceof DifferentialDataPairBlock pair) server.scheduleTick(neighborPos, pair, 1);

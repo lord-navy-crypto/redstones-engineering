@@ -136,7 +136,11 @@ public class ThermalPulseEncoderBlock extends Block implements EngineeringPortPr
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            FieldDeviceUi.open(serverPlayer, pos);
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.UP) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

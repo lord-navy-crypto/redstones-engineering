@@ -35,10 +35,14 @@ require(
     "InformationRuntime.clear(level, \"hydro\", pos)",
 )
 require(
+    "src/main/java/dev/redstoneengineering/block/ExciterDriveSupport.java",
+    "RedstoneObservationSupport.observe", "drive.quality()",
+    "PortQuality.NO_SIGNAL",
+)
+require(
     "src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
-    "RedstoneObservationSupport.observe",
-    "driveObservation",
-    "drive.quality()",
+    "ExciterDriveSupport.observation", "ExciterDriveSupport.snapshot",
+    "driveObservation", "HydroacousticNetwork.propagate",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/HydroacousticReceiverBlock.java",
@@ -91,9 +95,17 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalReceiverBlock.java",
     "opticalQuality",
+    "FreeSpaceOpticalChannelSupport.receiveQuality",
+    "InformationRuntime.snapshot",
+    "InformationRuntime.clear",
+    "updateOutput",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/FreeSpaceOpticalChannelSupport.java",
     "PortQuality.DOMAIN_MISMATCH",
     "packet.selector()",
-    "packet.qualityPercent() <= 20",
+    "packet.ageTicks() > FRESH_TICKS",
+    "packet.valid() ? PortQuality.VALID : PortQuality.STALE",
 )
 
 # Guided optical fiber now follows the same player-facing routing law as the other cable media:
@@ -168,13 +180,13 @@ if workflow and "tools/rse_eleventh_ten_media_evidence_verify.py" not in workflo
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
     if workflow and token not in workflow:
-        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+        errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE eleventh-ten media evidence verification: FAIL")
@@ -189,4 +201,4 @@ print("  radio zero-frame presence and observer-neutral reception: PASS")
 print("  optical source evidence + wrong-channel visibility: PASS")
 print("  guided optical planar direct-run / Junction Point vertical contract: PASS")
 print("  Soul-Flux transport/storage zero semantics: PASS")
-print("  registered eleventh-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered eleventh-ten GameTests: 10 (manual acceptance / failures reported)")

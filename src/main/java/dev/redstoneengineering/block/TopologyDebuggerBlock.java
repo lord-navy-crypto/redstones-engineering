@@ -71,8 +71,9 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         int value = state.getValue(OUTPUT);
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value,
-                value > 0 ? PortQuality.FAULT : PortQuality.VALID));
+        PortQuality quality = !level.hasChunkAt(targetPos(pos, state)) ? PortQuality.STALE
+                : value > 0 ? PortQuality.FAULT : PortQuality.VALID;
+        return Optional.of(MeterEvidenceSupport.alarmSnapshot(port.get(), value, quality));
     }
 
     private static BlockPos targetPos(BlockPos pos, BlockState debuggerState) {
@@ -81,7 +82,9 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
     }
 
     public static boolean targetsVanillaRedstone(Level level, BlockPos pos, BlockState debuggerState) {
-        return VanillaRedstoneEngineeringProfile.isVanillaRedstoneTarget(level.getBlockState(targetPos(pos, debuggerState)));
+        BlockPos target = targetPos(pos, debuggerState);
+        return level.hasChunkAt(target)
+                && VanillaRedstoneEngineeringProfile.isVanillaRedstoneTarget(level.getBlockState(target));
     }
 
     public static TopologyDiagnosticsReport inspectTarget(Level level, BlockPos pos, BlockState debuggerState) {
@@ -120,6 +123,9 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
+        // Unknown topology must assert an alarm, never force-load a target or
+        // report healthy based on the absent chunk's default block state.
+        if (!level.hasChunkAt(targetPos(pos, state))) return 15;
         if (targetsVanillaRedstone(level, pos, state)) return computeVanillaOutput(level, pos, state);
 
         TopologyDiagnosticsReport report = inspectTarget(level, pos, state);
@@ -205,7 +211,9 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
                 player.displayClientMessage(Component.literal("Topology scan counters reset"), true);
             } else {
                 String summary;
-                if (targetsVanillaRedstone(level, pos, state) && level instanceof ServerLevel server) {
+                if (!level.hasChunkAt(targetPos(pos, state))) {
+                    summary = "Topology debugger | STALE: measurement target chunk is not loaded";
+                } else if (targetsVanillaRedstone(level, pos, state) && level instanceof ServerLevel server) {
                     summary = vanillaDiagnosticSummary(server, pos, state);
                 } else if (targetsVanillaRedstone(level, pos, state)) {
                     summary = inspectVanillaTarget(level, pos, state).summary();

@@ -1,0 +1,11 @@
+# RSE Oct 28 first-round detail controls and concise Status (2026-10-30)
+
+The accepted Oct 28 shared HMI host is preserved verbatim: no changes to `RseLdUiComponents.tabbedWorkspace`, standalone tab navigation, viewport size handling, original scrollbars or draggable two-axis scrolling. This update affects only **the page content** of the two shared menu families (`EnhancedFieldDeviceLdUi` and `UniversalFieldDeviceLdUi`).
+
+- Former verbose **Evidence** pages become concise **Status** readouts: sync, health, quality, operating status, route, supported controls and current server readback. Detailed science/model text stays on Overview/Pioneer and existing specialist tabs.
+- FieldDevice direct integer controls now have **− Step**, **+ Step**, **Minimum**, **Maximum** actions. The increments respect per-device integer-step restrictions: standard 1; Lapis source 5; pressure regulator/relief 25. Buttons never submit a value outside existing `validDirectValue`/server menu rules.
+- Universal direct primary and secondary numeric controls gain **− Legal**, **+ Legal**, **Minimum**, **Maximum**. These select *exact* values from the existing per-device legal scale, including fractional Lapis steps and discrete Quartz/PWM/RC presets. Unknown or unsynchronized readback disables the operation; server menu remains authoritative.
+- Show explicit model parameter meaning next to the full formula and server-confirmed values; no client-only calculated success, fake physics, or invented tunables for read-only devices.
+- `tools/rse_oct28_status_controls_verify.py` guards those invariants and existing `rse_oct28_visual_baseline_verify.py` continues to protect the original workspace. The nonvisual source parity gate retains a two-file page-content allowlist while freezing other client/visual code.
+- **Scope:** these two shared families, not all 23 specialist HMI families. Specialist screens retain their established controls; broadening their Status semantics will require additional separately tested work.
+- **Runtime acceptance:** verify editable fields/step buttons on a client/server, navigate each tab, drag X/Y scrollbars, check narrow GUI scales and server readback. Static/CI tests do not prove gameplay acceptance.

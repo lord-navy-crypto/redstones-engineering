@@ -15,8 +15,8 @@ targets = {
     "OpticalReceiverBlock.java": ("implements EngineeringPortProvider", "PortDirection.INPUT", "RuntimeIntStore.peek", "recomputeOpticalAround"),
     "OpticalPowerMeterBlock.java": ("implements EngineeringPortProvider", "OPTICAL POWER INPUT", "DomainNetwork.sampleOptical"),
     "OpticalSplitterBlock.java": ("implements EngineeringPortProvider", "OPTICAL OUTPUT A", "OPTICAL OUTPUT B", "recomputeOpticalAround"),
-    "OpticalChannelFilterBlock.java": ("implements EngineeringPortProvider", "OPTICAL FILTERED OUTPUT", "TARGET", "recomputeOpticalAround"),
-    "OpticalAttenuatorBlock.java": ("implements EngineeringPortProvider", "OPTICAL ATTENUATED OUTPUT", "LOSS", "recomputeOpticalAround"),
+    "OpticalChannelFilterBlock.java": ("implements EngineeringPortProvider", "OPTICAL FILTERED OUTPUT", "TARGET", "OpticalSeriesSupport.removed"),
+    "OpticalAttenuatorBlock.java": ("implements EngineeringPortProvider", "OPTICAL ATTENUATED OUTPUT", "LOSS", "OpticalSeriesSupport.removed"),
     # A junction is now an explicit two-ended service splice rather than a
     # cosmetic duplicate of fiber. It may isolate both sides, but never branch.
     "OpticalFiberJunctionBlock.java": (
@@ -34,6 +34,11 @@ for name, needles in targets.items():
     if missing:
         raise SystemExit(f"{name}: missing {missing}")
 
+series = read("src/main/java/dev/redstoneengineering/block/OpticalSeriesSupport.java")
+for needle in ("recomputeOpticalAround", "DomainNetwork.driveOptical", "seriesOutputSide"):
+    if needle not in series:
+        raise SystemExit(f"OpticalSeriesSupport missing {needle}")
+
 network = read("src/main/java/dev/redstoneengineering/physics/DomainNetwork.java")
 for needle in ("recomputeOpticalAround", "opticalEdgeAllowed", "addRawOpticalClaims"):
     if needle not in network:
@@ -48,7 +53,7 @@ for needle in (
         raise SystemExit(f"TransmissionTopology missing optical splice isolation contract {needle}")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java")
 for needle in ("KIND_OPTICAL_FIBER", "KIND_OPTICAL_EMITTER", "KIND_OPTICAL_RECEIVER", "KIND_OPTICAL_POWER_METER", "KIND_OPTICAL_SPLITTER", "KIND_OPTICAL_CHANNEL_FILTER", "KIND_OPTICAL_ATTENUATOR", "KIND_OPTICAL_FIBER_JUNCTION"):
     if needle not in menu or needle not in screen:
         raise SystemExit(f"UI missing {needle}")

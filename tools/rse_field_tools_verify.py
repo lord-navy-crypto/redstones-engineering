@@ -76,7 +76,7 @@ require(
     "ENGINEERING DIAGNOSTIC TABLET", "OBSERVER ONLY", "RseDiagnosticsScreen",
     "Snapshot ", "chronologyCue(history)", 'return "NEWEST";', 'return "CROSS-DIMENSION";',
     '"Δt=" + delta + " ticks"', "history.get(0)", "SnapshotContext", "Long.parseLong(tickText)",
-    "Newer", "Older", "refreshHistoryButtons", "page = Math.max(0, page - 1)",
+    "Newer", "Older", "GLFW.GLFW_KEY_C", "copySnapshot()", "keyboardHandler.setClipboard", "refreshHistoryButtons", "page = Math.max(0, page - 1)",
     "page = Math.min(Math.max(0, menu.history().size() - 1), page + 1)",
     "newerButton.active = !menu.history().isEmpty() && page > 0",
     "olderButton.active = !menu.history().isEmpty() && page < lastPage",
@@ -142,7 +142,7 @@ print(" tablet dimension + world-tick traceability: PASS")
 print(" tablet retained chronology NEWEST / Δt / CROSS-DIMENSION: PASS")
 print(" tablet promoted topology status badge: PASS")
 print(" BlockState + vanilla redstone observation: PASS")
-print(" tablet Newer/Older navigation + boundary states: PASS")
+print(" tablet original Newer/Older navigation + C-key snapshot copy + boundary states: PASS")
 print(" current PortQuality + topology-link semantic colors: PASS")
 print(" existing diagnostics/topology reuse: PASS")
 print(" engineering compass N/E/S/W model labels: PASS")

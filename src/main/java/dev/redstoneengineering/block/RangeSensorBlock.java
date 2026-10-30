@@ -84,27 +84,43 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     public static int configuredRange(BlockState state) { return rangeForMode(state.getValue(RANGE_MODE)); }
 
     /**
-     * Rotate the physical sensing/output axis on the server and invalidate both the old and new
-     * electrical neighborhoods. The sensing face and redstone output face are always opposite.
+     * Authoritative configuration transaction: revoke old scan evidence and
+     * de-energize the previous redstone claim BEFORE any new scan is trusted.
+     * All HMI and Shift controls use this entry point; the runtime wire layout
+     * and public BlockState schema remain unchanged.
      */
+    public static boolean applyConfiguration(Level level, BlockPos pos, BlockState requested) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState former = level.getBlockState(pos);
+        if (!(former.getBlock() instanceof RangeSensorBlock sensor) || !requested.is(sensor)) return false;
+        if (former.getValue(FACING) == requested.getValue(FACING)
+                && former.getValue(MODE).equals(requested.getValue(MODE))
+                && former.getValue(RANGE_MODE).equals(requested.getValue(RANGE_MODE))
+                && former.getValue(RESPONSE).equals(requested.getValue(RESPONSE))) return false;
+
+        Direction oldSense = sensingSide(former);
+        Direction oldOutput = outputSide(former);
+        BlockState safe = requested.setValue(OUTPUT, 0);
+        RuntimeIntStore.remove(serverLevel, RUNTIME_KEY, pos);
+        serverLevel.setBlock(pos, safe, Block.UPDATE_CLIENTS);
+        // Old and newly selected output neighborhoods must both forget the
+        // previous reading, even when only the mode or range was changed.
+        serverLevel.updateNeighborsAt(pos, sensor);
+        for (Direction direction : new Direction[] {
+                oldSense, oldOutput, sensingSide(safe), outputSide(safe)
+        }) serverLevel.updateNeighborsAt(pos.relative(direction), sensor);
+        serverLevel.scheduleTick(pos, sensor, 1);
+        return true;
+    }
+
+    /** Rotate the sensing/output pair without carrying old scan results into the new direction. */
     public static boolean rotateSensingAxis(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof RangeSensorBlock sensor)) return false;
-        Direction oldSense = sensingSide(state);
-        Direction oldOutput = outputSide(state);
-        Direction newSense = clockwise ? oldSense.getClockWise() : oldSense.getCounterClockWise();
-        if (newSense == oldSense) return false;
-        BlockState next = state.setValue(FACING, newSense);
-        Direction newOutput = outputSide(next);
-        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        level.updateNeighborsAt(pos, sensor);
-        level.updateNeighborsAt(pos.relative(oldSense), sensor);
-        level.updateNeighborsAt(pos.relative(oldOutput), sensor);
-        level.updateNeighborsAt(pos.relative(newSense), sensor);
-        level.updateNeighborsAt(pos.relative(newOutput), sensor);
-        level.scheduleTick(pos, sensor, 1);
-        return true;
+        if (!(state.getBlock() instanceof RangeSensorBlock)) return false;
+        Direction facing = sensingSide(state);
+        Direction updated = clockwise ? facing.getClockWise() : facing.getCounterClockWise();
+        return applyConfiguration(level, pos, state.setValue(FACING, updated));
     }
 
     /** Immediate physical scan for solver/tests; it does not mutate sensor runtime. */
@@ -116,9 +132,23 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     public static ScanResult lastScan(Level level, BlockPos pos, BlockState state) {
         int range = configuredRange(state);
         int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
-        if (runtime == null || runtime.length != 3) return new ScanResult(0, ScanStatus.UNINITIALIZED, 0, range);
-        int statusIndex = Math.max(0, Math.min(ScanStatus.values().length - 1, runtime[1]));
-        return new ScanResult(runtime[0], ScanStatus.values()[statusIndex], runtime[2], range);
+        if (runtime == null || runtime.length != 3)
+            return new ScanResult(0, ScanStatus.UNINITIALIZED, 0, range);
+        if (runtime[1] < 0 || runtime[1] >= ScanStatus.values().length)
+            return new ScanResult(0, ScanStatus.UNINITIALIZED, 0, range);
+        ScanStatus status = ScanStatus.values()[runtime[1]];
+        int distance = runtime[0];
+        int coverage = runtime[2];
+        // Reject inconsistent or previously configured scan data. A complete
+        // CLEAR requires full range coverage; TARGET requires its hit cell.
+        boolean coherent = switch (status) {
+            case TARGET -> distance >= 1 && distance <= range && coverage == distance;
+            case CLEAR -> distance == 0 && coverage == range;
+            case INCOMPLETE_UNLOADED -> distance == 0 && coverage >= 0 && coverage < range;
+            case UNINITIALIZED -> distance == 0 && coverage == 0;
+        };
+        return coherent ? new ScanResult(distance, status, coverage, range)
+                : new ScanResult(0, ScanStatus.UNINITIALIZED, 0, range);
     }
 
     @Override
@@ -133,7 +163,9 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         ScanResult scan = lastScan(level, pos, state);
-        PortQuality quality = scan.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        // A complete CLEAR scan is a valid zero-distance measurement.
+        // Uninitialized and unloaded scans are unknown, never "no signal".
+        PortQuality quality = scan.complete() ? PortQuality.VALID : PortQuality.STALE;
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), quality));
     }
 
@@ -193,6 +225,20 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
+            if (hitResult.getDirection() == Direction.UP) {
+                ScanResult observed = lastScan(level, pos, state);
+                PortQuality quality = observed.complete() ? PortQuality.VALID : PortQuality.STALE;
+                player.displayClientMessage(Component.literal(
+                        "RANGE FIELD TEST | direction=" + sensingSide(state).getName().toUpperCase()
+                                + " | mode=" + modeName(state.getValue(MODE))
+                                + " | scan=" + observed.status()
+                                + " | coverage=" + observed.scannedCells() + "/" + observed.configuredRange()
+                                + " | target-distance=" + (observed.targetDetected() ? observed.distance() : "NONE")
+                                + " | output=" + state.getValue(OUTPUT) + "/15:" + quality
+                                + " | UP=inspect only; other Shift faces=configure"
+                                + " | CLEAR is a complete scan; UNLOADED is not a measurement"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             BlockState next = state;
             Direction sensingFace = state.getValue(FACING);
             if (hitResult.getDirection() == sensingFace) {
@@ -202,46 +248,39 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
             } else {
                 next = next.setValue(MODE, (state.getValue(MODE) + 1) % 3);
             }
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
-
-            ScanResult scan = lastScan(level, pos, next);
+            if (!applyConfiguration(level, pos, next)) return InteractionResult.sidedSuccess(false);
+            BlockState configured = level.getBlockState(pos);
+            ScanResult scan = lastScan(level, pos, configured);
             player.displayClientMessage(Component.literal(
-                    "Range Sensor | detect=" + modeName(next.getValue(MODE))
-                            + " | range=" + configuredRange(next)
-                            + " | response=" + responseName(next.getValue(RESPONSE))
+                    "Range Sensor | detect=" + modeName(configured.getValue(MODE))
+                            + " | range=" + configuredRange(configured)
+                            + " | response=" + responseName(configured.getValue(RESPONSE))
                             + " | scan=" + scan.status()
                             + " " + scan.scannedCells() + "/" + scan.configuredRange()
                             + " | distance=" + scan.distance()
-                            + " | OUT=" + next.getValue(OUTPUT)), true);
+                            + " | OUT=" + configured.getValue(OUTPUT) + " | awaiting a fresh scan"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     private static ScanResult scan(Level level, BlockPos pos, BlockState state) {
-        Direction facing = sensingSide(state);
-        int range = configuredRange(state);
         int mode = state.getValue(MODE);
-        for (int distance = 1; distance <= range; distance++) {
-            BlockPos target = pos.relative(facing, distance);
-            if (!level.hasChunkAt(target)) {
-                return new ScanResult(0, ScanStatus.INCOMPLETE_UNLOADED, distance - 1, range);
-            }
-
-            boolean blockDetected = !level.getBlockState(target).isAir();
-            AABB box = new AABB(target.getX(), target.getY(), target.getZ(),
-                    target.getX() + 1, target.getY() + 1, target.getZ() + 1);
-            boolean entityDetected = !level.getEntitiesOfClass(LivingEntity.class, box).isEmpty();
-            boolean detected = switch (mode) {
-                case 0 -> blockDetected;
-                case 1 -> entityDetected;
-                case 2 -> blockDetected || entityDetected;
-                default -> false;
-            };
-            if (detected) return new ScanResult(distance, ScanStatus.TARGET, distance, range);
-        }
-        // A complete scan that finds nothing is valid measurement evidence: the measured range is clear.
-        return new ScanResult(0, ScanStatus.CLEAR, range, range);
+        RangeScanSupport.RayResult ray = RangeScanSupport.scan(
+                level, pos, sensingSide(state), configuredRange(state),
+                (world, cell) -> {
+                    // Skip costly entity queries when BLOCK-only mode is selected.
+                    if (mode != 1 && !world.getBlockState(cell).isAir()) return true;
+                    if (mode == 0) return false;
+                    AABB area = new AABB(cell.getX(), cell.getY(), cell.getZ(),
+                            cell.getX() + 1, cell.getY() + 1, cell.getZ() + 1);
+                    return !world.getEntitiesOfClass(LivingEntity.class, area).isEmpty();
+                });
+        ScanStatus status = switch (ray.status()) {
+            case TARGET -> ScanStatus.TARGET;
+            case CLEAR -> ScanStatus.CLEAR;
+            case INCOMPLETE_UNLOADED -> ScanStatus.INCOMPLETE_UNLOADED;
+        };
+        return new ScanResult(ray.distance(), status, ray.scannedCells(), ray.maxRange());
     }
 
     private static int responseSignal(int distance, int range, int response) {

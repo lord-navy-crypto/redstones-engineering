@@ -102,6 +102,7 @@ public class SoulSoilConduitBlock extends Block implements EngineeringPortProvid
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
                 return InteractionResult.sidedSuccess(false);
             }
+            NicheDeviceCommissioning.send(serverPlayer, pos, state);
             InformationRuntime.Snapshot flux = SoulFluxNetwork.chargeSnapshot(level, pos);
             player.displayClientMessage(Component.literal(
                     "Soul Flux conduit | six-face SOUL_FLUX bus | J≈"

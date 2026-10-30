@@ -63,21 +63,13 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
     @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
-        OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, samplePos);
-        return Optional.of(new EngineeringPortSnapshot(port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
+        return Optional.of(OpticalSeriesSupport.snapshot(level, pos, side, port.get()));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (!(level instanceof ServerLevel serverLevel)) return;
-        boolean routeChanged = state.is(oldState.getBlock())
-                && oldState.hasProperty(FACING)
-                && oldState.hasProperty(INPUT_FACING)
-                && (state.getValue(FACING) != oldState.getValue(FACING)
-                || state.getValue(INPUT_FACING) != oldState.getValue(INPUT_FACING));
-        if (routeChanged || (state.is(oldState.getBlock()) && oldState.hasProperty(TARGET)
-                && state.getValue(TARGET).intValue() != oldState.getValue(TARGET).intValue())) {
+        if (OpticalSeriesSupport.configurationAffected(state, oldState, TARGET)) {
             configurationChanged(serverLevel, pos, oldState.hasProperty(FACING) ? oldState : state);
         }
         serverLevel.scheduleTick(pos, this, 1);
@@ -92,21 +84,16 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
     }
 
     public static void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
-        Direction output = seriesOutputSide(state);
-        DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false);
+        OpticalSeriesSupport.invalidate(level, pos, state);
     }
 
-    /** Shared state-transition hook so every configuration path clears the previous carrier first. */
+    /** Retains old-route invalidation and refresh for each configuration change. */
     public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
-        invalidateOutput(level, pos, state);
-        if (level.getBlockState(pos).getBlock() instanceof OpticalChannelFilterBlock filter) level.scheduleTick(pos, filter, 1);
+        OpticalSeriesSupport.configurationChanged(level, pos, state, OpticalChannelFilterBlock.class);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
-        if (!state.is(next.getBlock()) && level instanceof ServerLevel serverLevel) {
-            invalidateOutput(serverLevel, pos, state);
-            DomainNetwork.recomputeOpticalAround(serverLevel, pos);
-        }
+        OpticalSeriesSupport.removed(state, level, pos, next);
         super.onRemove(state, level, pos, next, moved);
     }
 
