@@ -24,9 +24,7 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private static final int WARN = 0xFFFFB45C;
     private static final int BAD = 0xFFFF7373;
     private static final int ACCENT = 0xFFE25757;
-    private static final int MIN_WIDTH = 420;
     private static final int MAX_WIDTH = 720;
-    private static final int MIN_HEIGHT = 300;
     private static final int MAX_HEIGHT = 460;
     private int page;
     private int scrollY;
@@ -43,27 +41,37 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
 
     @Override
     protected void init() {
-        imageWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width - 20));
-        imageHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, height - 20));
+        imageWidth = Math.max(1, Math.min(MAX_WIDTH, width - 20));
+        imageHeight = Math.max(1, Math.min(MAX_HEIGHT, height - 20));
         super.init();
         scrollY = 0;
+        int gap = 3;
+        int diagnosticsWidth = 76;
+        int copyWidth = 46;
+        int arrowWidth = 26;
+        int buttonRowWidth = diagnosticsWidth + copyWidth + arrowWidth * 2 + gap * 3;
+        int buttonX = leftPos + (imageWidth - buttonRowWidth) / 2;
+        int buttonY = topPos + imageHeight - 28;
         addRenderableWidget(Button.builder(Component.literal("Diagnostics"), button ->
                         Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(this)))
-                .bounds(leftPos + 12, topPos + imageHeight - 28, 96, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Copy Snapshot"), button -> copySnapshot())
-                .bounds(leftPos + 116, topPos + imageHeight - 28, 84, 20).build());
-        newerButton = addRenderableWidget(Button.builder(Component.literal("Newer"), button -> {
+                .bounds(buttonX, buttonY, diagnosticsWidth, 20).build());
+        buttonX += diagnosticsWidth + gap;
+        addRenderableWidget(Button.builder(Component.literal("Copy"), button -> copySnapshot())
+                .bounds(buttonX, buttonY, copyWidth, 20).build());
+        buttonX += copyWidth + gap;
+        newerButton = addRenderableWidget(Button.builder(Component.literal("<"), button -> {
                     page = Math.max(0, page - 1);
                     scrollY = 0;
                     refreshHistoryButtons();
                 })
-                .bounds(leftPos + imageWidth - 132, topPos + imageHeight - 28, 56, 20).build());
-        olderButton = addRenderableWidget(Button.builder(Component.literal("Older"), button -> {
+                .bounds(buttonX, buttonY, arrowWidth, 20).build());
+        buttonX += arrowWidth + gap;
+        olderButton = addRenderableWidget(Button.builder(Component.literal(">"), button -> {
                     page = Math.min(Math.max(0, menu.history().size() - 1), page + 1);
                     scrollY = 0;
                     refreshHistoryButtons();
                 })
-                .bounds(leftPos + imageWidth - 70, topPos + imageHeight - 28, 56, 20).build());
+                .bounds(buttonX, buttonY, arrowWidth, 20).build());
         refreshHistoryButtons();
     }
 
