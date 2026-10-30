@@ -36,7 +36,9 @@ public final class PidControllerLdUi {
         var page4 = page(trialPanel(m));
         page4.setDisplay(false);
         var page5 = page(RseLdUiComponents.authorityFooter());
+        var page6 = page(RseDeviceStatusPanel.summary(m));
         page5.setDisplay(false);
+        page6.setDisplay(false);
         var workspace = new ScrollerView().scrollerStyle(style -> style
                 .mode(ScrollerMode.BOTH)
                 .verticalScrollDisplay(ScrollDisplay.AUTO)
@@ -45,10 +47,10 @@ public final class PidControllerLdUi {
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(540).paddingAll(8).gapAll(8)));
-        workspace.addScrollViewChildren(page0, page1, page2, page3, page4, page5);
+        workspace.addScrollViewChildren(page0, page1, page2, page3, page4, page5, page6);
         var tabs = RseLdUiComponents.standaloneTabs(workspace,
-                new String[]{"Model", "Configure", "Plant", "Acceptance", "Trial", "Authority"},
-                new UIElement[]{page0, page1, page2, page3, page4, page5});
+                new String[]{"Model", "Configure", "Plant", "Acceptance", "Trial", "Authority", "Status"},
+                new UIElement[]{page0, page1, page2, page3, page4, page5, page6});
 
         root.addChildren(
                 RseLdUiComponents.title("PID CLOSED-LOOP ENGINEERING WORKBENCH"),

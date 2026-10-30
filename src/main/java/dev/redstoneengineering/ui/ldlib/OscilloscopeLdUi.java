@@ -40,6 +40,7 @@ public final class OscilloscopeLdUi {
         var experiment = page(experimentControls(menu));
         var network = page(networkEvidence(menu));
         var status = page(
+                RseDeviceStatusPanel.summary(menu),
                 RseLdUiComponents.liveRow("LIVE STATE", "HEALTH", menu::operationalHealthLabel),
                 RseLdUiComponents.liveRow("EVIDENCE", "quality", menu::evidenceStateLabel),
                 RseLdUiComponents.liveRow("I/O", "route", menu::portRouteLabel),

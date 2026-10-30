@@ -44,10 +44,12 @@ public final class LogicAnalyzerLdUi {
         var channels = page(channelPanel(menu));
         var network = page(networkPanel(menu));
         var authority = page(RseLdUiComponents.authorityFooter());
+        var status = page(RseDeviceStatusPanel.summary(menu));
         configure.setDisplay(false);
         channels.setDisplay(false);
         network.setDisplay(false);
         authority.setDisplay(false);
+        status.setDisplay(false);
 
         var workspace = new ScrollerView().scrollerStyle(style -> style
                 .mode(ScrollerMode.BOTH)
@@ -57,11 +59,11 @@ public final class LogicAnalyzerLdUi {
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(510).paddingAll(8).gapAll(8)));
-        workspace.addScrollViewChildren(capture, configure, channels, network, authority);
+        workspace.addScrollViewChildren(capture, configure, channels, network, authority, status);
 
         var tabs = RseLdUiComponents.standaloneTabs(workspace,
-                new String[]{"Capture", "Configure", "Channels", "Network", "Authority"},
-                new UIElement[]{capture, configure, channels, network, authority});
+                new String[]{"Capture", "Configure", "Channels", "Network", "Authority", "Status"},
+                new UIElement[]{capture, configure, channels, network, authority, status});
 
         root.addChildren(
                 RseLdUiComponents.title("FOUR-CHANNEL LOGIC ANALYZER"),

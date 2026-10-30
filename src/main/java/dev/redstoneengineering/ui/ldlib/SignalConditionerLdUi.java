@@ -51,8 +51,10 @@ public final class SignalConditionerLdUi {
                 routeRow(menu)
         );
         var authority = page(RseLdUiComponents.authorityFooter());
+        var status = page(RseDeviceStatusPanel.summary(menu));
         configure.setDisplay(false);
         authority.setDisplay(false);
+        status.setDisplay(false);
 
         var workspace = new ScrollerView()
                 .scrollerStyle(style -> style
@@ -64,11 +66,11 @@ public final class SignalConditionerLdUi {
         workspace.layout(l -> l.flex(1));
         workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(410).paddingAll(8).gapAll(8)));
-        workspace.addScrollViewChildren(overview, configure, authority);
+        workspace.addScrollViewChildren(overview, configure, authority, status);
 
         var tabs = RseLdUiComponents.standaloneTabs(workspace,
-                new String[]{"Overview", "Configure", "Authority"},
-                new UIElement[]{overview, configure, authority});
+                new String[]{"Overview", "Configure", "Authority", "Status"},
+                new UIElement[]{overview, configure, authority, status});
 
         root.addChildren(
                 RseLdUiComponents.title("SERIES SIGNAL CONDITIONER"),
