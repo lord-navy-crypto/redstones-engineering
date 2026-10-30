@@ -564,7 +564,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        RseCrispBackground.render(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
     }
