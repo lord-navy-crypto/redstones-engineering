@@ -42,8 +42,11 @@ public final class PidControllerLdUi {
                 .verticalScrollDisplay(ScrollDisplay.AUTO)
                 .horizontalScrollDisplay(ScrollDisplay.AUTO)
                 .minScrollPixel(8).maxScrollPixel(72));
-        workspace.layout(l -> l.flex(1));
-        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        // The HMI has a fixed screen height: this flex child MUST be allowed to
+        // shrink below the active page's content height, so the LDLib2
+        // viewport owns overflow and the mouse wheel can reach the bottom.
+        workspace.layout(l -> l.widthPercent(100).flex(1).minHeight(0));
+        workspace.viewPort(view -> view.layout(l -> l.flex(1).minHeight(0).paddingAll(8)));
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(540).paddingAll(8).gapAll(8)));
         workspace.addScrollViewChildren(page0, page1, page2, page3, page4, page5);
         var tabs = RseLdUiComponents.standaloneTabs(workspace,
