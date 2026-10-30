@@ -251,7 +251,9 @@ public final class RseLdUiComponents {
             throw new IllegalArgumentException("One label required per workspace page");
         }
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.widthPercent(100).flex(1).paddingAll(8).gapAll(6));
+        // This page group is nested in a fixed-height engineering HMI.
+        // minHeight(0) lets its ScrollerView viewport shrink and own overflow.
+        root.layout(l -> l.widthPercent(100).flex(1).minHeight(0).paddingAll(8).gapAll(6));
         var tabs = new UIElement().addClass("panel_bg");
         tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
 
@@ -260,8 +262,11 @@ public final class RseLdUiComponents {
                 .verticalScrollDisplay(ScrollDisplay.AUTO)
                 .horizontalScrollDisplay(ScrollDisplay.AUTO)
                 .minScrollPixel(8).maxScrollPixel(72));
-        scroller.layout(l -> l.flex(1));
-        scroller.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        // Give the scroll viewport an actual bounded flex height; without
+        // minHeight(0), long Pioneer/Evidence pages can expand the flex item
+        // instead of producing a scrollable overflow region.
+        scroller.layout(l -> l.widthPercent(100).flex(1).minHeight(0));
+        scroller.viewPort(view -> view.layout(l -> l.flex(1).minHeight(0).paddingAll(8)));
         // Prefer wrapping to the visible viewport instead of forcing every
         // 620px screen to pan sideways through an 850px wide page.
         // Only very narrow screens fall back to horizontal scrolling.
