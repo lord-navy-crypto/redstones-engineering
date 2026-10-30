@@ -5,6 +5,8 @@ import dev.redstoneengineering.block.OscilloscopeBlock;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.OscilloscopeLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -24,6 +26,15 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_EXPERIMENT_BASELINE = 8;
     public static final int BUTTON_EXPERIMENT_CANDIDATE = 9;
     public static final int BUTTON_EXPERIMENT_CLEAR = 10;
+    /** Exact Δt selection encoded as BASE + ticks/sample. */
+    public static final int BUTTON_SAMPLE_PERIOD_DIRECT_BASE = 3000;
+    public static final int BUTTON_SAMPLE_PERIOD_DIRECT_MAX = 3008;
+    public static final int BUTTON_TRIGGER_LEVEL_DIRECT_BASE = 3100;
+    public static final int BUTTON_TRIGGER_LEVEL_DIRECT_MAX = 3115;
+    public static final int BUTTON_CURSOR_A_DIRECT_BASE = 3200;
+    public static final int BUTTON_CURSOR_A_DIRECT_MAX = 3215;
+    public static final int BUTTON_CURSOR_B_DIRECT_BASE = 3300;
+    public static final int BUTTON_CURSOR_B_DIRECT_MAX = 3315;
 
     private final DataSlot sampleCount = trackedInt();
     private final DataSlot triggerMode = trackedInt();
@@ -104,6 +115,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(OscilloscopeLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
@@ -191,9 +205,81 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = OscilloscopeBlock.applyUiAction(level, blockPos, id);
+        boolean changed;
+        if (id >= BUTTON_SAMPLE_PERIOD_DIRECT_BASE && id <= BUTTON_SAMPLE_PERIOD_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setSamplePeriodTicks(id - BUTTON_SAMPLE_PERIOD_DIRECT_BASE);
+        } else if (id >= BUTTON_TRIGGER_LEVEL_DIRECT_BASE && id <= BUTTON_TRIGGER_LEVEL_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setTriggerLevel(id - BUTTON_TRIGGER_LEVEL_DIRECT_BASE);
+        } else if (id >= BUTTON_CURSOR_A_DIRECT_BASE && id <= BUTTON_CURSOR_A_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setCursorA(id - BUTTON_CURSOR_A_DIRECT_BASE);
+        } else if (id >= BUTTON_CURSOR_B_DIRECT_BASE && id <= BUTTON_CURSOR_B_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setCursorB(id - BUTTON_CURSOR_B_DIRECT_BASE);
+        } else {
+            changed = OscilloscopeBlock.applyUiAction(level, blockPos, id);
+        }
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
+    }
+
+    /** LDLib2 HMI intent facade. All mutations stay on the existing validated menu path. */
+    public boolean cycleSamplePeriod() {
+        return clickMenuButton(playerInventory.player, BUTTON_SAMPLE_PERIOD);
+    }
+
+    public boolean setSamplePeriodFromUi(int ticks) {
+        for (int option : OscilloscopeBlockEntity.SAMPLE_PERIOD_OPTIONS) {
+            if (option == ticks) {
+                return clickMenuButton(playerInventory.player, BUTTON_SAMPLE_PERIOD_DIRECT_BASE + ticks);
+            }
+        }
+        return false;
+    }
+
+    public boolean armOrHold() {
+        return clickMenuButton(playerInventory.player, BUTTON_ARM);
+    }
+
+    public boolean cycleTriggerMode() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIGGER_MODE);
+    }
+
+    public boolean cycleTriggerChannel() {
+        return clickMenuButton(playerInventory.player, BUTTON_TRIGGER_CHANNEL);
+    }
+
+    public boolean setTriggerLevelFromUi(int value) {
+        if (value < 1 || value > 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_TRIGGER_LEVEL_DIRECT_BASE + value);
+    }
+
+    public boolean setCursorAFromUi(int value) {
+        if (value < 0 || value >= OscilloscopeBlockEntity.DISPLAY_SAMPLES) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CURSOR_A_DIRECT_BASE + value);
+    }
+
+    public boolean setCursorBFromUi(int value) {
+        if (value < 0 || value >= OscilloscopeBlockEntity.DISPLAY_SAMPLES) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_CURSOR_B_DIRECT_BASE + value);
+    }
+
+    public boolean clearCapture() {
+        return clickMenuButton(playerInventory.player, BUTTON_CLEAR);
+    }
+
+    public boolean captureBaseline() {
+        return clickMenuButton(playerInventory.player, BUTTON_EXPERIMENT_BASELINE);
+    }
+
+    public boolean captureCandidate() {
+        return clickMenuButton(playerInventory.player, BUTTON_EXPERIMENT_CANDIDATE);
+    }
+
+    public boolean clearExperiment() {
+        return clickMenuButton(playerInventory.player, BUTTON_EXPERIMENT_CLEAR);
     }
 
     public int sampleCount() { return sampleCount.get(); }

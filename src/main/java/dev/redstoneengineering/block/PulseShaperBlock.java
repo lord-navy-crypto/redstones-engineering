@@ -80,11 +80,22 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
 
     /** Shared authoritative operator action used by both HMI and Shift-right-click. */
     public static boolean stepWidth(Level level, BlockPos pos, boolean forward) {
+        if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
         int width = state.getValue(WIDTH);
         int nextWidth = forward ? (width >= 8 ? 1 : width + 1) : (width <= 1 ? 8 : width - 1);
         level.setBlock(pos, state.setValue(WIDTH, nextWidth), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, shaper, 1);
+        return true;
+    }
+
+    public static boolean setWidth(Level level, BlockPos pos, int width) {
+        if (level.isClientSide || width < 1 || width > 8) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
+        if (state.getValue(WIDTH) == width) return true;
+        level.setBlock(pos, state.setValue(WIDTH, width), Block.UPDATE_CLIENTS);
         level.scheduleTick(pos, shaper, 1);
         return true;
     }

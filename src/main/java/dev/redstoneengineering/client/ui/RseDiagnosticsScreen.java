@@ -14,6 +14,7 @@ import net.neoforged.fml.ModList;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.lwjgl.glfw.GLFW;
 
 /** Read-only, session-local diagnostics console opened from the player inventory. */
 public final class RseDiagnosticsScreen extends Screen {
@@ -51,25 +52,54 @@ public final class RseDiagnosticsScreen extends Screen {
         this.parent = parent;
     }
 
+    private boolean compactLayout() {
+        return width < 440 || height < 230;
+    }
+
     @Override
     protected void init() {
         int bottom = height - 27;
-        addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
-                .bounds(12, bottom, 62, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Copy Report"), button -> copyReport())
-                .bounds(80, bottom, 92, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Clear"), button -> {
-                    RseDiagnostics.clear();
-                    page = 0;
-                    showFeedback("SESSION BUFFER CLEARED");
-                })
-                .bounds(178, bottom, 58, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Filter: " + filter.label), button -> {
-                    filter = Filter.values()[(filter.ordinal() + 1) % Filter.values().length];
-                    page = 0;
-                    rebuildWidgets();
-                })
-                .bounds(242, bottom, 92, 20).build());
+        boolean compact = compactLayout();
+        int buttonY = compact ? bottom - 26 : bottom;
+        if (compact) {
+            int x = 10;
+            addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
+                    .bounds(x, buttonY, 48, 20).build());
+            x += 53;
+            addRenderableWidget(Button.builder(Component.literal("Copy Report"), button -> copyReport())
+                    .bounds(x, buttonY, 90, 20).build());
+            x += 95;
+            addRenderableWidget(Button.builder(Component.literal("Clear"), button -> {
+                        RseDiagnostics.clear();
+                        page = 0;
+                        showFeedback("SESSION BUFFER CLEARED");
+                    })
+                    .bounds(x, buttonY, 52, 20).build());
+            x += 57;
+            addRenderableWidget(Button.builder(Component.literal("Filter: " + filter.label), button -> {
+                        filter = Filter.values()[(filter.ordinal() + 1) % Filter.values().length];
+                        page = 0;
+                        rebuildWidgets();
+                    })
+                    .bounds(x, buttonY, Math.max(55, width - x - 10), 20).build());
+        } else {
+            addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
+                    .bounds(12, buttonY, 62, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Copy Report"), button -> copyReport())
+                    .bounds(80, buttonY, 92, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Clear"), button -> {
+                        RseDiagnostics.clear();
+                        page = 0;
+                        showFeedback("SESSION BUFFER CLEARED");
+                    })
+                    .bounds(178, buttonY, 58, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("Filter: " + filter.label), button -> {
+                        filter = Filter.values()[(filter.ordinal() + 1) % Filter.values().length];
+                        page = 0;
+                        rebuildWidgets();
+                    })
+                    .bounds(242, buttonY, 92, 20).build());
+        }
         addRenderableWidget(Button.builder(Component.literal("<"), button -> page++)
                 .bounds(width - 78, bottom, 30, 20).build());
         addRenderableWidget(Button.builder(Component.literal(">"), button -> page = Math.max(0, page - 1))
@@ -85,24 +115,30 @@ public final class RseDiagnosticsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        RseCrispBackground.render(graphics);
         graphics.fill(8, 8, width - 8, height - 34, BORDER);
         graphics.fill(10, 10, width - 10, height - 36, PANEL);
         graphics.fill(16, 49, width - 16, height - 43, PANEL_2);
         graphics.fill(16, 42, width - 16, 44, ACCENT);
 
         graphics.drawString(font, title, 18, 17, TEXT, false);
-        graphics.drawString(font, runtimeSummary(), 18, 30, MUTED, false);
+        graphics.drawString(font, truncateToWidth(runtimeSummary(), Math.max(30, width - 40)),
+                18, 30, MUTED, false);
 
         int warnCount = RseDiagnostics.count(RseDiagnosticSeverity.WARN);
         int errorCount = RseDiagnostics.count(RseDiagnosticSeverity.ERROR);
-        graphics.drawString(font, "Session entries: " + RseDiagnostics.size() + "/" + RseDiagnostics.MAX_ENTRIES,
-                width - 190, 17, MUTED, false);
-        graphics.drawString(font, "WARN " + warnCount, width - 190, 30, WARN, false);
-        graphics.drawString(font, "ERROR " + errorCount, width - 126, 30, ERROR, false);
-
-        graphics.drawString(font, "OBSERVER ONLY • SESSION LOCAL", 23, 54, GOOD, false);
-        graphics.drawString(font, "VIEW " + filter.label, 213, 54, INFO, false);
+        if (compactLayout()) {
+            graphics.drawString(font, "SESSION / READ ONLY", 23, 54, GOOD, false);
+            graphics.drawString(font, "W" + warnCount + " E" + errorCount,
+                    width - 86, 54, WARN, false);
+        } else {
+            graphics.drawString(font, "Session entries: " + RseDiagnostics.size() + "/" + RseDiagnostics.MAX_ENTRIES,
+                    width - 190, 17, MUTED, false);
+            graphics.drawString(font, "WARN " + warnCount, width - 190, 30, WARN, false);
+            graphics.drawString(font, "ERROR " + errorCount, width - 126, 30, ERROR, false);
+            graphics.drawString(font, "OBSERVER ONLY • SESSION LOCAL", 23, 54, GOOD, false);
+            graphics.drawString(font, "VIEW " + filter.label, 213, 54, INFO, false);
+        }
         if (!feedback.isEmpty()) {
             graphics.drawString(font, feedback, width - font.width(feedback) - 23, height - 56, GOOD, false);
         }
@@ -113,7 +149,7 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private void renderEntries(GuiGraphics graphics) {
         List<RseDiagnosticEntry> entries = filteredEntries();
-        int rows = Math.max(4, (height - 120) / 12);
+        int rows = Math.max(1, (height - (compactLayout() ? 144 : 120)) / 12);
         int maxPage = entries.isEmpty() ? 0 : Math.max(0, (entries.size() - 1) / rows);
         page = Math.min(page, maxPage);
 
@@ -135,8 +171,8 @@ public final class RseDiagnosticsScreen extends Screen {
             graphics.drawString(font, truncateToWidth(line, width - 52), 23, y, color, false);
             y += 12;
         }
-        graphics.drawString(font, "Page " + (page + 1) + "/" + (maxPage + 1) + " • newest entries are on page 1",
-                23, height - 56, MUTED, false);
+        graphics.drawString(font, "Page " + (page + 1) + "/" + (maxPage + 1) + " • newest first",
+                23, height - (compactLayout() ? 67 : 56), MUTED, false);
     }
 
     private List<RseDiagnosticEntry> filteredEntries() {
@@ -147,6 +183,17 @@ public final class RseDiagnosticsScreen extends Screen {
             result.add(entry);
         }
         return result;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Readable escape hatch even if a third-party shader still blurs
+        // screen pixels: Ctrl+C copies the unmodified complete log report.
+        if (keyCode == GLFW.GLFW_KEY_C && hasControlDown()) {
+            copyReport();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     private void copyReport() {

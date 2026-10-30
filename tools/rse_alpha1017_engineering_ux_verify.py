@@ -153,8 +153,8 @@ require(
     "RedstoneCableNetwork.recompute(server, pos)",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
-    "menu.seriesConfigurable()",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
+    "m.seriesConfigurable()",
 )
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
@@ -283,6 +283,26 @@ require(
     "ports.size() == 2 ? TOPOLOGY_PASSIVE_SERIES : TOPOLOGY_PASSIVE",
 )
 
+# This regression was observed in the 2026-10-27 NeoForge runtime log:
+# an in-world test constructed TestPortBlock instances after registries froze.
+# Keep pure contract classification separate from real BlockState adaptation.
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
+    "public static int classifyTopologyRole(",
+    "List<EngineeringPort> ports, boolean explicitJunction, boolean directionalSeries",
+    "return classifyTopologyRole(provider.engineeringPorts(state),",
+)
+require(
+    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUxGameTests.java",
+    "topologyRoleProjectionUsesFormalPortContract",
+    "EngineeringDeviceMenu.classifyTopologyRole(source, false, false)",
+    "EngineeringDeviceMenu.classifyTopologyRole(junction, true, false)",
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUxGameTests.java",
+    "new TestPortBlock(", "new TestJunctionBlock(", "class TestPortBlock extends Block",
+)
+
 # Modern safe HMI contract: compact direct endpoint controls live on Route; generic physical
 # interfaces retain a simple Direction control instead of pretending to be RX/TX pairs.
 require(
@@ -330,12 +350,11 @@ require(
     "wrappedText",
     "routePage",
     'Component.literal("Route")',
-    'Component.literal("Direction ▲")',
-    'Component.literal("Direction ▼")',
-    'Component.literal("RX ▲")',
-    'Component.literal("RX ▼")',
-    'Component.literal("TX ▲")',
-    'Component.literal("TX ▼")',
+    'Component.literal("Cycle direction ▶")',
+    'Component.literal("Cycle RX ▶")',
+    'Component.literal("Cycle TX ▶")',
+    "One-button route control",
+    "each click advances to the next valid orientation",
     "routeActionId(boolean clockwise)",
     "routeInputActionId(boolean clockwise)",
     "routeOutputActionId(boolean clockwise)",
@@ -410,7 +429,7 @@ print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" configurable RX/TX route contract: PASS")
-print(" compact endpoint-driven Route HMI: PASS")
+print(" compact one-button endpoint-driven Route HMI: PASS")
 print(" universal and legacy fallback route authority parity: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")

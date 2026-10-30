@@ -7,6 +7,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.PneumaticSystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -40,6 +42,9 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 6;
     public static final int BUTTON_OUTPUT_LEFT = 7;
     public static final int BUTTON_OUTPUT_RIGHT = 8;
+    /** Exact visible pressure setpoint encoded as BASE + pressure (25/50/75/100). */
+    public static final int BUTTON_SETPOINT_DIRECT_BASE = 7000;
+    public static final int BUTTON_SETPOINT_DIRECT_MAX = 7100;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -77,7 +82,34 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public PneumaticSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.PNEUMATIC_SYSTEM.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        inputQuality.set(PortQuality.NOT_READY.ordinal());
+        outputQuality.set(PortQuality.NOT_READY.ordinal());
+        upstreamQuality.set(PortQuality.NOT_READY.ordinal());
+        downstreamQuality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(PneumaticSystemLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof AirCompressorBlock) kind.set(KIND_COMPRESSOR);
+        else if (block instanceof PneumaticPipeBlock) kind.set(KIND_PIPE);
+        else if (block instanceof AirReservoirBlock) kind.set(KIND_RESERVOIR);
+        else if (block instanceof PressureRegulatorBlock) kind.set(KIND_REGULATOR);
+        else if (block instanceof PneumaticReceiverBlock) kind.set(KIND_RECEIVER);
+        else if (block instanceof PneumaticValveBlock) kind.set(KIND_VALVE);
+        else if (block instanceof PneumaticCheckValveBlock) kind.set(KIND_CHECK_VALVE);
+        else if (block instanceof PneumaticFlowMeterBlock) kind.set(KIND_FLOW_METER);
+        else if (block instanceof PneumaticProportionalValveBlock) kind.set(KIND_PROPORTIONAL);
+        else if (block instanceof PneumaticReliefValveBlock) kind.set(KIND_RELIEF);
+        else if (block instanceof PneumaticCylinderBlock) kind.set(KIND_CYLINDER);
+        else kind.set(-1);
     }
 
     @Override
@@ -130,8 +162,14 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     }
 
     private static CommissioningStatus flowCommissioning(long samples, PortQuality in, PortQuality out, PortQuality upstream, PortQuality downstream, int meterDrop) {
-        if (samples < 4 || in == PortQuality.NO_SIGNAL || out == PortQuality.NO_SIGNAL) return CommissioningStatus.NOT_READY;
-        if (hardFault(in) || hardFault(out)) return CommissioningStatus.FAIL;
+        // A real topology/domain/fault witness must not be hidden by a short
+        // history window or no-signal sample from another meter face.
+        if (hardFault(in) || hardFault(out) || hardFault(upstream) || hardFault(downstream))
+            return CommissioningStatus.FAIL;
+        if (samples < 4 || in == PortQuality.NO_SIGNAL || out == PortQuality.NO_SIGNAL
+                || in == PortQuality.STALE || out == PortQuality.STALE
+                || in == PortQuality.NOT_READY || out == PortQuality.NOT_READY)
+            return CommissioningStatus.NOT_READY;
         if (in != PortQuality.VALID || out != PortQuality.VALID) return CommissioningStatus.MARGINAL;
         boolean completeWitness = upstream == PortQuality.VALID && downstream == PortQuality.VALID;
         if (!completeWitness) return CommissioningStatus.MARGINAL;
@@ -178,7 +216,19 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof PressureRegulatorBlock) {
+        if (id >= BUTTON_SETPOINT_DIRECT_BASE && id <= BUTTON_SETPOINT_DIRECT_MAX) {
+            int pressure = id - BUTTON_SETPOINT_DIRECT_BASE;
+            if (pressure < 25 || pressure > 100 || pressure % 25 != 0) return false;
+            if (block instanceof PressureRegulatorBlock) {
+                level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, pressure / 25), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
+                changed = true;
+            } else if (block instanceof PneumaticReliefValveBlock) {
+                level.setBlock(blockPos, state.setValue(PneumaticReliefValveBlock.SETPOINT, pressure / 25), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
+                changed = true;
+            } else return false;
+        } else if (block instanceof PressureRegulatorBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
                 int value = state.getValue(PressureRegulatorBlock.SETPOINT);
                 value = id == BUTTON_PARAMETER_NEXT ? value % 4 + 1 : value <= 1 ? 4 : value - 1;
@@ -259,6 +309,16 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         if (changed && level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
         return changed;
     }
+
+    /** LDLib2 intent facade; all mutations reuse existing pneumatic menu validation. */
+    public boolean setSetpointFromUi(int pressure) {
+        if (pressure < 25 || pressure > 100 || pressure % 25 != 0) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_SETPOINT_DIRECT_BASE + pressure);
+    }
+    public boolean toggleValve() { return clickMenuButton(playerInventory.player, BUTTON_TOGGLE); }
+    public boolean cycleWholeRouteForward() { return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT); }
+    public boolean cycleInputForward() { return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT); }
+    public boolean cycleOutputForward() { return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT); }
 
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }

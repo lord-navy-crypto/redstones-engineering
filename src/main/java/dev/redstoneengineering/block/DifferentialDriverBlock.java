@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DifferentialNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
@@ -16,6 +17,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -30,6 +32,9 @@ import java.util.Optional;
 
 /** Redstone binary input -> recomputable differential-data driver. */
 public class DifferentialDriverBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+    // Neighbor updates are prompt; a periodic recheck closes chunk-unload gaps.
+    private static final int WATCHDOG_TICKS = 16;
+
     public DifferentialDriverBlock(Properties properties) {
         super(properties);
     }
@@ -65,9 +70,10 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
                     port.get(), input.value() > 0 ? 1.0 : 0.0, 0.0, 1.0, input.quality()));
         }
         InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "diff_out", pos);
+        PortQuality quality = DigitalEndpointEvidenceSupport.outputQuality(input.quality(), output);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), output.value() & 1,
-                0.0, 1.0, input.quality()));
+                port.get(), DigitalEndpointEvidenceSupport.valueWhenValid(quality, output, 1),
+                0.0, 1.0, quality));
     }
 
     @Override
@@ -79,11 +85,12 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
-        int bit = input.value() > 0 ? 1 : 0;
+        int bit = input.valid() && input.value() > 0 ? 1 : 0;
         InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "diff_out", pos);
         InformationRuntime.write(level, "diff_out", pos, bit, 0, input.valid(), input.valid() ? 100 : 0);
         BlockPos output = outputPos(pos, state);
         if ((previous.value() != bit || previous.valid() != input.valid())
+                && level.hasChunkAt(output)
                 && level.getBlockState(output).getBlock() instanceof DifferentialDataPairBlock) {
             DifferentialNetwork.recompute(level, output);
         }
@@ -92,7 +99,10 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) update(serverLevel, pos, state);
+        if (level instanceof ServerLevel serverLevel) {
+            update(serverLevel, pos, state);
+            serverLevel.scheduleTick(pos, this, WATCHDOG_TICKS);
+        }
     }
 
     @Override
@@ -110,12 +120,18 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
     }
 
     @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        update(level, pos, state);
+        level.scheduleTick(pos, this, WATCHDOG_TICKS);
+    }
+
+    @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
             InformationRuntime.clear(level, "diff_out", pos);
             BlockPos output = outputPos(pos, state);
-            BlockState outputState = level.getBlockState(output);
-            if (outputState.getBlock() instanceof DifferentialDataPairBlock pair) {
+            if (level.hasChunkAt(output)
+                    && level.getBlockState(output).getBlock() instanceof DifferentialDataPairBlock pair) {
                 serverLevel.scheduleTick(output, pair, 1);
             }
         }

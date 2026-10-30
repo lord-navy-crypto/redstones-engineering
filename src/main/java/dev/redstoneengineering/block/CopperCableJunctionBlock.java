@@ -66,7 +66,7 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
                 : PortQuality.NO_SIGNAL;
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[VOLTAGE_INDEX] = quality == PortQuality.STALE ? 0 : Math.max(0, Math.min(15, voltage));
+        runtime[VOLTAGE_INDEX] = quality == PortQuality.VALID ? Math.max(0, Math.min(15, voltage)) : 0;
         runtime[DRIVER_COUNT_INDEX] = drivers;
         runtime[QUALITY_INDEX] = quality.ordinal();
     }
@@ -124,8 +124,10 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), voltage(level, pos), 0.0, 15.0, quality(level, pos, state)
+        PortQuality observed = JunctionEvidenceSupport.loadedPortQuality(
+                level, pos, state, side, quality(level, pos, state));
+        return Optional.of(JunctionEvidenceSupport.snapshot(
+                port.get(), voltage(level, pos), 15, observed
         ));
     }
 

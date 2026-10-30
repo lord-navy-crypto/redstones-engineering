@@ -29,9 +29,12 @@ require(
     '"PNEUMATIC OUT"',
     '"OPENING COMMAND"',
     "EngineeringDomain.REDSTONE",
-    "PneumaticNetwork.recomputeAround",
+    "PneumaticValveSupport.placed",
+    "PneumaticNetwork.recompute(server, pos)",
     "FieldDeviceUi.open",
 )
+require("src/main/java/dev/redstoneengineering/block/PneumaticValveSupport.java",
+        "PneumaticNetwork.recomputeAround", "PneumaticObservationSupport.observe")
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java",
     "PortKind.SAFETY",
@@ -116,7 +119,7 @@ require(
     "MagneticGradientMeterBlock.gradientX",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "PROPORTIONAL VALVE",
     "RELIEF ARMED",
     "PNEUMATIC ACTUATOR",

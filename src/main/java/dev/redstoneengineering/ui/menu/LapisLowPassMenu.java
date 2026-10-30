@@ -5,6 +5,8 @@ import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.EngineeringParameterProfile;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.LapisLowPassLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -27,6 +29,9 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 4;
     public static final int BUTTON_OUTPUT_LEFT = 5;
     public static final int BUTTON_OUTPUT_RIGHT = 6;
+    /** Exact supported α profile encoded as BASE + alpha index. */
+    public static final int BUTTON_ALPHA_DIRECT_BASE = 4000;
+    public static final int BUTTON_ALPHA_DIRECT_MAX = 4007;
 
     private final DataSlot alphaIndex = trackedInt();
     private final DataSlot inputValue = trackedInt();
@@ -38,6 +43,8 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot runtimePresent = trackedInt();
+    /** Configuration can be displayed only after an authoritative device snapshot. */
+    private final DataSlot snapshotReady = trackedInt();
 
     public LapisLowPassMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -46,11 +53,23 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     public LapisLowPassMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.LAPIS_LOW_PASS.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        inputQuality.set(PortQuality.NOT_READY.ordinal());
+        outputQuality.set(PortQuality.NOT_READY.ordinal());
+        snapshotReady.set(0);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(LapisLowPassLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof LapisLowPassFilterBlock filter)) {
             alphaIndex.set(0);
@@ -94,13 +113,17 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
         double alpha = EngineeringParameterProfile.lapisFilterAlpha(state.getValue(LapisLowPassFilterBlock.ALPHA));
         predictedOutput.set(Math.max(0, Math.min(100,
                 (int) Math.round(previous + alpha * (inputValue.get() - previous)))));
+        snapshotReady.set(1);
     }
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = switch (id) {
+        boolean changed;
+        if (id >= BUTTON_ALPHA_DIRECT_BASE && id <= BUTTON_ALPHA_DIRECT_MAX) {
+            changed = LapisLowPassFilterBlock.setAlphaIndex(level, blockPos, id - BUTTON_ALPHA_DIRECT_BASE);
+        } else changed = switch (id) {
             case BUTTON_ALPHA_PREVIOUS -> LapisLowPassFilterBlock.adjustAlpha(level, blockPos, -1);
             case BUTTON_ALPHA_NEXT -> LapisLowPassFilterBlock.adjustAlpha(level, blockPos, 1);
             case BUTTON_ALPHA_DEFAULT -> LapisLowPassFilterBlock.resetAlpha(level, blockPos);
@@ -117,6 +140,41 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    /** LDLib2 intent facade: exact visible α values only; mutations remain server-authoritative. */
+    public boolean applyAlphaVisibleValue(String value) {
+        try {
+            double entered = Double.parseDouble(value);
+            for (int i = 0; i < alphaSteps(); i++) {
+                if (Math.abs(entered - alphaForIndex(i)) < 0.0001) {
+                    return clickMenuButton(playerInventory.player, BUTTON_ALPHA_DIRECT_BASE + i);
+                }
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return false;
+    }
+
+    public boolean cycleAlphaPrevious() {
+        return clickMenuButton(playerInventory.player, BUTTON_ALPHA_PREVIOUS);
+    }
+
+    public boolean cycleAlphaNext() {
+        return clickMenuButton(playerInventory.player, BUTTON_ALPHA_NEXT);
+    }
+
+    public boolean restoreDefaultAlpha() {
+        return clickMenuButton(playerInventory.player, BUTTON_ALPHA_DEFAULT);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int alphaIndex() { return alphaIndex.get(); }
     public int inputValue() { return inputValue.get(); }
     public int outputValue() { return outputValue.get(); }

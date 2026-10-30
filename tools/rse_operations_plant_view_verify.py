@@ -17,7 +17,8 @@ def read(rel: str) -> str:
 due = read("src/main/java/dev/redstoneengineering/diagnostics/OperationDueDateExposureAssessment.java")
 plant = read("src/main/java/dev/redstoneengineering/diagnostics/OperationPlantViewAssessment.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+host = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 monitor = read("src/main/java/dev/redstoneengineering/block/OperationsMonitorBlock.java")
 
 for token in (
@@ -88,6 +89,9 @@ for token in (
 ):
     if screen and token not in screen:
         errors.append(f"Operations Monitor screen missing truthful Plant View presentation {token!r}")
+
+if host and "extends LdlibEngineeringHostScreen<OperationsMonitorMenu>" not in host:
+    errors.append("OperationsMonitorScreen missing LDLib2 host contract")
 
 for body, label in ((due, "Due-date exposure"), (plant, "Plant view"), (menu, "Operations Monitor menu"), (screen, "Operations Monitor screen"), (monitor, "Operations Monitor block")):
     for forbidden in (

@@ -12,7 +12,7 @@ FAULT = ROOT / "src/main/java/dev/redstoneengineering/block/FaultInjectorBlock.j
 VALVE = ROOT / "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java"
 NETWORK = ROOT / "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java"
 MENU = ROOT / "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java"
-SCREEN = ROOT / "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java"
+SCREEN = ROOT / "src/main/java/dev/redstoneengineering/ui/ldlib/PidControllerLdUi.java"
 
 errors = []
 
@@ -126,17 +126,17 @@ for needle in (
     req(menu, needle, "PidControllerMenu.java")
 
 for needle in (
-    'statusLine(graphics, "Controller"',
-    'statusLine(graphics, "Pneumatic plant"',
-    'statusLine(graphics, "Likely cause"',
-    'statusLine(graphics, "System verdict"',
+    '"Controller","status"',
+    '"Pneumatic plant","status"',
+    '"Likely cause","diagnosis"',
+    '"System verdict","combined"',
     '"Actuator / supply pressure"',
     '"Loss obs / line / restrict"',
     '"Position / target / stall"',
     '"RESTRICTION • check valve / path command"',
     '"NONE • explicit cylinder feedback not detected"',
 ):
-    req(screen, needle, "PidControllerScreen.java")
+    req(screen, needle, "PidControllerLdUi.java")
 
 # The witness and diagnostic facade must stay observational; no plant/controller mutation belongs here.
 for label, source in (("PneumaticClosedLoopWitness.java", witness), ("ClosedLoopCommissioning.java", commissioning)):

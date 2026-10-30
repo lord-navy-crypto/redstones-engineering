@@ -60,7 +60,7 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
     private static EngineeringPort port(Direction side) {
         return new EngineeringPort(
                 "QUARTZ LAB CLOCK OUT", side, EngineeringDomain.QUARTZ,
-                PortKind.TRIGGER, PortDirection.OUTPUT, false, "ticks");
+                PortKind.TRIGGER, PortDirection.OUTPUT, false, "clock");
     }
 
     @Override
@@ -85,8 +85,10 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
-        return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
-                port, QuartzTimingLineBlock.periodTicks(state.getValue(PERIOD_INDEX)), 1.0, 4096.0, PortQuality.VALID));
+        // A QUARTZ trigger port conveys phase (LOW/HIGH), not the period
+        // metadata. TimingEvidence separately exposes nominal and realized ticks.
+        return engineeringPort(state, side).map(port ->
+                QuartzClockSupport.phasePort(port, state.getValue(ACTIVE)));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -108,7 +110,7 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
         DomainNetwork.recomputeQuartz(level, pos);
         int periodIndex = next.getValue(PERIOD_INDEX);
         int jitter = next.getValue(JITTER);
-        int half = Math.max(1, QuartzTimingLineBlock.periodTicks(periodIndex) / 2);
+        int half = QuartzClockSupport.halfPeriodTicks(periodIndex);
         int offset = jitter == 0 ? 0 : random.nextInt(jitter * 2 + 1) - jitter;
         int realized = Math.max(1, half + offset);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
@@ -146,6 +148,8 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
         if (!level.isClientSide) {
             if (player.isShiftKeyDown() && hit.getDirection() == Direction.UP
                     && player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.displayClientMessage(Component.literal(
+                        QuartzClockSupport.fieldReport(level, pos, state)), false);
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
                 return InteractionResult.sidedSuccess(false);
             }
