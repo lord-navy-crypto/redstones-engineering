@@ -117,7 +117,7 @@ public final class RseDiagnosticsScreen extends Screen {
     public void render(GuiGraphics graphics,int mouseX,int mouseY,float partialTick) {
         // Do not invoke Screen.renderBackground(): it may run the vanilla
         // background-blur post-process. Keep the complete console opaque.
-        graphics.fill(0,0,width,height,0xFF080C10);
+        RseCrispGuiBackdrop.render(graphics, width, height);
         graphics.fill(8,8,width-8,height-34,BORDER);
         graphics.fill(10,10,width-10,height-36,PANEL);
         graphics.fill(16,60,width-16,height-43,PANEL_2);
