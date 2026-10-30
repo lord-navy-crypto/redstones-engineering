@@ -22,7 +22,7 @@ public final class SignalProcessorLdUi {
                 RseLdUiComponents.deviceContext(menu),
                 RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
-                        new String[]{"Overview", "Configure", "Diagnostics", "Evidence", "More"},
+                        new String[]{"Overview", "Configure", "Diagnostics", "Status", "More"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.formulaCard(()->menu.snapshotReady()
@@ -47,7 +47,7 @@ public final class SignalProcessorLdUi {
                                         RseLdUiComponents.fixedRow("evidence authority",()->"SERVER RETAINED",
                                                 "The HMI reads response, edge history or pulse state; it cannot manufacture input quality")
                                 ),
-                                RseLdUiComponents.workspacePage(
+                                RseDeviceStatusPanel.statusPage(menu, RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.liveRow("I/O","route",()->menu.snapshotReady()
                                                  ? menu.inputDirection().getName().toUpperCase()+" → "+menu.outputDirection().getName().toUpperCase()
                                                  : "NOT READY • authoritative route pending"),
@@ -55,7 +55,7 @@ public final class SignalProcessorLdUi {
                         RseLdUiComponents.serverAction("Cycle RX ▶",menu::cycleInputForward),
                         RseLdUiComponents.serverAction("Cycle TX ▶",menu::cycleOutputForward)
                 )
-                                ),
+                                )),
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.note(evidenceContract(menu.kind())),
                                         RseLdUiComponents.authorityFooter()

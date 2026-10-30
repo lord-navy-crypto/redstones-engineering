@@ -20,7 +20,7 @@ public final class WorkcellControllerLdUi {
                 RseLdUiComponents.deviceContext(m),
                 RseLdUiComponents.tabbedWorkspace(
                         630, 400, 850,
-                        new String[]{"Overview", "Configure", "Diagnostics"},
+                        new String[]{"Overview", "Configure", "Diagnostics", "Status"},
                         new UIElement[]{
                                 RseLdUiComponents.workspacePage(
                                         flowPanel(m),
@@ -33,7 +33,9 @@ public final class WorkcellControllerLdUi {
                                 RseLdUiComponents.workspacePage(
                                         RseLdUiComponents.authorityFooter()
                                 )
-                        }
+                        ,
+                                RseDeviceStatusPanel.statusPage(m)
+}
                 )
         );
         return RseLdUiComponents.responsiveUi(root, player, 650, 440);
