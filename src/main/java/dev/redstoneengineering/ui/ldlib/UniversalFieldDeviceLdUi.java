@@ -39,7 +39,7 @@ public final class UniversalFieldDeviceLdUi {
 
     public static ModularUI create(UniversalFieldDeviceMenu menu, Player player) {
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(10).gapAll(8));
+        root.layout(l -> l.widthPercent(100).heightPercent(100).paddingAll(4).gapAll(3));
 
         var overview = page(
                 RseLdUiComponents.operatorGuide(
@@ -76,11 +76,11 @@ public final class UniversalFieldDeviceLdUi {
                         .horizontalScrollDisplay(ScrollDisplay.AUTO)
                         .minScrollPixel(8)
                         .maxScrollPixel(64));
-        workspace.layout(l -> l.flex(1));
-        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        workspace.layout(l -> l.flex(1).minHeight(150));
+        workspace.viewPort(view -> view.layout(l -> l.paddingAll(4)));
         // Labels and value cards wrap at narrower window sizes; retain
         // horizontal scrolling for genuinely narrower Minecraft viewports.
-        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(320).paddingAll(8).gapAll(8)));
+        workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(320).paddingAll(4).gapAll(6)));
         workspace.addScrollViewChildren(overview, configure, pioneer, evidence);
 
         var tabs = RseLdUiComponents.standaloneTabs(workspace,
@@ -88,7 +88,7 @@ public final class UniversalFieldDeviceLdUi {
                 new UIElement[]{overview, configure, pioneer, evidence});
 
         root.addChildren(
-                RseLdUiComponents.title("UNIVERSAL ENGINEERING HMI"),
+                RseLdUiComponents.compactTitle("UNIVERSAL ENGINEERING HMI"),
                 RseLdUiComponents.deviceContext(menu),
                 // Persistent context is displayed while the operator changes
                 // configuration/ports/evidence pages, without phantom pre-sync values.
@@ -107,7 +107,6 @@ public final class UniversalFieldDeviceLdUi {
                                 menu.snapshotReady() ? menu.evidenceStateLabel() : "NOT READY")
                 ),
                 tabs,
-                RseLdUiComponents.note("SCROLL • wheel Y • Shift+wheel X"),
                 workspace
         );
         return RseLdUiComponents.responsiveUi(root, player, 620, 430);
@@ -139,7 +138,7 @@ public final class UniversalFieldDeviceLdUi {
 
     private static UIElement page(UIElement... children) {
         var page = new UIElement();
-        page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
+        page.layout(l -> l.widthPercent(100).paddingAll(6).gapAll(6));
         page.addChildren(children);
         return page;
     }

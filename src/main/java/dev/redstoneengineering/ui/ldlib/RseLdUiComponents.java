@@ -86,6 +86,29 @@ public final class RseLdUiComponents {
         return label;
     }
 
+    /** Small title for the fixed header; detailed page titles remain unchanged. */
+    public static Label compactTitle(String text) {
+        var label = wrappedLabel(text);
+        label.textStyle(style -> style.fontSize(9f).textWrap(TextWrap.WRAP)
+                .adaptiveWidth(false).adaptiveHeight(true));
+        label.layout(l -> l.widthPercent(100));
+        return label;
+    }
+
+    private static Label compactLabel(Label label) {
+        label.textStyle(style -> style.fontSize(8f).textWrap(TextWrap.WRAP)
+                .adaptiveWidth(false).adaptiveHeight(true));
+        return label;
+    }
+
+    private static Label compactLiveText(Supplier<String> source) {
+        return compactLabel(liveText(source));
+    }
+
+    private static Label compactWrappedLabel(String text) {
+        return compactLabel(wrappedLabel(text));
+    }
+
     public static UIElement formulaCard(Supplier<String> equation) {
         return new UIElement()
                 .addClass("panel_bg")
@@ -121,17 +144,17 @@ public final class RseLdUiComponents {
      */
     public static UIElement statusTile(String label, Supplier<String> serverReadback) {
         return new UIElement().addClass("panel_bg")
-                .layout(l -> l.flex(1).minWidth(142).flexDirection(YogaFlexDirection.COLUMN).paddingAll(6).gapAll(4))
+                .layout(l -> l.flex(1).minWidth(76).flexDirection(YogaFlexDirection.COLUMN).paddingAll(3).gapAll(1))
                 .addChildren(
-                        wrappedLabel(label),
-                        liveText(serverReadback).layout(l -> l.widthPercent(100))
+                        compactWrappedLabel(label),
+                        compactLiveText(serverReadback).layout(l -> l.widthPercent(100))
                 );
     }
 
     public static UIElement statusRail(UIElement... tiles) {
         var rail = new UIElement().addClass("panel_bg");
         rail.layout(l -> l.widthPercent(100).flexDirection(YogaFlexDirection.ROW)
-                .flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
+                .flexWrap(FlexWrap.WRAP).gapAll(3).paddingAll(3));
         rail.addChildren(tiles);
         return rail;
     }
@@ -163,59 +186,57 @@ public final class RseLdUiComponents {
      */
     public static UIElement deviceContext(EngineeringDeviceMenu menu) {
         var header = new UIElement().addClass("panel_bg");
-        header.layout(l -> l.widthPercent(100).paddingAll(5).gapAll(3));
+        header.layout(l -> l.widthPercent(100).paddingAll(3).gapAll(2));
 
-        // The initial two readouts remain visible on every page. The rest is
-        // opt-in so a small 500x340 Minecraft GUI retains room for controls.
+        // One compact identity line stays visible; all secondary information is
+        // retained in the collapsed details panel so the workspace can grow.
+        var identity = new UIElement().layout(l -> l.widthPercent(100)
+                .flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(4));
+        identity.addChild(
+                compactLiveText(() -> "DEVICE • " + menu.deviceDisplayName()
+                        + "   |   POS • " + menu.blockPos().toShortString()
+                        + "   |   HEALTH • " + menu.operationalHealthLabel())
+                        .layout(l -> l.flex(1).minWidth(210))
+        );
+
         var details = new UIElement().addClass("panel_bg");
-        details.layout(l -> l.widthPercent(100).paddingAll(5).gapAll(3));
+        details.layout(l -> l.widthPercent(100).paddingAll(4).gapAll(2));
         details.addChildren(
-                liveText(() -> "HEALTH • " + menu.operationalHealthLabel()
-                        + "   |   ROLE • "
+                compactLiveText(() -> "ROLE • "
                         + (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
                                 ? "NOT READY" : menu.topologyRoleLabel()))
                         .layout(l -> l.widthPercent(100)),
-                liveText(() -> "EVIDENCE • " +
-                        (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
+                compactLiveText(() -> "EVIDENCE • "
+                        + (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
                                 ? "NOT READY" : menu.evidenceStateLabel()))
                         .layout(l -> l.widthPercent(100)),
-                liveText(() -> menu.portRouteLabel()).layout(l -> l.widthPercent(100)),
-                liveText(() -> "PORT CONTRACT • " + menu.portRoleHintLabel())
+                compactLiveText(() -> "I/O • " + menu.portRouteLabel())
                         .layout(l -> l.widthPercent(100)),
-                liveText(() -> "QUALITY MEANING • " + menu.evidenceMeaningLabel())
+                compactLiveText(() -> "PORT CONTRACT • " + menu.portRoleHintLabel())
                         .layout(l -> l.widthPercent(100)),
-                wrappedLabel("READING KEY • declared faces are capabilities, not detected "
-                        + "wires; health is independent of port evidence. Detailed device "
-                        + "measurements and controls remain on their original pages.")
+                compactLiveText(() -> "QUALITY MEANING • " + menu.evidenceMeaningLabel())
+                        .layout(l -> l.widthPercent(100)),
+                compactLiveText(() -> "NEXT CHECK • " + menu.operatorCheckLabel())
+                        .layout(l -> l.widthPercent(100)),
+                compactWrappedLabel("READING KEY • declared faces are capabilities, not detected "
+                        + "wires; health is independent of port evidence. Detailed measurements "
+                        + "and controls remain on their original pages.")
                         .layout(l -> l.widthPercent(100))
         );
         details.setDisplay(false);
 
-        // Purely local view state: opening details does not emit a menu click,
-        // change a block setting, or re-run any server-side physics.
-        var detailToggle = new Button().setText("Show evidence ▼");
+        // Local disclosure only; opening it never sends a menu action.
+        var detailToggle = new Button().setText("DEVICE DETAILS ▾");
         final boolean[] expanded = {false};
         detailToggle.setOnClick(event -> {
             expanded[0] = !expanded[0];
             details.setDisplay(expanded[0]);
-            detailToggle.setText(expanded[0] ? "Hide evidence ▲" : "Show evidence ▼");
+            detailToggle.setText(expanded[0] ? "HIDE DETAILS ▲" : "DEVICE DETAILS ▾");
         });
-        detailToggle.layout(l -> l.height(20).minWidth(120).paddingAll(4));
+        detailToggle.layout(l -> l.height(16).minWidth(94).paddingAll(2));
+        identity.addChild(detailToggle);
 
-        header.addChildren(
-                liveText(() -> "DEVICE • " + menu.deviceDisplayName()
-                        + "   |   POS • " + menu.blockPos().toShortString())
-                        .layout(l -> l.widthPercent(100)),
-                liveText(() -> "HEALTH • " + menu.operationalHealthLabel()
-                        + "   |   EVIDENCE • "
-                        + (menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_UNVERIFIED
-                                ? "NOT READY" : menu.evidenceStateLabel()))
-                        .layout(l -> l.widthPercent(100)),
-                liveText(() -> "NEXT CHECK • " + menu.operatorCheckLabel())
-                        .layout(l -> l.widthPercent(100)),
-                detailToggle,
-                details
-        );
+        header.addChildren(identity, details);
         return header;
     }
 
@@ -251,17 +272,19 @@ public final class RseLdUiComponents {
             throw new IllegalArgumentException("One label required per workspace page");
         }
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.widthPercent(100).flex(1).paddingAll(8).gapAll(6));
+        root.layout(l -> l.widthPercent(100).flex(1).minHeight(150).paddingAll(4).gapAll(3));
         var tabs = new UIElement().addClass("panel_bg");
-        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
+        tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(3).paddingAll(3));
 
         var scroller = new ScrollerView().scrollerStyle(style -> style
                 .mode(ScrollerMode.BOTH)
                 .verticalScrollDisplay(ScrollDisplay.AUTO)
                 .horizontalScrollDisplay(ScrollDisplay.AUTO)
                 .minScrollPixel(8).maxScrollPixel(72));
-        scroller.layout(l -> l.flex(1));
-        scroller.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        // Preserve the first-round two-axis ScrollerView while reserving a real
+        // display area below the compact fixed header and tab strip.
+        scroller.layout(l -> l.flex(1).minHeight(150));
+        scroller.viewPort(view -> view.layout(l -> l.paddingAll(4)));
         // Prefer wrapping to the visible viewport instead of forcing every
         // 620px screen to pan sideways through an 850px wide page.
         // Only very narrow screens fall back to horizontal scrolling.
@@ -269,16 +292,17 @@ public final class RseLdUiComponents {
         // remains a fallback when the actual viewport is smaller.
         final int readableMinWidth = Math.min(contentWidth, 320);
         scroller.viewContainer(view -> view.layout(l ->
-                l.widthPercent(100).minWidth(readableMinWidth).paddingAll(8).gapAll(8)));
+                l.widthPercent(100).minWidth(readableMinWidth).paddingAll(4).gapAll(6)));
 
         // A persistent page breadcrumb makes navigation legible even when
         // long labels wrap or the active page is vertically scrolled.
-        var pageIndicator = wrappedLabel("PAGE 1 / " + labels.length + " • " + labels[0]);
+        var pageIndicator = compactWrappedLabel("PAGE 1 / " + labels.length + " • " + labels[0]
+                + "   |   WHEEL ↓  •  SHIFT+WHEEL →");
         pageIndicator.layout(l -> l.widthPercent(100));
         var tabButtons = new java.util.ArrayList<Button>(labels.length);
         for (int i = 0; i < pages.length; i++) {
             var page = pages[i];
-            page.layout(l -> l.widthPercent(100).paddingAll(12).gapAll(10));
+            page.layout(l -> l.widthPercent(100).paddingAll(6).gapAll(6));
             page.setDisplay(i == 0);
             scroller.addScrollViewChild(page);
             final int selectedIndex = i;
@@ -287,18 +311,17 @@ public final class RseLdUiComponents {
                 for (int j = 0; j < tabButtons.size(); j++) {
                     tabButtons.get(j).setText(j == selectedIndex ? "▶ " + labels[j] : labels[j]);
                 }
-                pageIndicator.setText("PAGE " + (selectedIndex + 1) + " / " + labels.length + " • " + labels[selectedIndex]);
+                pageIndicator.setText("PAGE " + (selectedIndex + 1) + " / " + labels.length + " • " + labels[selectedIndex]
+                        + "   |   WHEEL ↓  •  SHIFT+WHEEL →");
                 scroller.horizontalScroller.setNormalizedValue(0);
                 scroller.verticalScroller.setNormalizedValue(0);
             });
-            button.layout(l -> l.height(20).minWidth(82).paddingAll(4));
+            button.layout(l -> l.height(18).minWidth(72).paddingAll(3));
             tabButtons.add(button);
             tabs.addChild(button);
         }
 
-        root.addChildren(tabs, pageIndicator,
-                new Label().setText("SCROLL • wheel Y • Shift+wheel X"),
-                scroller);
+        root.addChildren(tabs, pageIndicator, scroller);
         return root;
     }
 
@@ -313,8 +336,9 @@ public final class RseLdUiComponents {
         }
         var tabs = new UIElement().addClass("panel_bg");
         tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW)
-                .flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
-        var pageIndicator = wrappedLabel("PAGE 1 / " + labels.length + " • " + labels[0]);
+                .flexWrap(FlexWrap.WRAP).gapAll(3).paddingAll(3));
+        var pageIndicator = compactWrappedLabel("PAGE 1 / " + labels.length + " • " + labels[0]
+                + "   |   WHEEL ↓  •  SHIFT+WHEEL →");
         pageIndicator.layout(l -> l.widthPercent(100));
         var buttons = new java.util.ArrayList<Button>(labels.length);
         for (int i = 0; i < pages.length; i++) {
@@ -326,16 +350,17 @@ public final class RseLdUiComponents {
                             pages[j].setDisplay(j == selected);
                             buttons.get(j).setText(j == selected ? "▶ " + labels[j] : labels[j]);
                         }
-                        pageIndicator.setText("PAGE " + (selected + 1) + " / " + labels.length + " • " + labels[selected]);
+                        pageIndicator.setText("PAGE " + (selected + 1) + " / " + labels.length + " • " + labels[selected]
+                                + "   |   WHEEL ↓  •  SHIFT+WHEEL →");
                         scroller.horizontalScroller.setNormalizedValue(0);
                         scroller.verticalScroller.setNormalizedValue(0);
                     });
-            button.layout(l -> l.height(20).minWidth(82).paddingAll(4));
+            button.layout(l -> l.height(18).minWidth(72).paddingAll(3));
             buttons.add(button);
             tabs.addChild(button);
         }
         var navigation = new UIElement();
-        navigation.layout(l -> l.widthPercent(100).flexDirection(YogaFlexDirection.COLUMN).gapAll(3));
+        navigation.layout(l -> l.widthPercent(100).flexDirection(YogaFlexDirection.COLUMN).gapAll(2));
         navigation.addChildren(tabs, pageIndicator);
         return navigation;
     }

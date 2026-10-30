@@ -113,15 +113,33 @@ for signature in (
     compare_method(console, signature)
 
 shared = "src/main/java/dev/redstoneengineering/ui/ldlib/RseLdUiComponents.java"
-compare_method(shared, "public static UIElement tabbedWorkspace(")
 shared_text = (ROOT / shared).read_text(encoding="utf-8")
+tabbed = extract_block(shared_text, "public static UIElement tabbedWorkspace(")
+standalone = extract_block(shared_text, "public static UIElement standaloneTabs(")
 for marker in (
     ".mode(ScrollerMode.BOTH)",
     ".verticalScrollDisplay(ScrollDisplay.AUTO)",
     ".horizontalScrollDisplay(ScrollDisplay.AUTO)",
     "Math.min(contentWidth, 320)",
     ".minWidth(readableMinWidth)",
+    "scroller.layout(l -> l.flex(1).minHeight(150))",
+    "scroller.horizontalScroller.setNormalizedValue(0)",
+    "scroller.verticalScroller.setNormalizedValue(0)",
 ):
+    if marker not in tabbed:
+        errors.append(f"two-axis first-round tabbed workspace contract missing {marker!r}")
+for marker in (
+    "scroller.horizontalScroller.setNormalizedValue(0)",
+    "scroller.verticalScroller.setNormalizedValue(0)",
+):
+    if marker not in standalone:
+        errors.append(f"two-axis standalone tab reset contract missing {marker!r}")
+for marker in (
+    "fontSize(9f)", "fontSize(8f)", 'setText("DEVICE DETAILS ▾")',
+    "details.setDisplay(false)", ".minWidth(76)",
+):
+    if marker not in shared_text:
+        errors.append(f"compact header/status contract missing {marker!r}")
     if marker not in shared_text:
         errors.append(f"two-axis first-round scroller contract missing {marker!r}")
 
@@ -141,6 +159,7 @@ if errors:
     raise SystemExit(1)
 
 print("RSE OCT28 FIRST-ROUND VISUAL BASELINE: PASS")
-print("screen layout methods and host files match the accepted first-round source")
-print("shared LDLib2 workspace retains automatic vertical + horizontal scrolling")
+print("vanilla screen hosts and first-round screen methods remain unchanged")
+print("LDLib2 retains draggable vertical + horizontal scrollers and tab-reset behavior")
+print("compact fixed header and collapsed details reserve space for the large display viewport")
 print("later engineering content remains additive without replacing navigation architecture")
