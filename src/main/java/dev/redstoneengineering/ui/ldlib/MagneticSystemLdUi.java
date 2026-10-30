@@ -79,6 +79,12 @@ public final class MagneticSystemLdUi {
                     RseLdUiComponents.liveRow("ADJUSTABLE",m.kind()==MagneticSystemMenu.KIND_PERMANENT?"S":"N",()->m.kind()==MagneticSystemMenu.KIND_PERMANENT?m.primary()+" • 1..15":m.tertiary()+" • 1..4"),
                     f
             );
+            p.addChild(RseLegalStepControls.choices(
+                    m.kind() == MagneticSystemMenu.KIND_PERMANENT ? "S" : "N_turns",
+                    "magnet source strength 1..15 or coil turns 1..4; server computes the field/induction.",
+                    () -> m.operationalHealth() >= 0,
+                    () -> m.kind() == MagneticSystemMenu.KIND_PERMANENT ? m.primary() : m.tertiary(),
+                    RseLegalStepControls.wholeRange(1, max), m::setPrimaryFromUi));
         }else{
             p.addChild(RseLdUiComponents.fixedRow("control",()->"NONE","observer/external actuator owns no local tuning coefficient"));
         }

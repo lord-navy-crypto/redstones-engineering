@@ -210,6 +210,12 @@ public final class PneumaticSystemLdUi {
                     RseLdUiComponents.liveRow("ADJUSTABLE","P_set",()->(m.kind()==PneumaticSystemMenu.KIND_REGULATOR?m.secondary():m.tertiary())+" • P ∈ {25,50,75,100}"),
                     f
             );
+            p.addChild(RseLegalStepControls.choices(
+                    "P_set",
+                    "pressure-equivalent setpoint/relief threshold. Only 25/50/75/100 are accepted.",
+                    () -> m.operationalHealth() >= 0,
+                    () -> m.kind() == PneumaticSystemMenu.KIND_REGULATOR ? m.secondary() : m.tertiary(),
+                    new int[]{25, 50, 75, 100}, m::setSetpointFromUi));
         } else if(m.kind()==PneumaticSystemMenu.KIND_VALVE){
             p.addChildren(
                     RseLdUiComponents.liveRow("ADJUSTABLE","state",()->m.stateFlag()==1?"OPEN":"CLOSED"),

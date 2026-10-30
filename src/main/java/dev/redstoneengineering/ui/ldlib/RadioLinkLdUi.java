@@ -58,7 +58,11 @@ public final class RadioLinkLdUi {
         p.addChildren(
                 RseLdUiComponents.liveRow("ADJUSTABLE","CH",()->m.snapshotReady()
                                                  ? m.channel()+" • 0..3" : "NOT READY • channel awaiting server"),
-                f
+                f,
+                RseLegalStepControls.choices("CH",
+                        "radio channel 0..3; affects pairing, collision domain and receive decoding.",
+                        m::snapshotReady, m::channel,
+                        RseLegalStepControls.wholeRange(0, 3), m::setChannelFromUi)
         );
         if(m.kind()==RadioLinkMenu.KIND_RECEIVER) p.addChild(RseLdUiComponents.serverAction("Cycle output direction ▶",m::cycleOutputForward));
         return p;

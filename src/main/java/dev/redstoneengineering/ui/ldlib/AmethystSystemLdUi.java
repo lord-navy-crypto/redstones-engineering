@@ -130,6 +130,12 @@ public final class AmethystSystemLdUi {
                     v->{try{m.setPrimaryFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}
             ).build());
             p.addChild(primary);
+            p.addChild(RseLegalStepControls.choices(
+                    m.kind() == AmethystSystemMenu.KIND_SOURCE ? "f_idx" : "f_target",
+                    "discrete carrier/target frequency INDEX (not hertz); modifies resonance matching.",
+                    () -> m.operationalHealth() >= 0,
+                    () -> m.kind() == AmethystSystemMenu.KIND_SOURCE ? m.primary() : m.tertiary(),
+                    RseLegalStepControls.wholeRange(1, 15), m::setPrimaryFromUi));
         }
         if(m.kind()==AmethystSystemMenu.KIND_SOURCE || m.kind()==AmethystSystemMenu.KIND_TUNED){
             int max=m.kind()==AmethystSystemMenu.KIND_SOURCE?15:4;
@@ -139,6 +145,12 @@ public final class AmethystSystemLdUi {
                     v->{try{m.setSecondaryFromUi(Integer.parseInt(v));}catch(NumberFormatException ignored){}}
             ).build());
             p.addChild(secondary);
+            p.addChild(RseLegalStepControls.choices(
+                    m.kind() == AmethystSystemMenu.KIND_SOURCE ? "A_source" : "Q_index",
+                    "source amplitude 1..15 or tuned resonance quality 1..4; affects attenuation/response.",
+                    () -> m.operationalHealth() >= 0,
+                    () -> m.kind() == AmethystSystemMenu.KIND_SOURCE ? m.secondary() : m.auxiliary(),
+                    RseLegalStepControls.wholeRange(1, max), m::setSecondaryFromUi));
         }
         if(m.kind()==AmethystSystemMenu.KIND_SOURCE){
             p.addChild(RseLdUiComponents.serverAction("Pulse",m::pulse));

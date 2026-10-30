@@ -79,6 +79,10 @@ public final class RangeSensorLdUi {
         return new UIElement().addClass("panel_bg").layout(l->l.paddingAll(5).gapAll(5)).addChildren(
                 RseLdUiComponents.note("R is discrete: only 4, 8 or 15 blocks. Other typed values are rejected by the server."),
                 wrapRow,
+                RseLegalStepControls.choices("R",
+                        "scanning radius in blocks; changes detection aperture and output scaling.",
+                        menu::snapshotReady, menu::configuredRange,
+                        new int[]{4, 8, 15}, menu::setRangeFromUi),
                 new UIElement().layout(l->l.flexDirection(YogaFlexDirection.ROW)
                         .flexWrap(dev.vfyjxf.taffy.style.FlexWrap.WRAP).gapAll(6)).addChildren(
                         RseLdUiComponents.serverAction("Cycle detect ▶",menu::cycleDetectForward),

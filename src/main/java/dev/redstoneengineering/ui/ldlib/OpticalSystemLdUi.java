@@ -87,6 +87,12 @@ public final class OpticalSystemLdUi {
                             new Label().setText("PRIMARY").layout(l->l.width(82)), primary,
                             new Label().setText(primaryRange(kind)).layout(l->l.flex(1)))
             );
+            p.addChild(RseLegalStepControls.choices(
+                    primarySymbol(kind),
+                    "optical intensity, accepted channel or signal loss; server-owned propagation and commissioning.",
+                    () -> m.operationalHealth() >= 0,
+                    () -> primaryValue(m), RseLegalStepControls.wholeRange(0, limit),
+                    m::applyPrimaryFromUi));
         } else {
             p.addChild(RseLdUiComponents.fixedRow("PRIMARY",
                     () -> "READ ONLY", "No editable intensity, target-channel or attenuation control"));
@@ -109,6 +115,12 @@ public final class OpticalSystemLdUi {
                             new Label().setText("SECONDARY").layout(l->l.width(82)), secondary,
                             new Label().setText(secondaryRange(kind)).layout(l->l.flex(1)))
             );
+            p.addChild(RseLegalStepControls.choices(
+                    "channel",
+                    "emitter or free-space TX/RX channel; exact 0..15 or 0..3 domain from the menu.",
+                    () -> m.operationalHealth() >= 0,
+                    m::secondary, RseLegalStepControls.wholeRange(0, limit),
+                    m::applySecondaryFromUi));
         } else {
             p.addChild(RseLdUiComponents.fixedRow("SECONDARY",
                     () -> "READ ONLY", "Observed channel, branch intensity or loss is not an extra knob"));
