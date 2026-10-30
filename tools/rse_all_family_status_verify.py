@@ -67,6 +67,37 @@ for family in ("EnhancedFieldDevice", "UniversalFieldDevice"):
     if '"Status"' not in text or '"Configure"' not in text:
         errors.append(f"{family}: shared Configure/Status interface missing")
 
+# More buttons are permitted ONLY when a real menu-validated setter exists.
+# The list below is deliberately smaller than all families: read-only meters
+# must never receive invented 'parameter' controls.
+CONTROL_FAMILIES = {
+    "AmethystSystem": "m::setPrimaryFromUi",
+    "MagneticSystem": "m::setPrimaryFromUi",
+    "OpticalSystem": "m::applyPrimaryFromUi",
+    "PneumaticSystem": "m::setSetpointFromUi",
+    "RadioLink": "m::setChannelFromUi",
+    "RangeSensor": "menu::setRangeFromUi",
+    "LogicAnalyzer": "m::setThresholdFromUi",
+    "Oscilloscope": "menu::setSamplePeriodFromUi",
+    "SignalProcessor": "menu::setParameterFromUi",
+    "SignalConditioner": "menu::applyVisibleFormulaParameter",
+}
+legal = (UI / "RseLegalStepControls.java").read_text(encoding="utf-8")
+for marker in (
+    "if (!ready.getAsBoolean()", "if (index < 0) return;",
+    "submit.accept(legal[next])", "RseLdUiComponents.serverAction",
+    "new Label().setText(\"CHANGES • \"",
+    "SERVER CONFIRMED", "wholeRange(int min, int max)",
+):
+    if marker not in legal:
+        errors.append(f"legal-step helper missing {marker!r}")
+for family, setter in CONTROL_FAMILIES.items():
+    source = (UI / (family + "LdUi.java")).read_text(encoding="utf-8")
+    if "RseLegalStepControls.choices(" not in source:
+        errors.append(f"{family}: missing legal step controls")
+    if setter not in source:
+        errors.append(f"{family}: no real menu setter {setter!r}")
+
 if errors:
     print("RSE ALL-FAMILY STATUS: FAIL")
     for error in errors: print(" -", error)
