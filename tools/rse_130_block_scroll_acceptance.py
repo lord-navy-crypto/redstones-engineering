@@ -80,7 +80,13 @@ def ancestry(cls):
         yield cls
         seen.add(cls)
         if cls not in parents:
-            source = get("block/" + cls + ".java")
+            # Stop at vanilla Minecraft / NeoForge superclass boundaries.
+            # Only RSE-authored classes have files in src/.../block.
+            local_parent = SRC / "block" / (cls + ".java")
+            if not local_parent.is_file():
+                parents[cls] = ""
+                break
+            source = local_parent.read_text(encoding="utf-8", errors="replace")
             pattern = r'\bclass\s+' + re.escape(cls) + r'\b[^\{]*?\bextends\s+([A-Za-z0-9_]+)'
             match = re.search(pattern, source, re.S)
             parents[cls] = match.group(1) if match else ""
