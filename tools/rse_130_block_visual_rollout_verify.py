@@ -97,7 +97,7 @@ for token in (
     "menu.operatorCheckLabel()",
     'details.setDisplay(false)',
     'details.setDisplay(expanded[0])',
-    'new Button().setText("Show evidence ▼")',
+    'new Button().setText("DEVICE DETAILS ▾")',
     "menu.operationalHealthLabel()",
     "menu.topologyRoleLabel()",
     "menu.evidenceStateLabel()",
