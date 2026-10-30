@@ -37,6 +37,7 @@ jobs:
           : > .rse-audit/static-verification.log
           for verifier in \
             tools/rse_repo_verify.py \
+            tools/rse_fusion_nonvisual_parity_verify.py \
             tools/rse_source_quality_audit.py \
             tools/rse_reference_model_tests.py \
             tools/rse_sample_hold_quality_verify.py \
