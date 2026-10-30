@@ -111,6 +111,22 @@ public final class RseDiagnosticsScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollXDelta, double scrollYDelta) {
+        // Wheel-down reads older session evidence; wheel-up returns to new entries.
+        // Keep the existing button and filter semantics, including page 1 = newest.
+        if (scrollYDelta == 0.0 || mouseX < 16 || mouseX >= width - 16
+                || mouseY < 49 || mouseY >= height - 43) {
+            return super.mouseScrolled(mouseX, mouseY, scrollXDelta, scrollYDelta);
+        }
+        int rows = Math.max(4, (height - 120) / 12);
+        int count = filteredEntries().size();
+        int maxPage = count == 0 ? 0 : (count - 1) / rows;
+        int pages = Math.max(1, (int) Math.ceil(Math.abs(scrollYDelta)));
+        page = Math.max(0, Math.min(maxPage, page + (scrollYDelta < 0 ? pages : -pages)));
+        return true;
+    }
+
     private void renderEntries(GuiGraphics graphics) {
         List<RseDiagnosticEntry> entries = filteredEntries();
         int rows = Math.max(4, (height - 120) / 12);
