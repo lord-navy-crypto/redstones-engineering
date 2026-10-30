@@ -25,7 +25,7 @@ universal = source["universal"]
 checks = {
     "shared": (
         "public static UIElement statusTile(String label, Supplier<String> serverReadback)",
-        "liveText(serverReadback)",
+        "compactLiveText(serverReadback)",
         "public static UIElement statusRail(UIElement... tiles)",
         "public static UIElement operatorGuide(String heading, Supplier<String> nextAction, String readingKey)",
         "liveText(nextAction)",
