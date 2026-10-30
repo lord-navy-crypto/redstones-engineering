@@ -116,6 +116,19 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollXDelta, double scrollYDelta) {
+        // The encyclopedia is a paginated book, not a long-scrolling device
+        // HMI. Wheel-down moves to the next complete block entry; the search
+        // box, GUIDE / PORTS toggle and existing Prev/Next buttons are kept.
+        if (scrollYDelta == 0.0 || mouseX < leftPos + 8 || mouseX >= leftPos + imageWidth - 8
+                || mouseY < topPos + 36 || mouseY >= topPos + imageHeight - 32) {
+            return super.mouseScrolled(mouseX, mouseY, scrollXDelta, scrollYDelta);
+        }
+        changePage(scrollYDelta < 0 ? 1 : -1);
+        return true;
+    }
+
+    @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PAPER_DARK);
         graphics.fill(leftPos + 5, topPos + 5, leftPos + imageWidth - 5, topPos + imageHeight - 5, PAPER);
