@@ -8,10 +8,13 @@ def read(rel):
  return p.read_text(errors='ignore')
 block=read('src/main/java/dev/redstoneengineering/block/WorkcellControllerBlock.java')
 menu=read('src/main/java/dev/redstoneengineering/ui/menu/WorkcellControllerMenu.java')
-screen=read('src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java')
+host=read('src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java')
+screen=read('src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java')
 for token in ('inputBufferUsedUnits','inputBufferCapacityUnits','outputBufferUsedUnits','outputBufferCapacityUnits','inputWipPressurePercent','outputWipPressurePercent'):
  if block and token not in block: errors.append(f'block snapshot missing {token}')
  if menu and token not in menu: errors.append(f'menu sync missing {token}')
+if host and 'extends LdlibEngineeringHostScreen<WorkcellControllerMenu>' not in host:
+ errors.append('workcell LDLib2 host missing')
 for token in ('INPUT','WORKCELL','OUTPUT','ADMISSION','Input WIP','Output WIP','PERMIT','HOLD'):
  if screen and token not in screen: errors.append(f'screen missing visual token {token!r}')
 for body,label in ((menu,'menu'),(screen,'screen')):

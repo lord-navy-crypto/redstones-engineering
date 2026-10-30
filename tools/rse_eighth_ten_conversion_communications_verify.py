@@ -151,13 +151,13 @@ if workflow and "tools/rse_eighth_ten_conversion_communications_verify.py" not i
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
     if workflow and token not in workflow:
-        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+        errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE eighth-ten conversion/communications verification: FAIL")
@@ -174,4 +174,4 @@ print("  serial no-driver/conflict quality + converter propagation: PASS")
 print("  serializer/deserializer event-driven updates + bounded watchdog: PASS")
 print("  differential no-driver/conflict quality: PASS")
 print("  unified junction preserves communication quality: PASS")
-print("  registered eighth-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered eighth-ten GameTests: 10 (manual acceptance / failures reported)")

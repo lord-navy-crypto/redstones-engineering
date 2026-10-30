@@ -6,6 +6,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.OpticalCommissioningSupport;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.OpticalSystemLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -25,6 +27,8 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             BUTTON_ROTATE_LEFT = 4, BUTTON_ROTATE_RIGHT = 5,
             BUTTON_INPUT_LEFT = 6, BUTTON_INPUT_RIGHT = 7,
             BUTTON_OUTPUT_LEFT = 8, BUTTON_OUTPUT_RIGHT = 9;
+    public static final int BUTTON_PRIMARY_DIRECT_BASE = 9000, BUTTON_PRIMARY_DIRECT_MAX = 9015;
+    public static final int BUTTON_SECONDARY_DIRECT_BASE = 9100, BUTTON_SECONDARY_DIRECT_MAX = 9115;
 
     private final DataSlot kind = trackedInt(), primary = trackedInt(), secondary = trackedInt(), tertiary = trackedInt(), auxiliary = trackedInt();
     private final DataSlot quality = trackedInt(), facing = trackedInt(), inputFacing = trackedInt(), outputFacing = trackedInt();
@@ -37,7 +41,28 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     public OpticalSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) { this(containerId, inventory, data.readBlockPos()); }
     public OpticalSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.OPTICAL_SYSTEM.get(), containerId, inventory, pos, inventory.player.level().getBlockState(pos).getBlock());
+        // A client menu is constructed before its first authoritative DataSlot sync.
+        // PortQuality ordinal zero is VALID, so never use the zero-filled slots
+        // as evidence of a real sampled source during that bootstrap frame.
+        quality.set(PortQuality.NOT_READY.ordinal());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(OpticalSystemLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** Shape-only client kind selection before synchronized DataSlots arrive. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof OpticalEmitterBlock) kind.set(KIND_EMITTER);
+        else if (block instanceof OpticalReceiverBlock) kind.set(KIND_RECEIVER);
+        else if (block instanceof OpticalPowerMeterBlock) kind.set(KIND_METER);
+        else if (block instanceof OpticalSplitterBlock) kind.set(KIND_SPLITTER);
+        else if (block instanceof OpticalChannelFilterBlock) kind.set(KIND_FILTER);
+        else if (block instanceof OpticalAttenuatorBlock) kind.set(KIND_ATTENUATOR);
+        else if (block instanceof FreeSpaceOpticalTransmitterBlock) kind.set(KIND_FREE_SPACE_TX);
+        else if (block instanceof FreeSpaceOpticalReceiverBlock) kind.set(KIND_FREE_SPACE_RX);
+        else kind.set(-1);
     }
 
     @Override protected void refreshAuthoritativeSnapshot() {
@@ -85,23 +110,35 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         } else kind.set(-1);
     }
 
+    /** Hard faults take precedence over missing samples and unbounded observations. */
     private static CommissioningStatus receiverCommissioning(PortQuality q, OpticalCommissioningSupport.SegmentBudget b) {
-        if (!b.bounded() || q == PortQuality.STALE) return CommissioningStatus.NOT_READY;
-        if (q == PortQuality.FAULT || q == PortQuality.DOMAIN_MISMATCH || q == PortQuality.TOPOLOGY_ERROR || b.sourceCount() > 1 || !b.channelCoherent()) return CommissioningStatus.FAIL;
-        if (q == PortQuality.NO_SIGNAL || b.sourceCount() == 0 || b.receiverIntensity() <= 0) return CommissioningStatus.NOT_READY;
-        if (b.receiverHeadroom() <= 1) return CommissioningStatus.MARGINAL;
+        if (hardCommissioningFault(q) || b.sourceCount() > 1 || (b.bounded() && !b.channelCoherent()))
+            return CommissioningStatus.FAIL;
+        if (q == PortQuality.NO_SIGNAL || q == PortQuality.NOT_READY || q == PortQuality.STALE
+                || !b.bounded() || b.sourceCount() == 0 || b.receiverIntensity() <= 0)
+            return CommissioningStatus.NOT_READY;
+        if (q != PortQuality.VALID || b.receiverHeadroom() <= 1)
+            return CommissioningStatus.MARGINAL;
         return CommissioningStatus.PASS;
     }
 
     private static CommissioningStatus opticalCommissioning(PortQuality q, int intensity, OpticalCommissioningSupport.Evidence e) {
-        if (q == PortQuality.NO_SIGNAL || intensity <= 0 || e.connectedNeighbors() == 0) return CommissioningStatus.NOT_READY;
-        if (q == PortQuality.FAULT || q == PortQuality.DOMAIN_MISMATCH || q == PortQuality.TOPOLOGY_ERROR) return CommissioningStatus.FAIL;
-        if (q != PortQuality.VALID || e.channelMismatchNeighbors() > 0 || e.sameChannelNeighbors() == 0) return CommissioningStatus.MARGINAL;
+        if (hardCommissioningFault(q)) return CommissioningStatus.FAIL;
+        if (q == PortQuality.NO_SIGNAL || q == PortQuality.NOT_READY || q == PortQuality.STALE
+                || intensity <= 0 || e.connectedNeighbors() == 0)
+            return CommissioningStatus.NOT_READY;
+        if (q != PortQuality.VALID || e.channelMismatchNeighbors() > 0 || e.sameChannelNeighbors() == 0)
+            return CommissioningStatus.MARGINAL;
         int spread = Math.max(0, e.strongestSameChannel() - e.weakestSameChannel());
         int localStep = Math.max(0, e.strongestSameChannel() - intensity);
         if (localStep >= 4) return CommissioningStatus.FAIL;
         if (localStep >= 2 || spread >= 2) return CommissioningStatus.MARGINAL;
         return CommissioningStatus.PASS;
+    }
+
+    private static boolean hardCommissioningFault(PortQuality quality) {
+        return quality == PortQuality.FAULT || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
     private void captureDomainEndpoints(BlockState state) {
@@ -112,6 +149,45 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     @Override public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true; if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos); Block block = state.getBlock(); boolean changed;
+
+        if (id >= BUTTON_PRIMARY_DIRECT_BASE && id <= BUTTON_PRIMARY_DIRECT_MAX) {
+            int value = id - BUTTON_PRIMARY_DIRECT_BASE;
+            if (block instanceof OpticalEmitterBlock) {
+                level.setBlock(blockPos, state.setValue(OpticalEmitterBlock.INTENSITY, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
+                changed = true;
+            } else if (block instanceof OpticalChannelFilterBlock) {
+                BlockState next = state.setValue(OpticalChannelFilterBlock.TARGET, value);
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) OpticalChannelFilterBlock.configurationChanged(server, blockPos, next);
+                changed = true;
+            } else if (block instanceof OpticalAttenuatorBlock && value <= 8) {
+                BlockState next = state.setValue(OpticalAttenuatorBlock.LOSS, value);
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) OpticalAttenuatorBlock.configurationChanged(server, blockPos, next);
+                changed = true;
+            } else return false;
+            refreshAuthoritativeSnapshot(); broadcastChanges(); return changed;
+        }
+
+        if (id >= BUTTON_SECONDARY_DIRECT_BASE && id <= BUTTON_SECONDARY_DIRECT_MAX) {
+            int value = id - BUTTON_SECONDARY_DIRECT_BASE;
+            if (block instanceof OpticalEmitterBlock) {
+                level.setBlock(blockPos, state.setValue(OpticalEmitterBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
+                changed = true;
+            } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter && value <= 3) {
+                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalTransmitterBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, transmitter, 1);
+                changed = true;
+            } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver && value <= 3) {
+                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalReceiverBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, receiver, 1);
+                changed = true;
+            } else return false;
+            refreshAuthoritativeSnapshot(); broadcastChanges(); return changed;
+        }
+
         if (block instanceof OpticalEmitterBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int value = state.getValue(OpticalEmitterBlock.INTENSITY); value = id == BUTTON_PRIMARY_NEXT ? (value + 1) % 16 : Math.floorMod(value - 1, 16); state = state.setValue(OpticalEmitterBlock.INTENSITY, value);
@@ -188,6 +264,38 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         level.scheduleTick(blockPos, splitter, 1); if (level instanceof ServerLevel server) DomainNetwork.recomputeOpticalAround(server, blockPos); return true;
     }
     private static Direction rotateHorizontal(Direction d, boolean clockwise) { return clockwise ? d.getClockWise() : d.getCounterClockWise(); }
+
+    /** LDLib2 HMI intent facade; propagation/commissioning remain server-owned. */
+    public boolean applyPrimaryFromUi(int value) {
+        boolean valid = switch (kind()) {
+            case KIND_EMITTER, KIND_FILTER -> value >= 0 && value <= 15;
+            case KIND_ATTENUATOR -> value >= 0 && value <= 8;
+            default -> false;
+        };
+        return valid && clickMenuButton(playerInventory.player, BUTTON_PRIMARY_DIRECT_BASE + value);
+    }
+
+    public boolean applySecondaryFromUi(int value) {
+        boolean valid = switch (kind()) {
+            case KIND_EMITTER -> value >= 0 && value <= 15;
+            case KIND_FREE_SPACE_TX, KIND_FREE_SPACE_RX -> value >= 0 && value <= 3;
+            default -> false;
+        };
+        return valid && clickMenuButton(playerInventory.player, BUTTON_SECONDARY_DIRECT_BASE + value);
+    }
+
+    public boolean cycleWholeRouteForward() {
+        if (!directional() && kind() != KIND_METER) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean cycleInputForward() {
+        return hasInputEndpoint() && clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return hasOutputEndpoint() && clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
 
     public int kind() { return kind.get(); } public int primary() { return primary.get(); } public int secondary() { return secondary.get(); }
     public int tertiary() { return tertiary.get(); } public int auxiliary() { return auxiliary.get(); }

@@ -66,11 +66,22 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
 
     /** Shared authoritative operator action used by both HMI and Shift-right-click. */
     public static boolean stepRate(Level level, BlockPos pos, boolean forward) {
+        if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
         int rate = state.getValue(RATE);
         int nextRate = forward ? (rate >= 4 ? 1 : rate + 1) : (rate <= 1 ? 4 : rate - 1);
         level.setBlock(pos, state.setValue(RATE, nextRate), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, filter, 1);
+        return true;
+    }
+
+    public static boolean setRate(Level level, BlockPos pos, int rate) {
+        if (level.isClientSide || rate < 1 || rate > 4) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
+        if (state.getValue(RATE) == rate) return true;
+        level.setBlock(pos, state.setValue(RATE, rate), Block.UPDATE_CLIENTS);
         level.scheduleTick(pos, filter, 1);
         return true;
     }

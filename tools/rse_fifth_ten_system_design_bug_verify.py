@@ -122,12 +122,12 @@ require("tools/rse_fifth_ten_system_design_bug_verify.py" in workflow,
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
-    require(token in workflow, f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
+    require(token in workflow, f"build.yml missing manual/failure-transparent GameTest policy token {token!r}")
 
 print("RSE fifth-ten system design + bug verification: PASS")
 print("  Amethyst spectrum observer/conflict/coverage evidence: PASS")
@@ -137,5 +137,5 @@ print("  Copper R/C/fuse observer-neutral source-quality evidence: PASS")
 print("  Capacitor retained-energy structural contract: PASS")
 print("  Copper metrology snapshot ownership boundary: PASS")
 print("  Permanent Magnet scalar free-space identity + legacy label: PASS")
-print("  registered fifth-ten GameTests: 9 (manual diagnostic / non-blocking)")
+print("  registered fifth-ten GameTests: 9 (manual acceptance / failures reported)")
 print("  fixed-content architecture: 127 blocks; no new block/domain required")

@@ -45,7 +45,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
         "PneumaticNetwork.actuatorPathEvidence", "cylinderSupply", "cylinderPathEdges",
         "cylinderObservedLoss", "cylinderLineLoss", "cylinderRestrictionLoss",
         "cylinderResponsePeriod", "cylinderRemainingTicks")
-require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java",
         "Supply / cylinder P", "Path loss", "Response / remaining",
         "RESTRICTION / REGULATION LOSS DOMINANT", "DISTRIBUTION PATH LOSS DOMINANT",
         "LOW SUPPLY PRESSURE", "DOWNSTREAM PRESSURE STARVATION",
@@ -55,7 +55,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.j
         "PARTIAL COMMANDED RESTRICTION", "Local ΔP")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java")
-screen = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/PneumaticSystemLdUi.java")
 for forbidden in ("PneumaticNetwork.collect(", "PneumaticNetwork.localLimit(", "PneumaticNetwork.permits("):
     if forbidden in menu or forbidden in screen:
         errors.append(f"pneumatic HMI must not run a second pressure-path solve; found {forbidden!r}")
@@ -75,8 +75,8 @@ require("src/main/java/dev/redstoneengineering/gametest/RseEighthEightAcceptance
 
 workflow=read(".github/workflows/build.yml")
 if workflow and "tools/rse_ninth_ten_control_pneumatic_verify.py" not in workflow:errors.append("workflow does not gate the ninth-ten verifier")
-for token in ("Minecraft topology GameTests (manual diagnostic)","github.event_name == 'workflow_dispatch'","continue-on-error: true","./gradlew runGameTestServer","./gradlew compileJava","./gradlew test"):
-    if workflow and token not in workflow:errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+for token in ("Minecraft topology GameTests (manual diagnostic)","github.event_name == 'workflow_dispatch'","GameTest runtime acceptance evidence","./gradlew runGameTestServer","./gradlew compileJava","./gradlew test"):
+    if workflow and token not in workflow:errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE ninth-ten control/pneumatic verification: FAIL")
@@ -96,4 +96,4 @@ print("  solver-retained supply/path/restriction diagnostics: PASS")
 print("  reservoir finite-rate recovery diagnosis: PASS")
 print("  proportional-valve local restriction diagnosis: PASS")
 print("  pneumatic HMI observer/no-second-solver boundary: PASS")
-print("  registered ninth-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered ninth-ten GameTests: 10 (manual acceptance / failures reported)")

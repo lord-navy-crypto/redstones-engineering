@@ -22,12 +22,12 @@ def forbid(body: str, needle: str, label: str) -> None:
 
 block = text("src/main/java/dev/redstoneengineering/block/CopperCircuitMeterBlock.java")
 menu = text("src/main/java/dev/redstoneengineering/ui/menu/CopperCircuitMeterMenu.java")
-screen = text("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
+screen = text("src/main/java/dev/redstoneengineering/ui/ldlib/CopperCircuitMeterLdUi.java")
 assessment = text("src/main/java/dev/redstoneengineering/core/diagnostic/CopperCommissioningAssessment.java")
 evidence_assessment = text("src/main/java/dev/redstoneengineering/diagnostics/CopperEvidenceAssessment.java")
 operations_menu = text("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
 kinds = text("src/main/java/dev/redstoneengineering/diagnostics/events/SystemEventKind.java")
-operations = text("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+operations = text("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 reliability = text("src/main/java/dev/redstoneengineering/diagnostics/ElectricalReliabilityAssessment.java")
 registration = text("src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java")
 client_registration = text("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
@@ -49,11 +49,20 @@ require(screen, "COPPER POWER / LOAD NETWORK", "Copper medium identity")
 require(screen, "SERVER-SYNCHRONIZED OBSERVER", "observer authority")
 require(screen, "V, Req, I and P", "electrical telemetry explanation")
 require(screen, "commissioningStatus()", "commissioning presentation")
+# Unavailable Copper input must not look like a measured 0 V or 0 A.
+for token in (
+    "private static String measured(CopperCircuitMeterMenu m, String reading)",
+    "m.quality()==dev.redstoneengineering.core.port.PortQuality.VALID",
+    "NOT READY • ",
+    "No fabricated history; missing input is NOT a measured zero.",
+):
+    require(screen, token, "Copper measured-value validity gate")
+
 # UI prose may name the authoritative server model. What is forbidden is importing or invoking it client-side.
-forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "client must not import circuit solver")
-forbid(screen, "CircuitPhysics.", "client must not invoke circuit solver")
-forbid(screen, "import dev.redstoneengineering.physics.DomainNetwork", "client must not import network solver")
-forbid(screen, "DomainNetwork.", "client must not sample network physics")
+forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "LDLib2 HMI must not import circuit solver")
+forbid(screen, "CircuitPhysics.", "LDLib2 HMI must not invoke circuit solver")
+forbid(screen, "import dev.redstoneengineering.physics.DomainNetwork", "LDLib2 HMI must not import network solver")
+forbid(screen, "DomainNetwork.", "LDLib2 HMI must not sample network physics")
 
 for token in (
     "COMMISSIONING_EVENT_INITIALIZED",
@@ -96,7 +105,7 @@ require(operations_menu, "copperEvidenceActiveFailed", "synchronized active Copp
 require(operations_menu, "copperEvidenceActiveDegraded", "synchronized active Copper degradation")
 require(operations, "COPPER EVIDENCE FAILURE", "distinct Copper evidence diagnosis")
 require(operations, "COPPER EVIDENCE DEGRADED", "distinct Copper degradation diagnosis")
-require(operations, "without treating degradation as protection downtime", "semantic separation guidance")
+require(operations, "do not count degradation as protection downtime", "semantic separation guidance")
 
 # Fuse protection reliability must remain based only on trip/ready lifecycle evidence.
 for forbidden in (

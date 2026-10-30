@@ -71,9 +71,16 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
-        int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
-        PortQuality quality = value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+        // A blocked (zero) permit is a valid safety decision after evaluation.
+        // Before the first evaluation, the output is unverified, even if it is zero.
+        if (side == front) {
+            PortQuality quality = failedMask(level, pos) < 0 ? PortQuality.STALE : PortQuality.VALID;
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), quality));
+        }
+        int value = readInputFrom(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), value, value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     @Override
@@ -127,6 +134,22 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         return runtime == null || runtime.length < RUNTIME_SIZE ? -1 : runtime[0];
     }
 
+    /** Retained tick/event evidence since the last diagnostics reset. */
+    public static int blockedTicks(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[1];
+    }
+
+    public static int permittedTicks(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[2];
+    }
+
+    public static int transitionCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[3];
+    }
+
     public static String compactDiagnostics(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         if (runtime == null || runtime.length < RUNTIME_SIZE) return "INTERLOCK not evaluated";
@@ -139,8 +162,14 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
     }
 
     public boolean resetDiagnostics(Level level, BlockPos pos) {
-        if (!level.getBlockState(pos).is(this)) return false;
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
         RuntimeIntStore.remove(level, KEY, pos);
+        // Fail closed immediately: never leave a previously asserted permit
+        // energised while the diagnostic mask is unknown after reset.
+        updateOutput(level, pos, state, 0);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);
         return true;
     }
 

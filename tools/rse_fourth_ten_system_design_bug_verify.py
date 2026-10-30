@@ -108,12 +108,12 @@ require("tools/rse_fourth_ten_system_design_bug_verify.py" in workflow,
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
-    require(token in workflow, f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
+    require(token in workflow, f"build.yml missing manual/failure-transparent GameTest policy token {token!r}")
 
 print("RSE fourth-ten system design + bug verification: PASS")
 print("  Temperature coverage completeness + STALE unknown evidence: PASS")
@@ -123,5 +123,5 @@ print("  Quartz realized jitter evidence: PASS")
 print("  Divider/phase-delay first-sample edge safety: PASS")
 print("  Stability monitor full-period + stale-evidence semantics: PASS")
 print("  Amethyst exact-filter vs tuned-response identity: PASS")
-print("  registered fourth-ten GameTests: 8 + thermal/Lapis lifecycle regressions (manual diagnostic / non-blocking)")
+print("  registered fourth-ten GameTests: 8 + thermal/Lapis lifecycle regressions (manual acceptance / failures reported)")
 print("  fixed-content architecture: no new engineering block/domain required")

@@ -28,6 +28,8 @@ import java.util.List;
 
 /** Shared no-inventory menu base for RSE engineering instruments and controllers. */
 public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
+    /** A menu can be drawn before its initial server diagnostics are synchronized. */
+    public static final int HEALTH_UNVERIFIED = -1;
     public static final int HEALTH_NOMINAL = 0;
     public static final int HEALTH_ACTIVE = 1;
     public static final int HEALTH_PROTECTIVE = 2;
@@ -83,6 +85,10 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         this.evidenceState = trackedInt();
         this.receivePortMask = trackedInt();
         this.transmitPortMask = trackedInt();
+        // Default zero is HEALTH_NOMINAL. Do not declare a device healthy
+        // before broadcastChanges() has performed the first server assessment.
+        this.operationalHealth.set(HEALTH_UNVERIFIED);
+        this.evidenceState.set(EVIDENCE_NOT_READY);
     }
 
     protected DataSlot trackedInt() {
@@ -114,11 +120,13 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
 
     public String operationalHealthLabel() {
         return switch (operationalHealth()) {
+            case HEALTH_UNVERIFIED -> "NOT READY • awaiting server health";
+            case HEALTH_NOMINAL -> "NOMINAL";
             case HEALTH_ACTIVE -> "ACTIVE";
             case HEALTH_PROTECTIVE -> "PROTECTIVE";
             case HEALTH_DEGRADED -> "DEGRADED";
             case HEALTH_FAULT -> "FAULT";
-            default -> "NOMINAL";
+            default -> "NOT READY • invalid health assessment";
         };
     }
 
@@ -170,6 +178,8 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     public String transmitPortFacesLabel() { return portMaskLabel(transmitPortMask()); }
 
     public String portRouteLabel() {
+        if (operationalHealth() == HEALTH_UNVERIFIED)
+            return "RX / TX • awaiting server route evidence";
         return "RX " + receivePortFacesLabel() + "  →  TX " + transmitPortFacesLabel();
     }
 
@@ -315,9 +325,20 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         Block block = state.getBlock();
         if (!(block instanceof EngineeringPortProvider provider)) return TOPOLOGY_UNKNOWN;
 
-        List<EngineeringPort> ports = provider.engineeringPorts(state);
+        return classifyTopologyRole(provider.engineeringPorts(state),
+                block.getClass().getSimpleName().contains("Junction"),
+                block instanceof DirectionalDomainBlock);
+    }
+
+    /**
+     * Pure formal-port classifier, for safe audit/tests without allocating
+     * unregistered Block instances after the NeoForge registry is frozen.
+     * The BlockState adapter above supplies the two genuine device traits.
+     */
+    public static int classifyTopologyRole(
+            List<EngineeringPort> ports, boolean explicitJunction, boolean directionalSeries) {
         if (ports.isEmpty()) return TOPOLOGY_PASSIVE;
-        if (block.getClass().getSimpleName().contains("Junction")) return TOPOLOGY_EXPLICIT_JUNCTION;
+        if (explicitJunction) return TOPOLOGY_EXPLICIT_JUNCTION;
 
         int receivers = 0;
         int transmitters = 0;
@@ -344,7 +365,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
 
         // Directional-domain devices preserve one explicit process input and output. Extra formal
         // receive ports are controls, not permission for implicit parallel processing.
-        if (block instanceof DirectionalDomainBlock && receivers > 0 && transmitters > 0 && ports.size() > 2) {
+        if (directionalSeries && receivers > 0 && transmitters > 0 && ports.size() > 2) {
             return TOPOLOGY_CONTROLLED_SERIES;
         }
 

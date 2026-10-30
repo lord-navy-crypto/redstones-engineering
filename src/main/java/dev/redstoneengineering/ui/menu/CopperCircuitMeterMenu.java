@@ -6,6 +6,8 @@ import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.diagnostic.CopperCommissioningAssessment;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.CopperCircuitMeterLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -25,6 +27,8 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
     private final DataSlot currentMilli = trackedInt();
     private final DataSlot powerCenti = trackedInt();
     private final DataSlot quality = trackedInt();
+    /** 0 until a real server-side electrical diagnostic has been synchronized. */
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot commissioningStatus = trackedInt();
 
     public CopperCircuitMeterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -34,11 +38,19 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
     public CopperCircuitMeterMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.COPPER_CIRCUIT_METER.get(), containerId, inventory, pos,
                 RedstoneEngineering.COPPER_CIRCUIT_METER.get());
+        snapshotReady.set(0);
+        quality.set(PortQuality.NOT_READY.ordinal());
+        facing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(CopperCircuitMeterLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
+        quality.set(PortQuality.NOT_READY.ordinal());
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof CopperCircuitMeterBlock)) return;
         CopperCircuitMeterBlock.ElectricalDiagnostics diagnostics =
@@ -51,6 +63,7 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
         quality.set(diagnostics.quality().ordinal());
         commissioningStatus.set(CopperCommissioningAssessment.assess(
                 diagnostics.quality(), diagnostics.voltage()).code());
+        snapshotReady.set(1);
     }
 
     @Override
@@ -74,12 +87,16 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
         return (int) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, rounded));
     }
 
+    /** LDLib2 observer-HMI intent facade. */
+    public boolean cycleFaceForward() { return clickMenuButton(playerInventory.player, BUTTON_FACE_NEXT); }
+
     public Direction facing() {
         int ordinal = facing.get();
         Direction[] values = Direction.values();
         return ordinal < 0 || ordinal >= values.length ? Direction.NORTH : values[ordinal];
     }
 
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int voltage() { return voltage.get(); }
     public double resistance() { return resistanceCenti.get() / 100.0; }
     public double current() { return currentMilli.get() / 1000.0; }
@@ -90,5 +107,5 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
         return ordinal < 0 || ordinal >= values.length ? PortQuality.NO_SIGNAL : values[ordinal];
     }
     public CommissioningStatus commissioningStatus() { return CommissioningStatus.fromCode(commissioningStatus.get()); }
-    public boolean energized() { return quality() == PortQuality.VALID && voltage() > 0; }
+    public boolean energized() { return snapshotReady() && quality() == PortQuality.VALID && voltage() > 0; }
 }

@@ -168,13 +168,13 @@ if workflow and "tools/rse_eleventh_ten_media_evidence_verify.py" not in workflo
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
     if workflow and token not in workflow:
-        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+        errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE eleventh-ten media evidence verification: FAIL")
@@ -189,4 +189,4 @@ print("  radio zero-frame presence and observer-neutral reception: PASS")
 print("  optical source evidence + wrong-channel visibility: PASS")
 print("  guided optical planar direct-run / Junction Point vertical contract: PASS")
 print("  Soul-Flux transport/storage zero semantics: PASS")
-print("  registered eleventh-ten GameTests: 10 (manual diagnostic / non-blocking)")
+print("  registered eleventh-ten GameTests: 10 (manual acceptance / failures reported)")

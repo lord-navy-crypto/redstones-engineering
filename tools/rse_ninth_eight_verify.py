@@ -159,7 +159,7 @@ require(
     "PneumaticFlowMeterBlock.flowProxy",
 )
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "PNEUMATIC COMPRESSED-AIR OUTPUT",
     "PNEUMATIC • SIX-WAY BIDIRECTIONAL PIPE",
     "PNEUMATIC → REDSTONE",

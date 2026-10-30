@@ -2,6 +2,8 @@ package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.RangeSensorBlock;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.RangeSensorLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -28,6 +30,8 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_RESPONSE_NEXT = 5;
     public static final int BUTTON_ROTATE_LEFT = 6;
     public static final int BUTTON_ROTATE_RIGHT = 7;
+    public static final int BUTTON_RANGE_DIRECT_BASE = 16000;
+    public static final int BUTTON_RANGE_DIRECT_MAX = 16015;
 
     private final DataSlot distance = trackedInt();
     private final DataSlot scanStatus = trackedInt();
@@ -39,6 +43,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
     private final DataSlot output = trackedInt();
     private final DataSlot facing = trackedInt();
     private final DataSlot evidenceValid = trackedInt();
+    private final DataSlot snapshotReady = trackedInt();
 
     public RangeSensorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -47,11 +52,17 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
     public RangeSensorMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.RANGE_SENSOR.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        snapshotReady.set(0);
+        facing.set(-1);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(RangeSensorLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof RangeSensorBlock)) {
             distance.set(0);
@@ -78,6 +89,7 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         output.set(state.getValue(RangeSensorBlock.OUTPUT));
         facing.set(RangeSensorBlock.sensingSide(state).ordinal());
         evidenceValid.set(scan.complete() ? 1 : 0);
+        snapshotReady.set(1);
     }
 
     @Override
@@ -86,6 +98,19 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof RangeSensorBlock sensor)) return false;
+
+        if (id >= BUTTON_RANGE_DIRECT_BASE && id <= BUTTON_RANGE_DIRECT_MAX) {
+            int range = id - BUTTON_RANGE_DIRECT_BASE;
+            int mode = range == 4 ? 0 : range == 8 ? 1 : range == 15 ? 2 : -1;
+            if (mode < 0) return false;
+            BlockState next = state.setValue(RangeSensorBlock.RANGE_MODE, mode);
+            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+            level.updateNeighborsAt(blockPos, sensor);
+            level.scheduleTick(blockPos, sensor, 1);
+            refreshAuthoritativeSnapshot();
+            broadcastChanges();
+            return true;
+        }
 
         if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
             boolean changed = RangeSensorBlock.rotateSensingAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
@@ -124,6 +149,24 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         return true;
     }
 
+    public boolean cycleDetectForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_MODE_NEXT);
+    }
+
+    public boolean cycleResponseForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_RESPONSE_NEXT);
+    }
+
+    public boolean cycleDirectionForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_ROTATE_RIGHT);
+    }
+
+    public boolean setRangeFromUi(int range) {
+        if (range != 4 && range != 8 && range != 15) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_RANGE_DIRECT_BASE + range);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int distance() { return distance.get(); }
     public int scanStatusOrdinal() { return scanStatus.get(); }
     public int scannedCells() { return scannedCells.get(); }
