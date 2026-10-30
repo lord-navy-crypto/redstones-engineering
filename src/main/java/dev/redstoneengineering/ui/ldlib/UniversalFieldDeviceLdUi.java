@@ -735,7 +735,7 @@ public final class UniversalFieldDeviceLdUi {
                 new Label().setText("STATUS • LIVE DEVICE REPORT"),
                 RseLdUiComponents.statusRail(
                         RseLdUiComponents.statusTile("SYNC", () ->
-                                menu.snapshotReady() ? "SERVER READY" : "NOT READY"),
+                                menu.snapshotReady() ? "SERVER READY" : "NOT READY • awaiting first authoritative port snapshot"),
                         RseLdUiComponents.statusTile("HEALTH", () ->
                                 menu.snapshotReady() ? menu.operationalHealthLabel() : "NOT EVALUATED"),
                         RseLdUiComponents.statusTile("QUALITY", () ->
