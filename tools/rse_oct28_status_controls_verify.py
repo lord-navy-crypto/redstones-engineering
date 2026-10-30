@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
-BASE="d6ee5db74b92750f2c71cce50231d88c4177934d"
+BASE="e030dd4dfb8da579bb58364cd8abe38cb834e4a5"
 LD="src/main/java/dev/redstoneengineering/ui/ldlib/"
 ERRORS=[]
 
@@ -27,13 +27,13 @@ baseline=subprocess.check_output(["git","show",f"{BASE}:{shared}"],cwd=ROOT,text
 if current != baseline:
     # This first implementation deliberately makes NO changes to the shared
     # tabbing and scrollbar host; later enhancements must review this guard.
-    ERRORS.append("Shared RseLdUiComponents altered; first-round host must remain untouched")
+    ERRORS.append("Shared RseLdUiComponents altered; verified fusion host must remain untouched")
 
 field=LD+"EnhancedFieldDeviceLdUi.java"
 check_file(field,[
     'new String[]{"Overview", "Configure", "Topology", "Status", "Integrity", "Transport"}',
     'RseLdUiComponents.tabbedWorkspace(', 'new Label().setText("STATUS • LIVE SERVER REPORT")',
-    'm::snapshotReady', 'm.applyPrimaryEngineeringValueFromUi(target)',
+    'm::snapshotReady', 'menu.applyPrimaryEngineeringValueFromUi(target)',
     'validDirectValue(menu.kind(), target)', 'if (!menu.snapshotReady()',
     'RseLdUiComponents.serverAction("− Step"', 'RseLdUiComponents.serverAction("+ Step"',
     'RseLdUiComponents.serverAction("Minimum"', 'RseLdUiComponents.serverAction("Maximum"',
