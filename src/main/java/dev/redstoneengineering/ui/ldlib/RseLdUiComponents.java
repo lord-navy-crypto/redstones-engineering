@@ -251,7 +251,9 @@ public final class RseLdUiComponents {
             throw new IllegalArgumentException("One label required per workspace page");
         }
         var root = new UIElement().addClass("panel_bg");
-        root.layout(l -> l.widthPercent(100).flex(1).paddingAll(8).gapAll(6));
+        // This page group is nested in a fixed-height engineering HMI.
+        // minHeight(0) lets its ScrollerView viewport shrink and own overflow.
+        root.layout(l -> l.widthPercent(100).flex(1).minHeight(0).paddingAll(8).gapAll(6));
         var tabs = new UIElement().addClass("panel_bg");
         tabs.layout(l -> l.flexDirection(YogaFlexDirection.ROW).flexWrap(FlexWrap.WRAP).gapAll(5).paddingAll(5));
 
