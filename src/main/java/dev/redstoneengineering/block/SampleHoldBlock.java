@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -77,15 +78,19 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction facing = state.getValue(FACING);
-        int value;
-        PortQuality quality = PortQuality.VALID;
         if (side == outputSide(state)) {
-            value = state.getValue(OUTPUT);
-            quality = outputQuality(level, pos);
-        } else if (side == inputSide(state)) value = readBackInput(level, pos, state);
-        else if (side == leftOf(facing) || side == rightOf(facing)) value = readInputFrom(level, pos, side);
-        else return Optional.empty();
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), outputQuality(level, pos)));
+        }
+        if (side == inputSide(state) || side == leftOf(facing) || side == rightOf(facing)) {
+            // An unconnected redstone input must not look like a valid
+            // externally driven zero: preserve physical source evidence.
+            RedstoneObservationSupport.Observation input =
+                    RedstoneObservationSupport.observe(level, pos, side);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), input.value(), input.quality()));
+        }
+        return Optional.empty();
     }
 
     private int[] runtime(Level level, BlockPos pos, BlockState state, boolean triggerNow) {
@@ -101,24 +106,36 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         Direction facing = state.getValue(FACING);
-        boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
-        boolean resetNow = readInputFrom(level, pos, rightOf(facing)) > 0;
+        var trigger = RedstoneObservationSupport.observe(level, pos, leftOf(facing));
+        var reset = RedstoneObservationSupport.observe(level, pos, rightOf(facing));
+        boolean triggerNow = trigger.valid() && trigger.value() > 0;
+        boolean resetNow = reset.valid() && reset.value() > 0;
         int[] rt = runtime(level, pos, state, triggerNow);
         boolean triggerBefore = rt[TRIGGER_STATE_SLOT] == 1;
         boolean rising = !triggerBefore && triggerNow;
         boolean falling = triggerBefore && !triggerNow;
-        boolean sample = switch (state.getValue(TRIGGER_MODE)) {
+        boolean sample = trigger.valid() && switch (state.getValue(TRIGGER_MODE)) {
             case 0 -> rising; case 1 -> falling; case 2 -> rising || falling; default -> rising;
         };
 
+        if (!trigger.valid()) {
+            // An absent or unloaded clock must never create a false falling
+            // edge; the next valid level re-establishes an edge baseline.
+            rt[INITIALIZED_SLOT] = 0;
+        }
         if (resetNow) {
             rt[HELD_SLOT] = 0;
             rt[OUTPUT_READY_SLOT] = 1;
         } else if (sample) {
-            rt[HELD_SLOT] = readBackInput(level, pos, state);
-            rt[OUTPUT_READY_SLOT] = 1;
-            rt[CAPTURE_COUNT]++;
-            rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
+            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            if (input.valid()) {
+                // Driven zero is a legitimate capture. Missing/unloaded
+                // input is not an authoritative zero-valued measurement.
+                rt[HELD_SLOT] = input.value();
+                rt[OUTPUT_READY_SLOT] = 1;
+                rt[CAPTURE_COUNT]++;
+                rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
+            }
         }
         rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
         updateOutput(level, pos, state, rt[HELD_SLOT]);
@@ -175,6 +192,22 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hitResult.getDirection() == Direction.DOWN) {
+                Direction facing = state.getValue(FACING);
+                var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+                var trigger = RedstoneObservationSupport.observe(level, pos, leftOf(facing));
+                var reset = RedstoneObservationSupport.observe(level, pos, rightOf(facing));
+                player.displayClientMessage(Component.literal(
+                        "SAMPLE & HOLD TEST | mode=" + modeName(state.getValue(TRIGGER_MODE))
+                                + " | INPUT=" + input.value() + "/15:" + input.quality()
+                                + " | TRIGGER=" + trigger.value() + ":" + trigger.quality()
+                                + " | RESET=" + reset.value() + ":" + reset.quality()
+                                + " | HELD=" + state.getValue(OUTPUT) + "/15:" + outputQuality(level, pos)
+                                + " | captures=" + captureCount(level, pos)
+                                + " | age=" + sampleAgeTicks(level, pos) + "t"
+                                + " | DOWN=inspect, other Shift faces=clear"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 clearHeldValue(level, pos);
                 player.displayClientMessage(Component.literal(

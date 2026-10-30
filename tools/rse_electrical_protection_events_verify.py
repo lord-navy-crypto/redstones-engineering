@@ -48,7 +48,7 @@ if fuse:
     if tick_index < 0 or trip_index < tick_index or ready_index < tick_index:
         errors.append("Electrical trip/ready evidence is not emitted from the server protection tick path")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/OperationsMonitorLdUi.java")
 for token in (
     'case ELECTRICAL_TRIP -> "E-TRP"',
     'case ELECTRICAL_READY -> "E-RDY"',
@@ -87,11 +87,11 @@ if workflow and "tools/rse_electrical_protection_events_verify.py" not in workfl
 if workflow:
     for token in (
         "github.event_name == 'workflow_dispatch'",
-        "continue-on-error: true",
+        "GameTest runtime acceptance evidence",
         "Minecraft topology GameTests (manual diagnostic)",
     ):
         if token not in workflow:
-            errors.append(f"build.yml missing diagnostic-only GameTest policy token {token!r}")
+            errors.append(f"build.yml missing manual GameTest acceptance policy token {token!r}")
 
 if errors:
     print("RSE electrical protection event verification: FAIL")
@@ -104,4 +104,4 @@ print(" server-authoritative overcurrent trip evidence: PASS")
 print(" source-isolated cell-scoped first-out integration: PASS")
 print(" guarded safe-reset/READY semantics: PASS")
 print(" Operations Monitor electrical event rendering: PASS")
-print(" registered electrical protection lifecycle GameTests: PASS (manual diagnostic / non-blocking)")
+print(" registered electrical protection lifecycle GameTests: PASS (manual runtime test / failure-transparent)")

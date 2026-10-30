@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BLOCK = ROOT / "src/main/java/dev/redstoneengineering/block"
 MENU = ROOT / "src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java"
 SCREEN = ROOT / "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"
+LD_UI = ROOT / "src/main/java/dev/redstoneengineering/ui/ldlib/SignalProcessorLdUi.java"
 FIELD_UI = ROOT / "src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java"
 
 errors = []
@@ -26,6 +27,7 @@ pulse = read(BLOCK / "PulseShaperBlock.java")
 precision = read(BLOCK / "PrecisionFilterBlock.java")
 menu = read(MENU)
 screen = read(SCREEN)
+ld_ui = read(LD_UI)
 field_ui = read(FIELD_UI)
 
 for source, method, label in (
@@ -46,19 +48,72 @@ require(menu, "PulseShaperBlock.stepWidth(level, blockPos, forward)", "SignalPro
 require(menu, "BUTTON_PARAMETER_PREVIOUS", "SignalProcessorMenu.java")
 require(menu, "BUTTON_PARAMETER_NEXT", "SignalProcessorMenu.java")
 
-require(screen, 'Component.literal("◀ Parameter")', "SignalProcessorScreen.java")
-require(screen, 'Component.literal("Parameter ▶")', "SignalProcessorScreen.java")
-require(screen, 'case SignalProcessorMenu.KIND_EDGE -> "Edge mode";', "SignalProcessorScreen.java")
-require(screen, 'case SignalProcessorMenu.KIND_PULSE -> "Pulse width";', "SignalProcessorScreen.java")
-require(screen, 'default -> "Slew rate";', "SignalProcessorScreen.java")
-require(screen, "case OVERVIEW -> overview(graphics);", "SignalProcessorScreen.java")
-require(screen, "case PORTS -> ports(graphics);", "SignalProcessorScreen.java")
-require(screen, "case CONFIGURE -> configure(graphics);", "SignalProcessorScreen.java")
-require(screen, "case DIAGNOSTICS -> diagnostics(graphics);", "SignalProcessorScreen.java")
-require(screen, "case HISTORY -> history(graphics);", "SignalProcessorScreen.java")
+require(screen, "extends LdlibEngineeringHostScreen<SignalProcessorMenu>", "SignalProcessorScreen.java")
+for token in (
+    "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
+    "e[n] = edge_mode(x[n-1], x[n]); e[n] ⇒ y=15 for 2 ticks",
+    "rising edge(x) ⇒ y=15 for W ticks; otherwise y=0",
+    "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)",
+    "Cycle edge mode ▶",
+    "setParameterFromUi",
+    "Cycle RX ▶",
+    "Cycle TX ▶",
+    "Edge chronology is retained by server runtime",
+    "Observer readback never initializes or retriggers runtime state",
+    "RseLdUiComponents.authorityFooter()",
+):
+    require(ld_ui, token, "SignalProcessorLdUi.java")
+
+for token in (
+    "SignalProcessorLdUi.create(this, inventory.player)",
+    "cycleParameterForward",
+    "setParameterFromUi",
+    "cycleInputForward",
+    "cycleOutputForward",
+):
+    require(menu, token, "SignalProcessorMenu.java")
 
 require(field_ui, "block instanceof PrecisionFilterBlock || block instanceof EdgeDetectorBlock || block instanceof PulseShaperBlock", "FieldDeviceUi.java")
 require(field_ui, "new SignalProcessorMenu(id, inv, pos)", "FieldDeviceUi.java")
+
+# A filter numerically matching a zero input is not proof of a wired
+# signal. Unknown kinds must not receive fake adjustable controls.
+for token in (
+    "ZERO NUMERICAL LAG • input presence unverified",
+    "Equality x=y is not evidence",
+    "m.initialized()",
+    "NOT READY • no input baseline",
+    "No server-side adjustable parameter exists for this device",
+):
+    require(ld_ui, token, "SignalProcessorLdUi.java")
+if '"SETTLED":"SETTLING"' in ld_ui:
+    errors.append("Signal Processor displays numeric equality as verified filter health")
+
+# Operator controls must not mutate client-side world state, and repeated
+# direct entry of an unchanged parameter must not enqueue redundant ticks.
+def method_fragment(source, signature, label):
+    start = source.find(signature)
+    if start < 0:
+        errors.append(f"{label}: missing method {signature!r}")
+        return ""
+    end = source.find("\n    }", start)
+    if end < 0:
+        errors.append(f"{label}: unterminated method {signature!r}")
+        return ""
+    return source[start:end]
+
+for source, signature, guard, label in (
+    (precision, "public static boolean stepRate(", "if (level.isClientSide) return false;", "PrecisionFilterBlock.stepRate"),
+    (precision, "public static boolean setRate(", "if (level.isClientSide || rate < 1 || rate > 4) return false;", "PrecisionFilterBlock.setRate"),
+    (pulse, "public static boolean stepWidth(", "if (level.isClientSide) return false;", "PulseShaperBlock.stepWidth"),
+    (pulse, "public static boolean setWidth(", "if (level.isClientSide || width < 1 || width > 8) return false;", "PulseShaperBlock.setWidth"),
+):
+    require(method_fragment(source, signature, label), guard, label)
+
+require(method_fragment(precision, "public static boolean setRate(", "PrecisionFilterBlock.setRate"),
+        "if (state.getValue(RATE) == rate) return true;", "PrecisionFilterBlock.setRate")
+require(method_fragment(pulse, "public static boolean setWidth(", "PulseShaperBlock.setWidth"),
+        "if (state.getValue(WIDTH) == width) return true;", "PulseShaperBlock.setWidth")
 
 # Guard against reintroducing duplicate direct parameter mutation in the dedicated HMI.
 for forbidden in (
@@ -79,4 +134,4 @@ print("RSE SIGNAL PROCESSOR HMI VERIFY: PASS")
 print("  Edge Detector: HMI + Shift share stepMode")
 print("  Pulse Shaper: HMI + Shift share stepWidth")
 print("  Precision Filter: HMI + Shift share stepRate")
-print("  dedicated UI exposes Overview / Ports / Configure / Diagnostics / History")
+print("  LDLib2 HMI preserves model / parameter / runtime / route / evidence semantics")

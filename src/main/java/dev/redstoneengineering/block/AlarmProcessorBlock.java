@@ -56,9 +56,16 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock implement
 
     @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side); if (port.isEmpty()) return Optional.empty();
-        int value = side == outputSide(state) ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
-        PortQuality quality = side == outputSide(state) && latched(level, pos) ? PortQuality.FAULT : value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+        if (side != outputSide(state)) {
+            return Optional.of(SafetyObservationSupport.inputPort(level, pos, side, port.get()));
+        }
+        // Alarm output quality describes the alarm state, never source absence.
+        // A valid zero is an authoritative cleared output after the first tick.
+        int[] history = RuntimeIntStore.peek(level, KEY, pos);
+        PortQuality quality = history == null || history.length < RUNTIME_SIZE
+                ? PortQuality.STALE : latched(level, pos) ? PortQuality.FAULT : PortQuality.VALID;
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), state.getValue(OUTPUT), quality));
     }
 
     @Override public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
@@ -98,5 +105,31 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock implement
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState state,Level level,BlockPos pos,Player player,BlockHitResult hit){if(!level.isClientSide&&player instanceof ServerPlayer serverPlayer){if(player.isShiftKeyDown()){acknowledge(level,pos);player.displayClientMessage(Component.literal(compactDiagnostics(level,pos)),true);}else{FieldDeviceUi.openUniversal(serverPlayer,pos);}}return InteractionResult.sidedSuccess(level.isClientSide);}
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hit.getDirection() == Direction.DOWN) {
+                Direction front = outputSide(state);
+                var alarm = SafetyObservationSupport.input(level, pos, inputSide(state));
+                var ack = SafetyObservationSupport.input(level, pos, leftOf(front));
+                var reset = SafetyObservationSupport.input(level, pos, rightOf(front));
+                player.displayClientMessage(Component.literal(
+                        "ALARM FIELD TEST | condition=" + SafetyObservationSupport.evidence(alarm)
+                                + " | ack=" + SafetyObservationSupport.evidence(ack)
+                                + " | reset=" + SafetyObservationSupport.evidence(reset)
+                                + " | latched=" + latched(level, pos)
+                                + " | unacknowledged=" + unacknowledged(level, pos)
+                                + " | activations=" + activationCount(level, pos)
+                                + " | " + compactDiagnostics(level, pos)
+                                + " | DOWN=inspect; other Shift faces=acknowledge"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
+            if (player.isShiftKeyDown()) {
+                acknowledge(level, pos);
+                player.displayClientMessage(Component.literal(compactDiagnostics(level, pos)), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
 }

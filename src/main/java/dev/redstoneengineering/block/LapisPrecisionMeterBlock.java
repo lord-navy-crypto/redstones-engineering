@@ -59,7 +59,9 @@ public class LapisPrecisionMeterBlock extends DomainBlock implements Engineering
     public static MeterReading reading(Level level, BlockPos pos, BlockState state) {
         PrecisionObservationSupport.LapisObservation observation = PrecisionObservationSupport.lapis(
                 level, pos.relative(state.getValue(FACING)));
-        return new MeterReading(observation.value(), observation.quality());
+        return new MeterReading(
+                MeterEvidenceSupport.readable(observation.value(), 100, observation.quality()),
+                observation.quality());
     }
 
     @Override
@@ -67,8 +69,8 @@ public class LapisPrecisionMeterBlock extends DomainBlock implements Engineering
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         MeterReading reading = reading(level, pos, state);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), reading.value(), 0.0, 100.0, reading.quality()));
+        return Optional.of(MeterEvidenceSupport.snapshot(
+                port.get(), reading.value(), 100, reading.quality()));
     }
 
     public static DomainNetwork.LapisSample sampledValue(Level level, BlockPos pos, BlockState state) {

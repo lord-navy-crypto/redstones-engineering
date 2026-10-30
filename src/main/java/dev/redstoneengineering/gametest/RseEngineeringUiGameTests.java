@@ -3,12 +3,15 @@ package dev.redstoneengineering.gametest;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.LogicAnalyzerBlock;
+import dev.redstoneengineering.block.MechanicalExciterBlock;
+import dev.redstoneengineering.block.HydroacousticExciterBlock;
 import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.block.OscilloscopeBlock;
 import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
+import dev.redstoneengineering.block.SlimeVibrationConduitBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
 import dev.redstoneengineering.diagnostics.PidTelemetryStore;
@@ -82,6 +85,108 @@ public final class RseEngineeringUiGameTests {
             }
             helper.succeed();
         });
+    }
+
+    /**
+     * Exact formula entry must accept a real parameter, reject invalid inputs,
+     * and preserve server-owned output after a no-op retransmission.
+     */
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    public static void conditionerExactGainEntryPreservesTransfer(GameTestHelper helper) {
+        BlockPos sourcePos = new BlockPos(1, 1, 2);
+        BlockPos conditionerPos = new BlockPos(2, 1, 2);
+        BlockPos world = helper.absolutePos(conditionerPos);
+        helper.setBlock(sourcePos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
+                .defaultBlockState()
+                .setValue(RedstoneReferenceSourceBlock.FACING, Direction.EAST)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 6));
+        helper.setBlock(conditionerPos, RedstoneEngineering.SIGNAL_CONDITIONER.get()
+                .defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(SignalConditionerBlock.MODE, 0)
+                .setValue(SignalConditionerBlock.PARAM, 2));
+
+        boolean exactAccepted = SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 3);
+        boolean repeatedAccepted = SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 3);
+        boolean invalidRejected = !SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 0)
+                && !SignalConditionerBlock.setFormulaParameter(helper.getLevel(), world, 5);
+        if (!exactAccepted || !repeatedAccepted || !invalidRejected
+                || helper.getBlockState(conditionerPos).getValue(SignalConditionerBlock.PARAM) != 3) {
+            helper.fail("GAIN direct entry must persist 3 and reject out-of-range values", conditionerPos);
+            return;
+        }
+
+        helper.runAfterDelay(8, () -> {
+            var state = helper.getBlockState(conditionerPos);
+            if (state.getValue(SignalConditionerBlock.PARAM) != 3
+                    || state.getValue(DirectionalSignalBlock.OUTPUT) != 15) {
+                helper.fail("GAIN x3 must saturate 6 to 15 through the authoritative redstone tick path", conditionerPos);
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Broad PR229 coverage: frequency controls on two medium families use exact
+     * values; invalid and repeated entries do not move the configuration.
+     */
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
+    public static void mechanicalAndHydroExactFrequencyEntriesAreBounded(GameTestHelper helper) {
+        BlockPos mechanical = new BlockPos(1, 1, 2);
+        BlockPos hydro = new BlockPos(3, 1, 2);
+        helper.setBlock(mechanical, RedstoneEngineering.MECHANICAL_EXCITER.get().defaultBlockState());
+        helper.setBlock(hydro, RedstoneEngineering.HYDROACOUSTIC_EXCITER.get().defaultBlockState());
+        BlockPos mWorld = helper.absolutePos(mechanical);
+        BlockPos hWorld = helper.absolutePos(hydro);
+
+        boolean valid = MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 11)
+                && HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 4);
+        boolean repeated = MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 11)
+                && HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 4);
+        boolean invalid = !MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 0)
+                && !MechanicalExciterBlock.setFrequency(helper.getLevel(), mWorld, 16)
+                && !HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 0)
+                && !HydroacousticExciterBlock.setFrequency(helper.getLevel(), hWorld, 16);
+        if (!valid || !repeated || !invalid
+                || helper.getBlockState(mechanical).getValue(MechanicalExciterBlock.FREQUENCY) != 11
+                || helper.getBlockState(hydro).getValue(HydroacousticExciterBlock.FREQUENCY) != 4) {
+            helper.fail("Both exciter families must retain exact 1..15 frequency under repeated/invalid entry", mechanical);
+            return;
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The newly exposed Slime conduit HMI must be an observer, not an
+     * uninitialized source of mechanical vibration packets.
+     */
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
+    public static void slimeConduitProvidesNonInvasiveSixPortInspector(GameTestHelper helper) {
+        BlockPos local = new BlockPos(2, 1, 2);
+        BlockPos world = helper.absolutePos(local);
+        helper.setBlock(local, RedstoneEngineering.SLIME_VIBRATION_CONDUIT.get().defaultBlockState());
+
+        var state = helper.getBlockState(local);
+        if (!(state.getBlock() instanceof SlimeVibrationConduitBlock conduit)
+                || conduit.engineeringPorts(state).size() != 6) {
+            helper.fail("Slime conduit must declare its six-way passive mechanical-vibration bus", local);
+            return;
+        }
+
+        var first = conduit.engineeringSnapshot(helper.getLevel(), world, state, Direction.NORTH);
+        var repeated = conduit.engineeringSnapshot(helper.getLevel(), world, state, Direction.NORTH);
+        if (first.isEmpty() || repeated.isEmpty()
+                || first.get().quality() != dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL
+                || repeated.get().quality() != dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL
+                || first.get().value() != 0.0 || repeated.get().value() != 0.0) {
+            helper.fail("Opening a Slime conduit observer must not invent a valid vibration packet", local);
+            return;
+        }
+        helper.succeed();
     }
 
     @PrefixGameTestTemplate(false)

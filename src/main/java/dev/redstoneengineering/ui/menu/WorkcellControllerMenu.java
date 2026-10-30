@@ -4,6 +4,8 @@ import dev.redstoneengineering.EngineeringSystemsModule;
 import dev.redstoneengineering.block.WorkcellControllerBlock;
 import dev.redstoneengineering.operations.world.OperationWorkcellStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.WorkcellControllerLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
@@ -16,6 +18,7 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot validResources = trackedInt();
     private final DataSlot runningResources = trackedInt();
     private final DataSlot faultResources = trackedInt();
+    private final DataSlot inspectionReady = trackedInt();
     private final DataSlot capacityEvidence = trackedInt();
     private final DataSlot admissionCode = trackedInt();
     private final DataSlot activeAssignments = trackedInt();
@@ -36,17 +39,22 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
     public WorkcellControllerMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.WORKCELL_CONTROLLER.get(), containerId, inventory, pos,
                 EngineeringSystemsModule.WORKCELL_CONTROLLER.get());
+        inspectionReady.set(0);
         activeAssignments.set(-1);
         queuePressure.set(-1);
         setup.set(0);
         maintenance.set(0);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(WorkcellControllerLdUi.create(this, inventory.player));
+        }
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
         if (!(level instanceof ServerLevel)) return;
         WorkcellControllerBlock.Snapshot snapshot = WorkcellControllerBlock.inspect(level, blockPos);
+        inspectionReady.set(1);
         boundResources.set(snapshot.boundResources());
         validResources.set(snapshot.validResources());
         runningResources.set(snapshot.runningResources());
@@ -73,6 +81,7 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
     public int validResourceCount() { return validResources.get(); }
     public int runningResourceCount() { return runningResources.get(); }
     public int faultResourceCount() { return faultResources.get(); }
+    public boolean inspectionReady() { return inspectionReady.get() != 0; }
     public boolean capacityEvidenceAvailable() { return capacityEvidence.get() != 0; }
     public int activeAssignments() { return activeAssignments.get(); }
     public int queuePressure() { return queuePressure.get(); }

@@ -11,8 +11,14 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.VibrationNetwork;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
@@ -73,6 +79,29 @@ public class SlimeVibrationConduitBlock extends Block implements EngineeringPort
                     Math.max(0, InformationRuntime.quality(level, "mech_wave", pos) - 10));
             level.scheduleTick(pos, this, PACKET_TTL_TICKS);
         }
+    }
+
+    /**
+     * Universal non-invasive LDLib2 entry for a formerly uninspectable medium.
+     * Sneak reads the already available packet snapshot; neither path samples,
+     * mutates nor restarts the transient transmission.
+     */
+    @Override
+    protected InteractionResult useWithoutItem(
+            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                VibrationNetwork.Wave wave = VibrationNetwork.sample(level, pos);
+                player.displayClientMessage(Component.literal(
+                        "Slime Vibration Path | A=" + wave.amplitude()
+                                + "/15 | evidence=" + (wave.valid() && wave.amplitude() > 0
+                                ? PortQuality.VALID : PortQuality.NO_SIGNAL)
+                                + " | six-way packet medium | decay after " + PACKET_TTL_TICKS + "t"), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Override

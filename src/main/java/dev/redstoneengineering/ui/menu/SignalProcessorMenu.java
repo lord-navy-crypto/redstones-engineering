@@ -6,6 +6,8 @@ import dev.redstoneengineering.block.PrecisionFilterBlock;
 import dev.redstoneengineering.block.PulseShaperBlock;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import dev.redstoneengineering.ui.ldlib.SignalProcessorLdUi;
+import com.lowdragmc.lowdraglib2.gui.holder.IModularUIHolderMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -30,6 +32,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 6000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 6015;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot input = trackedInt();
@@ -39,6 +43,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     private final DataSlot runtimeB = trackedInt();
     private final DataSlot runtimeC = trackedInt();
     private final DataSlot initialized = trackedInt();
+    /** Client kind is a shape hint; physical readings await the first server snapshot. */
+    private final DataSlot snapshotReady = trackedInt();
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
 
@@ -49,11 +55,28 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public SignalProcessorMenu(int containerId, Inventory inventory, BlockPos pos) {
         super(EngineeringUiRegistration.SIGNAL_PROCESSOR.get(), containerId, inventory, pos,
                 inventory.player.level().getBlockState(pos).getBlock());
+        snapshotReady.set(0);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
+        initialized.set(0);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
+        else primeClientUiKind(level.getBlockState(blockPos).getBlock());
+        if ((Object) this instanceof IModularUIHolderMenu holder) {
+            holder.setModularUI(SignalProcessorLdUi.create(this, inventory.player));
+        }
+    }
+
+    /** UI-shape only; the physics values are synchronized from the server. */
+    private void primeClientUiKind(Block block) {
+        if (block instanceof PrecisionFilterBlock) kind.set(KIND_FILTER);
+        else if (block instanceof EdgeDetectorBlock) kind.set(KIND_EDGE);
+        else if (block instanceof PulseShaperBlock) kind.set(KIND_PULSE);
+        else kind.set(-1);
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
+        snapshotReady.set(0);
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         input.set(0);
@@ -102,6 +125,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         } else {
             kind.set(-1);
         }
+        snapshotReady.set(kind.get() >= 0 ? 1 : 0);
     }
 
     @Override
@@ -110,6 +134,19 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
+
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX) {
+            int value = id - BUTTON_PARAMETER_DIRECT_BASE;
+            boolean changed;
+            if (block instanceof PrecisionFilterBlock) changed = PrecisionFilterBlock.setRate(level, blockPos, value);
+            else if (block instanceof PulseShaperBlock) changed = PulseShaperBlock.setWidth(level, blockPos, value);
+            else changed = false;
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
 
         boolean routed = switch (id) {
             case BUTTON_ROTATE_LEFT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, false);
@@ -148,6 +185,26 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    public boolean cycleParameterForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_NEXT);
+    }
+
+    public boolean setParameterFromUi(int value) {
+        if (kind() == KIND_FILTER && (value < 1 || value > 4)) return false;
+        if (kind() == KIND_PULSE && (value < 1 || value > 8)) return false;
+        if (kind() == KIND_EDGE) return false;
+        return clickMenuButton(playerInventory.player, BUTTON_PARAMETER_DIRECT_BASE + value);
+    }
+
+    public boolean cycleInputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_INPUT_RIGHT);
+    }
+
+    public boolean cycleOutputForward() {
+        return clickMenuButton(playerInventory.player, BUTTON_OUTPUT_RIGHT);
+    }
+
+    public boolean snapshotReady() { return snapshotReady.get() != 0; }
     public int kind() { return kind.get(); }
     public int input() { return input.get(); }
     public int output() { return output.get(); }

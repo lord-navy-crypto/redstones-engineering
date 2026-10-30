@@ -62,8 +62,9 @@ for needle in (
     "tools/rse_plant_scope_persistence_verify.py",
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
     "runGameTestServer",
+    "GameTest runtime acceptance evidence",
+    "::error::GameTest",
 ):
     need(workflow, needle, "build.yml")
 
@@ -85,4 +86,4 @@ print("  hard scope radius cap: 128 blocks")
 print("  operations dashboard first-out isolation: PASS")
 print("  runtime persistence contract: explicit")
 print("  registered lifecycle GameTests: 2")
-print("  GameTest policy: manual diagnostic / non-blocking")
+print("  GameTest policy: manually dispatched with accurate failure status")

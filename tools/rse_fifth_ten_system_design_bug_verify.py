@@ -57,11 +57,21 @@ for name, source in (("Power Meter", power_meter), ("Splitter", splitter), ("Cha
 for token in ("OpticalFiberBlock.quality", "OpticalReceiverBlock.quality", "PortQuality.TOPOLOGY_ERROR"):
     require(token in optical_support, f"Optical observation helper missing {token}")
 require("quantizationLoss" in splitter, "Optical Splitter must expose odd-level integer split loss")
+optical_series = text("block/OpticalSeriesSupport.java")
 for name, source, prop in (("Channel Filter", channel_filter, "TARGET"), ("Attenuator", attenuator, "LOSS")):
     require("configurationChanged" in source and "invalidateOutput" in source,
             f"Optical {name} lacks stale-output invalidation")
-    require(f"oldState.hasProperty({prop})" in source,
+    # A shared helper is permitted, provided route changes and each distinct
+    # parameter still invalidate the previous optical carrier.
+    inline = f"oldState.hasProperty({prop})" in source
+    shared = (f"OpticalSeriesSupport.configurationAffected(state, oldState, {prop})" in source
+              and "previous.hasProperty(parameter)" in optical_series
+              and "oldState.hasProperty(FACING) ? oldState : state" in source)
+    require(inline or shared,
             f"Optical {name} must catch every same-block configuration path")
+require("DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false)" in optical_series
+        and "DomainNetwork.recomputeOpticalAround(serverLevel, pos)" in optical_series,
+        "Optical series shared lifecycle lost stale-carrier invalidation or removal recompute")
 
 for name, source in (("Series Resistor", resistor), ("Capacitor", capacitor), ("Fuse", fuse)):
     body = method_body(source, "public static int outputVoltage")
@@ -122,12 +132,12 @@ require("tools/rse_fifth_ten_system_design_bug_verify.py" in workflow,
 for token in (
     "Minecraft topology GameTests (manual diagnostic)",
     "github.event_name == 'workflow_dispatch'",
-    "continue-on-error: true",
+    "GameTest runtime acceptance evidence",
     "./gradlew runGameTestServer",
     "./gradlew compileJava",
     "./gradlew test",
 ):
-    require(token in workflow, f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
+    require(token in workflow, f"build.yml missing manual/failure-transparent GameTest policy token {token!r}")
 
 print("RSE fifth-ten system design + bug verification: PASS")
 print("  Amethyst spectrum observer/conflict/coverage evidence: PASS")
@@ -137,5 +147,5 @@ print("  Copper R/C/fuse observer-neutral source-quality evidence: PASS")
 print("  Capacitor retained-energy structural contract: PASS")
 print("  Copper metrology snapshot ownership boundary: PASS")
 print("  Permanent Magnet scalar free-space identity + legacy label: PASS")
-print("  registered fifth-ten GameTests: 9 (manual diagnostic / non-blocking)")
+print("  registered fifth-ten GameTests: 9 (manual acceptance / failures reported)")
 print("  fixed-content architecture: 127 blocks; no new block/domain required")

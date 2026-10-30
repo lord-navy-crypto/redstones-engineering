@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -86,7 +87,13 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
-        if (base.isEmpty() || side != outputSide(state) || !limitingActive(level, pos, state)) return base;
+        if (base.isEmpty()) return base;
+        if (side == inputSide(state)) {
+            var observed = RedstoneObservationSupport.observe(level, pos, side);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    base.get().port(), observed.value(), observed.quality()));
+        }
+        if (side != outputSide(state) || !limitingActive(level, pos, state)) return base;
         EngineeringPortSnapshot snapshot = base.get();
         return Optional.of(new EngineeringPortSnapshot(
                 snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), PortQuality.SATURATED));
@@ -147,9 +154,56 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         return true;
     }
 
+    /**
+     * Exact server-authoritative parameter entry using the value shown in the governing equation.
+     * OFFSET accepts the signed bias b (-5..+5); other modes accept their direct positive coefficient.
+     */
+    public static boolean setFormulaParameter(Level level, BlockPos pos, int formulaValue) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
+
+        int mode = state.getValue(MODE);
+        int rawParam = switch (mode) {
+            case 0 -> formulaValue >= 1 && formulaValue <= 4 ? formulaValue : -1;
+            case 1 -> formulaValue >= -5 && formulaValue <= 5 ? formulaValue + 5 : -1;
+            case 2, 3 -> formulaValue >= 1 && formulaValue <= 15 ? formulaValue : -1;
+            case 4 -> formulaValue >= 1 && formulaValue <= 4 ? formulaValue : -1;
+            default -> -1;
+        };
+        if (rawParam < 0) return false;
+        // Re-entering the current coefficient is an acknowledged no-op.
+        // Avoid redundant neighbor notifications and scheduled transfer ticks.
+        if (state.getValue(PARAM) == rawParam) return true;
+
+        BlockState next = state.setValue(PARAM, rawParam);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, conditioner);
+        level.updateNeighborsAt(pos.relative(inputDirection(next)), conditioner);
+        level.updateNeighborsAt(pos.relative(outputDirection(next)), conditioner);
+        level.scheduleTick(pos, conditioner, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hitResult.getDirection() == Direction.UP) {
+                var observed = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+                int actual = state.getValue(OUTPUT);
+                int mode = state.getValue(MODE);
+                int param = state.getValue(PARAM);
+                int predicted = calculate(observed.value(), actual, mode, param);
+                player.displayClientMessage(Component.literal(
+                        "CONDITIONER FIELD TEST | mode=" + modeName(mode)
+                                + " | parameter=" + parameterText(mode, param)
+                                + " | IN=" + observed.value() + "/15:" + observed.quality()
+                                + " | OUT=" + actual + "/15 | predicted="
+                                + (observed.valid() ? Integer.toString(predicted) : "UNKNOWN")
+                                + " | output-limited=" + limitingActive(level, pos, state)
+                                + " | UP=inspect, other Shift=adjust"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 applyConfigurationAction(level, pos, SignalConditionerMenu.BUTTON_PARAM_INCREASE);
                 BlockState next = level.getBlockState(pos);

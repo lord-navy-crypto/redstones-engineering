@@ -8,6 +8,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
@@ -60,6 +61,23 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
                 })
                 .bounds(leftPos + imageWidth - 70, topPos + imageHeight - 28, 56, 20).build());
         refreshHistoryButtons();
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_C) {
+            copySnapshot();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** Copies the currently selected retained snapshot without changing its state. */
+    private void copySnapshot() {
+        List<String> history = menu.history();
+        if (history.isEmpty()) return;
+        page = Math.max(0, Math.min(page, history.size() - 1));
+        Minecraft.getInstance().keyboardHandler.setClipboard(history.get(page));
     }
 
     private void refreshHistoryButtons() {

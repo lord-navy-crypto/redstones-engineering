@@ -8,7 +8,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.HydroacousticNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
@@ -70,7 +69,7 @@ public class HydroacousticExciterBlock extends Block implements EngineeringPortP
     }
 
     public static RedstoneObservationSupport.Observation driveObservation(Level level, BlockPos pos) {
-        return RedstoneObservationSupport.observe(level, pos, Direction.DOWN);
+        return ExciterDriveSupport.observation(level, pos);
     }
 
     @Override
@@ -79,17 +78,7 @@ public class HydroacousticExciterBlock extends Block implements EngineeringPortP
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
-        int amplitude = drive.valid() ? drive.value() : 0;
-        if (side == Direction.DOWN) {
-            return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), drive.value(), drive.quality()));
-        }
-        PortQuality quality = drive.valid()
-                ? (amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL)
-                : drive.quality();
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), amplitude, 0.0, 15.0, quality));
+        return Optional.of(ExciterDriveSupport.snapshot(port.get(), side, driveObservation(level, pos)));
     }
 
     @Override
@@ -100,8 +89,7 @@ public class HydroacousticExciterBlock extends Block implements EngineeringPortP
     }
 
     private static int inputAmplitude(Level level, BlockPos pos) {
-        RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
-        return drive.valid() ? drive.value() : 0;
+        return ExciterDriveSupport.amplitude(level, pos);
     }
 
     private void updateExcitation(BlockState state, Level level, BlockPos pos) {
@@ -135,6 +123,19 @@ public class HydroacousticExciterBlock extends Block implements EngineeringPortP
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) InformationRuntime.clear(level, "hydro_exciter", pos);
         super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
+    /** Exact server-authoritative frequency selection used by the engineering HMI. */
+    public static boolean setFrequency(Level level, BlockPos pos, int frequency) {
+        if (level.isClientSide || frequency < 1 || frequency > 15) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof HydroacousticExciterBlock exciter)) return false;
+        // Repeated visible frequency must not retrigger the excitation event.
+        if (state.getValue(FREQUENCY) == frequency) return true;
+        BlockState next = state.setValue(FREQUENCY, frequency);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        exciter.updateExcitation(next, level, pos);
+        return true;
     }
 
     @Override

@@ -65,13 +65,13 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         if (side == inputSide(state)) {
             InformationRuntime.Snapshot serial = InformationRuntime.snapshot(level, "serial", input);
             return Optional.of(new EngineeringPortSnapshot(port.get(),
-                    serial.value() & 0xFF,
-                    0.0, 255.0, inputQuality));
+                    DigitalEndpointEvidenceSupport.valueWhenValid(inputQuality, serial, 0xFF),
+                    0.0, 255.0, DigitalEndpointEvidenceSupport.outputQuality(inputQuality, serial)));
         }
         InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "bus8_out", pos);
-        PortQuality quality = output.ageTicks() < 0 ? PortQuality.STALE : inputQuality;
+        PortQuality quality = DigitalEndpointEvidenceSupport.outputQuality(inputQuality, output);
         return Optional.of(new EngineeringPortSnapshot(port.get(),
-                output.value() & 0xFF,
+                DigitalEndpointEvidenceSupport.valueWhenValid(quality, output, 0xFF),
                 0.0, 255.0, quality));
     }
 
@@ -85,12 +85,13 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         BlockPos output = outputPos(pos, state);
         PortQuality inputQuality = inputQuality(level, pos, state);
         InformationRuntime.Snapshot serial = InformationRuntime.snapshot(level, "serial", input);
-        InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "bus8_out", pos);
-        boolean valid = inputQuality == PortQuality.VALID;
-        int value = valid ? serial.value() & 0xFF
-                : inputQuality == PortQuality.STALE ? previous.value() & 0xFF : 0;
+        // A cable marked VALID cannot authorize an invalid or absent frame.
+        // Revoke its former bus driver value rather than retaining old bytes.
+        boolean valid = inputQuality == PortQuality.VALID && serial.valid();
+        int value = valid ? serial.value() & 0xFF : 0;
         InformationRuntime.write(level, "bus8_out", pos, value, 0, valid, valid ? serial.qualityPercent() : 0);
-        if (level.getBlockState(output).getBlock() instanceof EightBitDataBusBlock) {
+        if (level.hasChunkAt(output)
+                && level.getBlockState(output).getBlock() instanceof EightBitDataBusBlock) {
             DataBusNetwork.resolve(level, DataBusNetwork.collect(level, output));
         }
     }

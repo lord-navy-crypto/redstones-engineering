@@ -132,6 +132,7 @@ public class SoulFluxMeterBlock extends PassiveDirectionalSignalBlock {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                NicheDeviceCommissioning.send(serverPlayer, pos, state);
                 ChargeObservation observation = inputObservation(level, pos, state);
                 player.displayClientMessage(Component.literal(
                         "Soul Flux meter | BACK SOUL_FLUX=" + observation.value()

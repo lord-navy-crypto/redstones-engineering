@@ -36,12 +36,8 @@ public class ShieldedInstrumentCableBlock extends InstrumentCableBlock {
             InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
             player.displayClientMessage(Component.literal(
                     "Shielded Instrument Bus"
-                            + " | shielding=" + bus.shieldingIntegrity()
-                            + " | coverage=" + bus.shieldingCoveragePercent() + "%"
+                            + " | " + InstrumentCableEvidenceSupport.interference(bus)
                             + " | shielded=" + bus.shieldedCableNodes() + "/" + bus.cableNodes()
-                            + " | interference=" + bus.interferenceIntegrity()
-                            + " | exposure=" + bus.interferenceExposurePercent() + "%"
-                            + " | confidence=" + bus.interferenceConfidencePercent() + "%"
                             + " | exposed shielded/unshielded=" + bus.shieldedExposedNodes() + "/" + bus.unshieldedExposedNodes()
                             + " | channels=" + bus.validChannels() + "/" + bus.activeChannels()
                             + " valid/active | integrity=" + bus.integrity()

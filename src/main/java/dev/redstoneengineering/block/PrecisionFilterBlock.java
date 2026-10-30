@@ -2,9 +2,11 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
-import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,6 +19,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+
+import java.util.Optional;
 
 /**
  * Dynamic slew filter. It intentionally owns response speed, not static gain/offset or
@@ -41,11 +45,26 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
         builder.add(RATE);
     }
 
+    /**
+     * A missing upstream redstone source and a deliberately driven zero are
+     * different measurement conditions. Snapshot reads do not run the filter
+     * or change the configured slew response.
+     */
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side) {
+        Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
+        if (base.isEmpty() || side != inputSide(state)) return base;
+        var input = RedstoneObservationSupport.observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                base.get().port(), input.value(), input.quality()));
+    }
+
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int input = readBackInput(level, pos, state);
         int current = state.getValue(OUTPUT);
-        int nextValue = SignalMath.approach(current, input, state.getValue(RATE));
+        int nextValue = FilterResponseSupport.slewStep(current, input, state.getValue(RATE));
         updateOutput(level, pos, state, nextValue);
         if (nextValue != input) level.scheduleTick(pos, this, 1);
     }
@@ -66,11 +85,22 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
 
     /** Shared authoritative operator action used by both HMI and Shift-right-click. */
     public static boolean stepRate(Level level, BlockPos pos, boolean forward) {
+        if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
         int rate = state.getValue(RATE);
         int nextRate = forward ? (rate >= 4 ? 1 : rate + 1) : (rate <= 1 ? 4 : rate - 1);
         level.setBlock(pos, state.setValue(RATE, nextRate), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, filter, 1);
+        return true;
+    }
+
+    public static boolean setRate(Level level, BlockPos pos, int rate) {
+        if (level.isClientSide || rate < 1 || rate > 4) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
+        if (state.getValue(RATE) == rate) return true;
+        level.setBlock(pos, state.setValue(RATE, rate), Block.UPDATE_CLIENTS);
         level.scheduleTick(pos, filter, 1);
         return true;
     }
@@ -84,6 +114,22 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
             BlockHitResult hitResult
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown() && hitResult.getDirection() == net.minecraft.core.Direction.UP) {
+                var observed = RedstoneObservationSupport.observe(level, pos, seriesInputSide(state));
+                int held = state.getValue(OUTPUT);
+                int rate = state.getValue(RATE);
+                int predicted = observed.valid()
+                        ? FilterResponseSupport.slewStep(held, observed.value(), rate) : held;
+                player.displayClientMessage(Component.literal(
+                        "SLEW FILTER FIELD TEST | input=" + observed.value() + "/15:" + observed.quality()
+                                + " | output=" + held + "/15 | max-step=" + rate + "/tick"
+                                + " | next=" + (observed.valid() ? Integer.toString(predicted) : "UNKNOWN")
+                                + " | remaining-ticks=" + (observed.valid()
+                                    ? Integer.toString(FilterResponseSupport.slewTicksToTarget(
+                                            held, observed.value(), rate)) : "UNKNOWN")
+                                + " | assumes stable valid input; UP=inspect, other Shift=adjust"), false);
+                return InteractionResult.sidedSuccess(false);
+            }
             if (player.isShiftKeyDown()) {
                 if (stepRate(level, pos, true)) {
                     BlockState next = level.getBlockState(pos);

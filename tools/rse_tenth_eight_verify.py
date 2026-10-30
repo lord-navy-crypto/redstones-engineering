@@ -127,7 +127,7 @@ if menu_body:
         errors.append("FieldDeviceMenu should project authoritative Quartz PortQuality instead of flattening it back to boolean valid")
 
 require(
-    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "src/main/java/dev/redstoneengineering/ui/ldlib/EnhancedFieldDeviceLdUi.java",
     "NON-INVASIVE SIGNAL TAP",
     "SENSING APERTURE • NO WIRED PORT",
     "LAPIS_PRECISION • FOUR HORIZONTAL OUTPUTS",

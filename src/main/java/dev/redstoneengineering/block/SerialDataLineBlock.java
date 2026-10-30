@@ -82,14 +82,9 @@ public class SerialDataLineBlock extends ConnectedCableBlock implements Engineer
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "serial", pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
-                snapshot.value() & 0xFF,
-                0.0,
-                255.0,
-                SerialNetwork.quality(level, pos)
-        ));
+        return Optional.of(CommunicationLineEvidenceSupport.snapshot(
+                level, pos, port.get(), "serial", 0xFF, 255,
+                SerialNetwork.quality(level, pos)));
     }
 
     @Override
@@ -143,16 +138,13 @@ public class SerialDataLineBlock extends ConnectedCableBlock implements Engineer
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "serial", pos);
+                var quality = SerialNetwork.quality(level, pos);
+                var info = SerialNetwork.getDiagnostics(level, pos);
                 player.displayClientMessage(Component.literal(
-                        "Serial: byte=" + (snapshot.value() & 0xFF)
-                                + " period=" + Math.max(1, snapshot.selector()) + "t"
-                                + " quality=" + snapshot.qualityPercent() + "%"
-                                + " state=" + SerialNetwork.quality(level, pos)
-                                + " | ports=" + connectionCount(state)
-                                + " | routing=PLANAR; vertical via Signal Junction Point"
-                                + " | " + SerialNetwork.diagnostics(level, pos)
-                ), true);
+                        CommunicationLineEvidenceSupport.report(
+                                level, pos, "serial", 0xFF, "SERIAL LINE",
+                                quality, info.driverCount(), connectionCount(state))
+                        + " | " + SerialNetwork.diagnostics(level, pos)), false);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

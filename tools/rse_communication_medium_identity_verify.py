@@ -45,18 +45,21 @@ for forbidden in ("Random", "Math.random", "ThreadLocalRandom", "DomainNetwork.s
 
 require("src/main/java/dev/redstoneengineering/instrument/InstrumentShieldingAudit.java",
         "riskClass()", "recommendation()", 'return "PROTECTED"', 'return "EXPOSED"', 'return "PARTIAL"')
+require("src/main/java/dev/redstoneengineering/block/InstrumentCableEvidenceSupport.java",
+        "shieldingIntegrity()", "shieldingCoveragePercent()", "interferenceIntegrity()",
+        "interferenceExposurePercent()", "interferenceConfidencePercent()")
 require("src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
-        "interferenceIntegrity()", "interferenceExposurePercent()", "interferenceConfidencePercent()")
+        "InstrumentCableEvidenceSupport.interference(bus)", "InstrumentCableEvidenceSupport.snapshot(")
 require("src/main/java/dev/redstoneengineering/block/ShieldedInstrumentCableBlock.java",
-        "shieldingIntegrity()", "shieldingCoveragePercent()", "shieldedExposedNodes()", "unshieldedExposedNodes()",
-        "interferenceConfidencePercent()", "does not inject fabricated random noise")
+        "InstrumentCableEvidenceSupport.interference(bus)", "shieldedExposedNodes()", "unshieldedExposedNodes()",
+        "does not inject fabricated random noise")
 require("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
         "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
 require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
         "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
-require("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/OscilloscopeLdUi.java",
         "Interference", "interferenceConfidence()", "shield exposed instrument segments")
-require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/LogicAnalyzerLdUi.java",
         "Bus interference", "interferenceConfidence()", "shield exposed instrument segments")
 
 require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
@@ -67,10 +70,11 @@ digital_menu = read("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommun
 for forbidden in ("DataBusNetwork.resolve(", "DataBusNetwork.drive(", "SerialNetwork.recompute(", "SerialNetwork.drive(", "DifferentialNetwork.recompute(", "DifferentialNetwork.drive("):
     if forbidden in digital_menu:
         errors.append(f"DigitalCommunicationMenu must remain observer-only; found solver mutation call {forbidden!r}")
-require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/DigitalCommunicationLdUi.java",
         "8-bit parallel", "Contention / conflicts", "period=", "util=", "1-bit high-integrity",
         "8-BIT BUS CONTENTION CONSUMING MARGIN", "SERIAL LINK NEAR UTILIZATION LIMIT",
-        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width", "fewer conductors", "one-bit payload density")
+        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width", "fewer conductors", "one-bit payload density",
+        "does not recalculate bus/serial/differential physics on the client")
 
 # Guided optical link-budget evidence is an observer-only audit over passive fiber/junction arms.
 # Processor loss remains owned by splitter/filter/attenuator transfer functions and must not be
@@ -86,15 +90,16 @@ for forbidden in ("DomainNetwork.recomputeOptical(", "DomainNetwork.driveOptical
 require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "OpticalCommissioningSupport.segmentBudget", "budgetSourceIntensity", "budgetObservedLoss",
         "budgetReceiverHeadroom", "receiverCommissioning", "budgetPassiveNodes", "budgetSourceCount")
-require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+require("src/main/java/dev/redstoneengineering/ui/ldlib/OpticalSystemLdUi.java",
         "Segment TX / RX", "Observed segment loss", "Receiver headroom", "Passive nodes / hops",
-        "Intensity-unit segment budget only", "upstream splitter/attenuator loss")
+        "Intensity-unit segment budget only", "upstream splitter/attenuator loss",
+        "Observer-only commissioning evidence does not mutate or re-solve the optical network.")
 
 # Radio differentiation must expose the existing authoritative distance / obstruction /
 # adjacent-channel / collision model rather than inventing a client-side RF solver.
 radio_kernel_rel = "src/main/java/dev/redstoneengineering/physics/RadioKernel.java"
 radio_menu_rel = "src/main/java/dev/redstoneengineering/ui/menu/RadioLinkMenu.java"
-radio_screen_rel = "src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java"
+radio_screen_rel = "src/main/java/dev/redstoneengineering/ui/ldlib/RadioLinkLdUi.java"
 require(radio_kernel_rel,
         "public static final int RANGE = 32;", "public static final int MIN_DECODE_QUALITY = 20;",
         "int distanceBlocks,", "public int decodeMargin()", "return quality - MIN_DECODE_QUALITY;",
@@ -124,7 +129,7 @@ require(radio_screen_rel,
 radio_screen = read(radio_screen_rel)
 for forbidden in ("dev.redstoneengineering.physics", "RadioKernel.receivePacket", "RuntimeIntStore", "level.getBlockState(",
                   "level.hasChunkAt(", "Math.sqrt(", "distanceLoss", "obstacleLoss", "interferencePenalty", "deterministicFade"):
-    if forbidden in radio_screen: errors.append(f"RadioLinkScreen must remain observer-only; found {forbidden!r}")
+    if forbidden in radio_screen: errors.append(f"RadioLinkLdUi must remain observer-only; found {forbidden!r}")
 
 require("docs/COMMUNICATION_MEDIUM_IDENTITY.md", "Shared information envelope", "Medium identity rule",
         "Communication choice hierarchy", "How much information must move?", "No medium should be the universal upgrade of another",
@@ -139,8 +144,8 @@ require("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.
 
 workflow = read(".github/workflows/build.yml")
 if workflow and "tools/rse_communication_medium_identity_verify.py" not in workflow: errors.append("communication medium identity verifier is not wired into CI")
-for token in ("Minecraft topology GameTests (manual diagnostic)", "github.event_name == 'workflow_dispatch'", "continue-on-error: true", "./gradlew runGameTestServer", "./gradlew compileJava", "./gradlew test"):
-    if workflow and token not in workflow: errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
+for token in ("Minecraft topology GameTests (manual diagnostic)", "github.event_name == 'workflow_dispatch'", "GameTest runtime acceptance evidence", "./gradlew runGameTestServer", "./gradlew compileJava", "./gradlew test"):
+    if workflow and token not in workflow: errors.append(f"build.yml: missing manual/failure-transparent GameTest policy token {token!r}")
 
 if errors:
     print("RSE communication medium identity verification: FAIL")
@@ -161,4 +166,4 @@ print(" guided optical budget observer boundary / no double-counted processor lo
 print(" radio distance/obstruction/adjacent/collision margin evidence: PASS")
 print(" radio HMI observer boundary / no second RF solver: PASS")
 print(" communication medium design contract: PASS")
-print(" registered identity GameTests: 3 (manual diagnostic / non-blocking)")
+print(" registered identity GameTests: 3 (manual runtime gate / failures reported)")

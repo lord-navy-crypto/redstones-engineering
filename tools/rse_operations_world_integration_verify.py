@@ -31,7 +31,8 @@ servo = read("src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.jav
 workcell_controller = read("src/main/java/dev/redstoneengineering/block/WorkcellControllerBlock.java")
 workcell_ui = read("src/main/java/dev/redstoneengineering/ui/WorkcellControllerUi.java")
 workcell_menu = read("src/main/java/dev/redstoneengineering/ui/menu/WorkcellControllerMenu.java")
-workcell_screen = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
+workcell_host = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
+workcell_screen = read("src/main/java/dev/redstoneengineering/ui/ldlib/WorkcellControllerLdUi.java")
 
 for token in ("interface OperationWorldResourceProvider", "operationResourceSnapshot"):
     if provider and token not in provider:
@@ -77,6 +78,9 @@ for token in (
     if store and token not in store:
         errors.append(f"Workcell store missing fail-closed explicit binding rule {token!r}")
 
+if workcell_host and "extends LdlibEngineeringHostScreen<WorkcellControllerMenu>" not in workcell_host:
+    errors.append("WorkcellControllerScreen missing LDLib2 host contract")
+
 for body, label, required in (
     (sequence, "SequenceControllerBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "step", "completedCycles", "sequence_step", "completed_cycles")),
     (alarm, "AlarmProcessorBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "latched", "unacknowledged", "alarm_severity")),
@@ -108,8 +112,8 @@ for body, label, required in (
         "inputBufferUsedUnits", "inputBufferCapacityUnits", "outputBufferUsedUnits", "outputBufferCapacityUnits",
         "inputWipPressurePercent", "outputWipPressurePercent",
     )),
-    (workcell_screen, "WorkcellControllerScreen", (
-        "class WorkcellControllerScreen", "BOUND RESOURCES", "ADMISSION", "SETUP", "MAINTENANCE",
+    (workcell_screen, "WorkcellControllerLdUi", (
+        "class WorkcellControllerLdUi", "BOUND RESOURCES", "ADMISSION", "SETUP", "MAINTENANCE",
         "INPUT", "WORKCELL", "OUTPUT", "Input WIP", "Output WIP", "PERMIT", "HOLD",
     )),
 ):
@@ -126,7 +130,7 @@ for forbidden in ("OperationBottleneckAssessment", "severityScore", "Comparator.
     if workcell_controller and forbidden in workcell_controller:
         errors.append(f"Workcell Controller must not rank/discover resources independently; found {forbidden!r}")
 
-for body, label in ((workcell_menu, "WorkcellControllerMenu"), (workcell_screen, "WorkcellControllerScreen")):
+for body, label in ((workcell_menu, "WorkcellControllerMenu"), (workcell_screen, "WorkcellControllerLdUi")):
     for forbidden in (
         "OperationDispatchRuntime.evaluate", "OperationBufferRuntime.receive", "OperationBufferRuntime.allocate",
         "OperationMaintenanceRuntime.start", "OperationChangeoverRuntime.request", "setBlock(", "setDeltaMovement(",

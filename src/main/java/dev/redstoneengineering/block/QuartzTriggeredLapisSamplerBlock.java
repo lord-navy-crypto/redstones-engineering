@@ -198,13 +198,21 @@ public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock imp
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                var clock = PrecisionObservationSupport.quartz(level, pos.relative(triggerSide(state)));
+                var lapis = PrecisionObservationSupport.lapis(level, inputPos(pos, state));
+                int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+                boolean observedClock = runtime != null && runtime.length == RUNTIME_SIZE
+                        && runtime[CLOCK_SEEN] == 1;
                 player.displayClientMessage(Component.literal(
-                        "Quartz Triggered Lapis Sampler | held="
-                                + (heldQuality(level, pos) == PortQuality.VALID
-                                ? String.format("%.2f", heldValue(level, pos) / 100.0)
-                                : heldQuality(level, pos).name())
-                                + " | quartz input=LEFT | lapis input=BACK | output=FRONT"
-                ), true);
+                        "QUARTZ/LAPIS SAMPLING TEST | clock=" + (clock.active() ? "HIGH" : "LOW")
+                                + ":" + clock.quality() + " | edge-baseline="
+                                + (observedClock ? "OBSERVED" : "WAITING_FOR_VALID_CLOCK")
+                                + " | lapis-input=" + lapis.value() + "/100:" + lapis.quality()
+                                + " | held=" + heldValue(level, pos) + "/100:"
+                                + heldQuality(level, pos)
+                                + " | first valid clock level establishes baseline, NOT capture"
+                                + " | LEFT=clock, BACK=lapis, FRONT=held output"
+                ), false);
             } else {
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
             }
