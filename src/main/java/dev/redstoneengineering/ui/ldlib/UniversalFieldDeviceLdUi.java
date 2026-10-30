@@ -79,8 +79,12 @@ public final class UniversalFieldDeviceLdUi {
                         .horizontalScrollDisplay(ScrollDisplay.AUTO)
                         .minScrollPixel(8)
                         .maxScrollPixel(64));
-        workspace.layout(l -> l.flex(1));
-        workspace.viewPort(view -> view.layout(l -> l.paddingAll(8)));
+        // LDLib2's ScrollerView needs a constrained viewport. flex(1) alone
+        // leaves the default min-height:auto content floor in a column layout;
+        // a long Pioneer/Evidence page can then expand the viewport itself,
+        // leaving no overflow range for the vertical scroller.
+        workspace.layout(l -> l.widthPercent(100).flex(1).minHeight(0));
+        workspace.viewPort(view -> view.layout(l -> l.flex(1).minHeight(0).paddingAll(8)));
         // Labels and value cards wrap at narrower window sizes; retain
         // horizontal scrolling for genuinely narrower Minecraft viewports.
         workspace.viewContainer(view -> view.layout(l -> l.widthPercent(100).minWidth(320).paddingAll(8).gapAll(8)));
