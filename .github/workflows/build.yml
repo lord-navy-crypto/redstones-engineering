@@ -43,6 +43,7 @@ jobs:
             tools/rse_122_block_total_audit.py \
             tools/rse_130_block_hmi_coverage.py \
             tools/rse_130_block_visual_rollout_verify.py \
+            tools/rse_130_block_scroll_acceptance.py \
             tools/rse_130_block_slimming_audit.py \
             tools/rse_46_shared_code_rollout_verify.py \
             tools/rse_range_config_safety_verify.py \
