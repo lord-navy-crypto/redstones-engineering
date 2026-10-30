@@ -104,6 +104,7 @@ jobs:
             tools/rse_universal_dual_endpoint_verify.py \
             tools/rse_physical_endpoint_routing_verify.py \
             tools/rse_diagnostics_console_verify.py \
+            tools/rse_crisp_diagnostics_verify.py \
             tools/rse_existing_visualization_verify.py \
             tools/rse_pid_telemetry_visualization_verify.py \
             tools/rse_operations_event_timeline_verify.py \
